@@ -26,8 +26,17 @@ services:
       - /opt/ai-cache/huggingface:/data/.huggingface
       - /opt/ai-cache/torch:/data/.torch
 
-  # Uncomment if using infinitetalk
-  # infinitetalk:
-  #   volumes:
-  #     - /opt/ai-cache/huggingface:/data/.huggingface
-  #     - /opt/ai-cache/torch:/data/.torch
+  ovi:
+    volumes:
+      - /opt/ai-cache/huggingface:/data/.huggingface
+      - /opt/ai-cache/torch:/data/.torch
+
+  wan2gp:
+    volumes:
+      - /opt/ai-cache/huggingface:/data/.huggingface
+      - /opt/ai-cache/torch:/data/.torch
+
+  infinitetalk:
+    volumes:
+      - /opt/ai-cache/huggingface:/data/.huggingface
+      - /opt/ai-cache/torch:/data/.torch

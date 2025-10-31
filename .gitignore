@@ -8,3 +8,12 @@ HiDream-I1/
 ComfyUI/
 virtual-assistant/
 crawl4ai/
+n8n/
+n8n-custom/
+certs/
+.ruff_cache/
+InfiniteTalk/
+kokoro-build/
+ovi/
+wan2gp/
+youtube-tools/

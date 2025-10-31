@@ -146,55 +146,6 @@ def get_primary_ip():
                 pass
         return None
 
-def update_hosts_file(network_access=False):
-    """Update hosts file with local domain entries."""
-    hosts_entries = [
-        "n8n.lan", "openwebui.lan", "kokoro.lan", "studio.lan", "traefik.lan", "comfyui.lan", "crawl4ai.lan", "supabase.lan", "nocodb.lan", "raven.lan", "lmstudio.lan", "wan.lan", "whisper.lan", "infinitetalk.lan", "va.lan"
-    ]
-
-    # Determine hosts file location based on OS
-    if platform.system() == "Windows":
-        hosts_file = r"C:\Windows\System32\drivers\etc\hosts"
-    else:  # Linux/macOS
-        hosts_file = "/etc/hosts"
-
-    try:
-        with open(hosts_file, 'r') as f:
-            content = f.read()
-
-        need_update = False
-        for entry in hosts_entries:
-            if entry not in content:
-                need_update = True
-                break
-
-        if need_update:
-            if network_access:
-                ip_address = get_primary_ip()
-                if not ip_address:
-                    print("Warning: Could not determine network IP. Using localhost.")
-                    ip_address = "127.0.0.1"
-            else:
-                ip_address = "127.0.0.1"
-
-            entries_line = f"{ip_address} " + " ".join(hosts_entries)
-            print("\n===== HOSTS FILE UPDATE NEEDED =====")
-            print(f"Please update your hosts file ({hosts_file}) to include:")
-            print(entries_line)
-            print("\nThis may require administrator/root privileges.")
-
-            # On Linux/macOS, offer additional guidance
-            if platform.system() != "Windows":
-                print("\nYou can add this by running:")
-                print(f"sudo sh -c 'echo \"{entries_line}\" >> {hosts_file}'")
-            else:
-                print("\nYou'll need to edit the hosts file as Administrator.")
-            print("====================================\n")
-        else:
-            print("Hosts file already contains all required entries.")
-    except Exception as e:
-        print(f"Error checking hosts file: {e}")
-        print("Please manually update your hosts file.")
 
 def fix_open_webui_read_aloud():
     """Fix the Read Aloud feature in Open WebUI."""

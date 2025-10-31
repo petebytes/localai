@@ -33,10 +33,23 @@ volumes:
     driver: local
   va-audio2face-models:
     driver: local
-
-networks:
-  localai_default:
-    driver: bridge
+  # Ovi volumes - Audio-Video Generation Service
+  ovi-models:
+    driver: local
+  ovi-outputs:
+    driver: local
+  # Wan2GP volumes - Multi-Model Video Generation Platform
+  wan2gp-models:
+    driver: local
+  wan2gp-outputs:
+    driver: local
+  wan2gp-settings:
+    driver: local
+  wan2gp-loras:
+    driver: local
+  wan2gp-config:
+    driver: local
+  # InfiniteTalk volumes - Audio-Driven Video Dubbing
 
 x-n8n: &service-n8n
   build:
@@ -68,8 +81,7 @@ services:
       - ./certs:/etc/nginx/certs:ro
       - ./www:/usr/share/nginx/html:ro
       - /mnt/nas/PeggysExtraStorage/videos-to-process:/data/videos-to-process:ro
-    networks:
-      - localai_default
+    # nginx stays on default network only - services connect TO it via proxy
     # No depends_on - nginx should always be available even if backend services fail
 
   open-webui:
@@ -78,8 +90,6 @@ services:
     container_name: open-webui
     expose:
       - 8080
-    networks:
-      - localai_default
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -96,8 +106,6 @@ services:
     expose:
       - 8880
     restart: always
-    networks:
-      - localai_default
     volumes:
       # Shared cache volumes - prevent re-downloading models
       - hf-cache:/data/.huggingface
@@ -119,15 +127,13 @@ services:
                 - gpu
 
   crawl4ai:
-    image: unclecode/crawl4ai:gpu-amd64 # Official GPU-enabled AMD64 image from Docker Hub
-    # image: crawl4ai:latest # Use this if you build locally with GPU support
+    image: unclecode/crawl4ai:latest # Latest v0.7.6 with integrated GPU support
+    # image: unclecode/crawl4ai:gpu-amd64 # Older GPU-specific image (Nov 2024)
     container_name: crawl4ai
     restart: unless-stopped
-    pull_policy: if_not_present # Pull from Docker Hub if not available locally
+    pull_policy: always # Always pull latest updates from Docker Hub
     expose:
       - 8000 # Expose port internally for nginx proxy
-    networks:
-      - localai_default
     volumes:
       # Shared cache volumes
       - hf-cache:/data/.huggingface
@@ -142,7 +148,7 @@ services:
       - APP_PORT=8000
       - CRAWL4AI_API_KEY=${CRAWL4AI_API_KEY:-}
       # RTX 5090 GPU optimizations
-      - MAX_CONCURRENT_TASKS=8  # Increased for RTX 5090 performance
+      - MAX_CONCURRENT_TASKS=12  # RTX 5090 optimization: increased from 8 to 12 for better throughput
       - CUDA_VISIBLE_DEVICES=0
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       # Cache optimization
@@ -166,8 +172,6 @@ services:
     restart: unless-stopped
     expose:
       - 8000
-    networks:
-      - localai_default
     volumes:
       - whisperx-cache:/root/.cache
       - ./shared:/app/shared
@@ -177,7 +181,7 @@ services:
       - torch-cache:/data/.torch
     environment:
       - COMPUTE_TYPE=float16
-      - BATCH_SIZE=32  # Increased for RTX 5090's 32GB VRAM and faster memory bandwidth
+      - BATCH_SIZE=48  # RTX 5090 optimization: increased from 32 to 48 for better GPU utilization
       - HF_TOKEN=${HF_TOKEN:-}
       - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}
       # Cache optimization - share models across services
@@ -198,8 +202,6 @@ services:
     restart: unless-stopped
     expose:
       - 5555
-    networks:
-      - localai_default
     volumes:
       - ./www/progress_tracker.py:/app.py:ro
     command: >
@@ -216,73 +218,33 @@ services:
     image: ghcr.io/ai-dock/comfyui:latest
     container_name: comfyui
     restart: unless-stopped
+    ports:
+      - "18188:18188"  # Expose ComfyUI port to host
     expose:
       - 8188
-    networks:
-      - localai_default
     volumes:
       - ./ComfyUI:/workspace/ComfyUI
       - ./shared:/app/shared
-      # Persistent model storage - prevents re-downloading large SD models
       - comfyui-models:/workspace/ComfyUI/models
-      # Shared cache volumes
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
     environment:
-      - NVIDIA_VISIBLE_DEVICES=0  # Single RTX 5090 (device 0)
-      - COMFYUI_ARGS=--use-sage-attention --fast  # RTX 5090 optimizations
-      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True  # Better VRAM management
-      # Cache optimization
+      - NVIDIA_VISIBLE_DEVICES=0
+      - COMFYUI_ARGS=--listen 0.0.0.0 --port 18188 --fast
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - HF_HOME=/data/.huggingface
       - TORCH_HOME=/data/.torch
+      - WEB_ENABLE_AUTH=false
+      - SERVERPORT=8188
+      - SERVICEPORTAL_PORT_HOST=8188
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1  # Single RTX 5090
+              count: 1
               capabilities: [gpu]
 
-  # infinitetalk:
-  #   build:
-  #     context: /home/ghar/code/InfiniteTalk
-  #     dockerfile: /home/ghar/code/local-ai-packaged/infinitetalk/Dockerfile
-  #   container_name: infinitetalk
-  #   restart: unless-stopped
-  #   expose:
-  #     - 8418
-  #   networks:
-  #     - localai_default
-  #   volumes:
-  #     - /home/ghar/code/InfiniteTalk:/app
-  #     - ./shared:/app/shared
-  #     # Shared cache volumes
-  #     - hf-cache:/data/.huggingface
-  #     - torch-cache:/data/.torch
-  #   environment:
-  #     - NVIDIA_VISIBLE_DEVICES=0  # Single RTX 5090
-  #     - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True  # Better VRAM management
-  #     # Cache optimization
-  #     - HF_HOME=/data/.huggingface
-  #     - TORCH_HOME=/data/.torch
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: 1  # Single RTX 5090
-  #             capabilities: [gpu]
-
-
-  # n8n-import:
-  #   <<: *service-n8n
-  #   container_name: n8n-import
-  #   entrypoint: /bin/sh
-  #   command:
-  #     - "-c"
-  #     - "n8n import:credentials --separate --input=/backup/credentials && n8n import:workflow --separate --input=/backup/workflows"
-  #   volumes:
-  #     - ./n8n/backup:/backup
 
   n8n-cert-init:
     image: alpine:latest
@@ -299,8 +261,6 @@ services:
     restart: unless-stopped
     expose:
       - 5678
-    networks:
-      - localai_default
     volumes:
       - n8n_storage:/home/node/.n8n
       - ./n8n/backup:/backup
@@ -320,6 +280,9 @@ services:
       - N8N_FORM_TRIGGER_MAX_PAYLOAD_SIZE=2147483648
       - EXECUTIONS_TIMEOUT=3600
       - EXECUTIONS_TIMEOUT_MAX=7200
+    networks:
+      - default
+      - ai-services-network
     depends_on:
       - n8n-cert-init # Ensure certs are ready before n8n starts
 
@@ -332,13 +295,14 @@ services:
     restart: unless-stopped
     expose:
       - 8080
-    networks:
-      - localai_default
     volumes:
       - nocodb:/usr/app/data/
     environment:
       - NC_DB=pg://${POSTGRES_HOST}:${POSTGRES_PORT}?u=postgres&p=${POSTGRES_PASSWORD}&d=${POSTGRES_DB}
       - NC_AUTH_JWT_SECRET=${N8N_USER_MANAGEMENT_JWT_SECRET}
+    networks:
+      - default
+      - ai-services-network
     depends_on:
       - n8n
 
@@ -367,7 +331,8 @@ services:
       - BACKUP_DELETE_ONLY_IF_NEW_BACKUP_PRESENT=true
       - TZ=UTC
     networks:
-      - localai_default
+      - default
+      - ai-services-network
 
   service-status:
     image: alpine:latest
@@ -376,14 +341,12 @@ services:
     volumes:
       - backup_data:/backup:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./service-status.py:/app.py:ro
-    networks:
-      - localai_default
+      - ./scripts/service_status.py:/app.py:ro
     expose:
       - 80
     command: >
       /bin/sh -c "
-        apk add --no-cache python3 py3-pip curl jq &&
+        apk add --no-cache python3 py3-pip curl jq docker-cli &&
         python3 -m venv /venv &&
         . /venv/bin/activate &&
         pip install --no-cache-dir flask flask-cors &&
@@ -405,61 +368,246 @@ services:
       REGISTRY_STORAGE_DELETE_ENABLED: "true"
     volumes:
       - registry-cache:/var/lib/registry
-    networks:
-      - localai_default
 
   # Virtual Assistant - Web Interface
-  virtual-assistant-web:
+  # Uncomment if you need browser-based visual assistant with speech and avatar features
+  # virtual-assistant-web:
+  #   build:
+  #     context: ./virtual-assistant
+  #     dockerfile: Dockerfile
+  #   container_name: virtual-assistant-web
+  #   restart: unless-stopped
+  #   expose:
+  #     - 8080
+  #   volumes:
+  #     - ./virtual-assistant:/app
+  #     - ./virtual-assistant/shared:/app/shared
+  #     # Shared cache volumes
+  #     - hf-cache:/data/.huggingface
+  #     - torch-cache:/data/.torch
+  #   environment:
+  #     - RIVA_ASR_URL=riva-asr:50051
+  #     - RIVA_TTS_URL=riva-tts:50052
+  #     - AUDIO2FACE_URL=http://audio2face:8000
+  #     - HF_HOME=/data/.huggingface
+  #     - TORCH_HOME=/data/.torch
+  #   depends_on:
+  #     - riva-asr
+  #     - riva-tts
+  #     - audio2face
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+  # NVIDIA Riva ASR - Speech Recognition
+  # COMMENTED OUT - Not needed with Ovi and Wan2GP for video/audio generation
+  # riva-asr:
+  #   image: nvcr.io/nim/nvidia/parakeet-ctc-1.1b-asr:latest
+  #   container_name: riva-asr
+  #   runtime: nvidia
+  #   shm_size: '8gb'
+  #   restart: unless-stopped
+  #   expose:
+  #     - 9000
+  #     - 50051
+  #   volumes:
+  #     - va-riva-cache:/opt/nim/.cache
+  #   environment:
+  #     - NVIDIA_VISIBLE_DEVICES=0
+  #     - NGC_API_KEY=${NGC_API_KEY}
+  #     - NIM_HTTP_API_PORT=9000
+  #     - NIM_GRPC_API_PORT=50051
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9000/v1/health/ready"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 600s
+
+  # NVIDIA Riva TTS - Text-to-Speech
+  # COMMENTED OUT - Not needed with Ovi and Wan2GP for video/audio generation
+  # riva-tts:
+  #   image: nvcr.io/nim/nvidia/fastpitch-hifigan-tts:latest
+  #   container_name: riva-tts
+  #   runtime: nvidia
+  #   shm_size: '8gb'
+  #   restart: unless-stopped
+  #   expose:
+  #     - 9001
+  #     - 50052
+  #   volumes:
+  #     - va-riva-tts-cache:/opt/nim/.cache
+  #   environment:
+  #     - NVIDIA_VISIBLE_DEVICES=0
+  #     - NGC_API_KEY=${NGC_API_KEY}
+  #     - NIM_HTTP_API_PORT=9001
+  #     - NIM_GRPC_API_PORT=50052
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9001/v1/health/ready"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 600s
+
+  # NVIDIA Audio2Face - Avatar Animation
+  # COMMENTED OUT - Not needed with Ovi and Wan2GP for video/audio generation
+  # audio2face:
+  #   image: nvcr.io/nim/nvidia/audio2face-3d:1.3.16
+  #   container_name: audio2face
+  #   runtime: nvidia
+  #   restart: unless-stopped
+  #   expose:
+  #     - 8000
+  #   networks:
+  #     - localai_default
+  #   volumes:
+  #     - va-audio2face-data:/data
+  #     - va-audio2face-models:/models
+  #   environment:
+  #     - NVIDIA_VISIBLE_DEVICES=0
+  #     - NGC_API_KEY=${NGC_API_KEY}
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8000/v1/health/ready"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+
+  # Ovi - Audio-Video Generation (11B twin backbone model)
+  # Generates synchronized video+audio from text or text+image
+  # RTX 5090 optimized with CUDA 12.8 and Flash Attention 3
+  ovi:
     build:
-      context: ./virtual-assistant
+      context: ./ovi
       dockerfile: Dockerfile
-    container_name: virtual-assistant-web
+      args:
+        CUDA_VERSION: "12.8"  # RTX 5090 requires CUDA 12.8
+    container_name: ovi
     restart: unless-stopped
     expose:
-      - 8080
-    networks:
-      - localai_default
+      - 7860
     volumes:
-      - ./virtual-assistant:/app
-      - ./virtual-assistant/shared:/app/shared
-      # Shared cache volumes
+      # Model storage - use bind mount to access pre-downloaded models
+      - ./ovi/ckpts:/workspace/ckpts
+      # Output storage - preserves generated videos
+      - ./ovi/outputs:/workspace/outputs
+      # Shared cache volumes - prevent re-downloading common models
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
+      # Mount example prompts for easy access
+      - ./ovi/example_prompts:/workspace/example_prompts:ro
+      # Mount config for runtime modifications
+      - ./ovi/ovi/configs:/workspace/ovi/configs
     environment:
-      - RIVA_ASR_URL=riva-asr:50051
-      - RIVA_TTS_URL=riva-tts:50052
-      - AUDIO2FACE_URL=http://audio2face:8000
+      # Gradio configuration
+      - GRADIO_SERVER_NAME=0.0.0.0
+      - GRADIO_SERVER_PORT=7860
+      # CUDA configuration for RTX 5090
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+      # Cache paths
       - HF_HOME=/data/.huggingface
+      - TRANSFORMERS_CACHE=/data/.huggingface/transformers
       - TORCH_HOME=/data/.torch
-    depends_on:
-      - riva-asr
-      - riva-tts
-      - audio2face
+      - DIFFUSERS_CACHE=/data/.huggingface/diffusers
+      # Performance optimizations for RTX 5090
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - CUDA_MODULE_LOADING=LAZY
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # RTX 5090 32GB VRAM Mode - Use CPU offload to fit in 32GB VRAM
+    # Alternative configs:
+    #   Full speed (80GB VRAM): ["python3", "gradio_app.py", "--server_port", "7860"]
+    #   FP8 mode (24GB VRAM): ["python3", "gradio_app.py", "--cpu_offload", "--fp8", "--server_port", "7860"]
+    command: ["python3", "gradio_app.py", "--cpu_offload", "--server_port", "7860"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:7860/"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 120s  # Give model loading time to complete
 
-  # NVIDIA Riva ASR - Speech Recognition
-  riva-asr:
-    image: nvcr.io/nim/nvidia/parakeet-ctc-1.1b-asr:latest
-    container_name: riva-asr
-    runtime: nvidia
-    shm_size: '8gb'
+  # Wan2GP - Multi-Model Video Generation Platform
+  # Supports Wan 2.1/2.2 (1.3B-14B), Hunyuan, LTX, Flux, Qwen
+  # Integrated tools: MMAudio, Mask Editor, Queue System, LoRAs
+  # RTX 5090 optimized with SageAttention and memory profiles
+  wan2gp:
+    build:
+      context: ./wan2gp
+      dockerfile: Dockerfile
+      args:
+        CUDA_VERSION: "12.8"
+        CUDA_ARCHITECTURES: "12.0"  # RTX 5090 architecture
+    container_name: wan2gp
     restart: unless-stopped
     expose:
-      - 9000
-      - 50051
-    networks:
-      - localai_default
+      - 7860
     volumes:
-      - va-riva-cache:/opt/nim/.cache
+      # Model storage - preserves downloaded models (157GB!)
+      - wan2gp-models:/workspace/ckpts
+      # Output storage - preserves generated videos
+      - wan2gp-outputs:/workspace/outputs
+      # Settings persistence - user preferences and queue
+      - wan2gp-settings:/workspace/settings
+      # Config persistence - wgp_config.json, plugins.json
+      - wan2gp-config:/workspace-config
+      # LoRA storage - custom model adaptations
+      - wan2gp-loras:/workspace/loras
+      - wan2gp-loras:/workspace/loras_i2v
+      - wan2gp-loras:/workspace/loras_hunyuan
+      - wan2gp-loras:/workspace/loras_flux
+      - wan2gp-loras:/workspace/loras_ltxv
+      - wan2gp-loras:/workspace/loras_qwen
+      - wan2gp-loras:/workspace/loras_tts
+      # Finetunes storage
+      - wan2gp-loras:/workspace/finetunes
+      # Shared cache volumes - prevent re-downloading common models
+      - hf-cache:/data/.huggingface
+      - torch-cache:/data/.torch
+      # Mount source for development (optional - comment out for production)
+      # - ./wan2gp:/workspace
     environment:
+      # Gradio configuration
+      - GRADIO_SERVER_NAME=0.0.0.0
+      - GRADIO_SERVER_PORT=7860
+      - SERVER_NAME=0.0.0.0  # Required by wgp.py
+      # CUDA configuration for RTX 5090
+      - CUDA_VISIBLE_DEVICES=0
       - NVIDIA_VISIBLE_DEVICES=0
-      - NGC_API_KEY=${NGC_API_KEY}
-      - NIM_HTTP_API_PORT=9000
-      - NIM_GRPC_API_PORT=50051
+      # Cache paths
+      - HF_HOME=/data/.huggingface
+      - TRANSFORMERS_CACHE=/data/.huggingface/transformers
+      - TORCH_HOME=/data/.torch
+      # Performance optimizations for RTX 5090
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - CUDA_MODULE_LOADING=LAZY
     deploy:
       resources:
         reservations:
@@ -467,32 +615,58 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    user: "1000:1000"  # Run as wanuser
+    command: ["python3", "wgp.py"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/v1/health/ready"]
+      test: ["CMD", "curl", "-f", "http://localhost:7860/"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 600s
+      retries: 3
+      start_period: 180s  # Give extra time for initial model downloads
 
-  # NVIDIA Riva TTS - Text-to-Speech
-  riva-tts:
-    image: nvcr.io/nim/nvidia/fastpitch-hifigan-tts:latest
-    container_name: riva-tts
-    runtime: nvidia
-    shm_size: '8gb'
+  # InfiniteTalk - Audio-Driven Video Generation for Sparse-Frame Video Dubbing
+  # Supports unlimited-length talking video with video-to-video and image-to-video modes
+  # Synchronizes lips, head movements, body posture, and facial expressions with audio
+  infinitetalk:
+    build:
+      context: ./InfiniteTalk
+      dockerfile: Dockerfile
+      args:
+        CUDA_VERSION: "12.8"  # RTX 5090 requires CUDA 12.8
+    container_name: infinitetalk
     restart: unless-stopped
     expose:
-      - 9001
-      - 50052
+      - 8418  # Internal port only
     networks:
-      - localai_default
+      - default
     volumes:
-      - va-riva-tts-cache:/opt/nim/.cache
+      # Model storage - use bind mount to access pre-downloaded models
+      - ./InfiniteTalk/weights:/workspace/weights
+      # Output storage - preserves generated videos
+      - ./InfiniteTalk/outputs:/workspace/outputs
+      # Audio cache
+      - ./InfiniteTalk/outputs:/workspace/save_audio
+      # Example files for Gradio UI
+      - ./InfiniteTalk/examples:/workspace/examples
+      # Shared cache volumes - prevent re-downloading common models
+      - hf-cache:/data/.huggingface
+      - torch-cache:/data/.torch
+      # Mount source for development (optional)
+      # - ./InfiniteTalk:/workspace
     environment:
+      # Service configuration
+      - GRADIO_SERVER_NAME=0.0.0.0
+      - GRADIO_SERVER_PORT=8418
+      # CUDA configuration for RTX 5090
+      - CUDA_VISIBLE_DEVICES=0
       - NVIDIA_VISIBLE_DEVICES=0
-      - NGC_API_KEY=${NGC_API_KEY}
-      - NIM_HTTP_API_PORT=9001
-      - NIM_GRPC_API_PORT=50052
+      # Cache paths
+      - HF_HOME=/data/.huggingface
+      - TRANSFORMERS_CACHE=/data/.huggingface/transformers
+      - TORCH_HOME=/data/.torch
+      # Performance optimizations for RTX 5090
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - CUDA_MODULE_LOADING=LAZY
     deploy:
       resources:
         reservations:
@@ -500,38 +674,17 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    command: ["python3", "app.py", "--ckpt_dir", "weights/Wan2.1-I2V-14B-480P", "--wav2vec_dir", "weights/chinese-wav2vec2-base", "--infinitetalk_dir", "weights/InfiniteTalk/single/infinitetalk.safetensors", "--num_persistent_param_in_dit", "0", "--motion_frame", "9"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9001/v1/health/ready"]
+      test: ["CMD", "curl", "-f", "http://localhost:8418/"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 600s
+      retries: 3
+      start_period: 300s  # Give model loading time (5 minutes)
 
-  # NVIDIA Audio2Face - Avatar Animation
-  audio2face:
-    image: nvcr.io/nim/nvidia/audio2face-3d:1.3.16
-    container_name: audio2face
-    runtime: nvidia
-    restart: unless-stopped
-    expose:
-      - 8000
-    networks:
-      - localai_default
-    volumes:
-      - va-audio2face-data:/data
-      - va-audio2face-models:/models
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=0
-      - NGC_API_KEY=${NGC_API_KEY}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/health/ready"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+# Networks configuration - shared network for cross-project communication
+# Services join ai-services-network to communicate with services in other compose projects
+networks:
+  ai-services-network:
+    name: ai-services-network
+    external: true
