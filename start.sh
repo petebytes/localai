@@ -17,23 +17,26 @@ echo ""
 # Set BuildKit
 export DOCKER_BUILDKIT=1
 
-# Compose file list - order matters!
-# 1. Supabase services (includes override for network config)
-# 2. AI services
-# 3. Optional: host cache
-COMPOSE_FILES="-f docker-compose.yml -f supabase/docker/docker-compose.yml"
+# Start Supabase first (in its own project)
+echo "Starting Supabase services..."
+(cd supabase/docker && docker compose up -d)
+echo ""
+
+# Compose file list for main AI services
+COMPOSE_FILES="-f docker-compose.yml"
 
 if [ -f docker-compose.host-cache.yml ]; then
     COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.host-cache.yml"
     echo "Using host-level cache (/opt/ai-cache)"
 fi
 
-# Start services with selected profile
+# Start main AI services with selected profile
 # Docker Compose handles:
 # - Network creation
 # - Service orchestration via depends_on
 # - Health checks
 # - Proper startup order
+echo "Starting main AI services..."
 if [ "$PROFILE" = "none" ]; then
     docker compose -p localai $COMPOSE_FILES up -d
 else

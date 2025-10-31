@@ -81,7 +81,10 @@ services:
       - ./certs:/etc/nginx/certs:ro
       - ./www:/usr/share/nginx/html:ro
       - /mnt/nas/PeggysExtraStorage/videos-to-process:/data/videos-to-process:ro
-    # nginx stays on default network only - services connect TO it via proxy
+    networks:
+      - default
+      - ai-services-network
+    # nginx needs ai-services-network to reach supabase-studio and other cross-project services
     # No depends_on - nginx should always be available even if backend services fail
 
   open-webui:
@@ -350,7 +353,7 @@ services:
         python3 -m venv /venv &&
         . /venv/bin/activate &&
         pip install --no-cache-dir flask flask-cors &&
-        python /app.py"
+        python3 /app.py"
 
   # Docker Registry Pull-Through Cache
   # Caches all pulled Docker images locally to speed up rebuilds
