@@ -131,7 +131,7 @@ services:
     # image: unclecode/crawl4ai:gpu-amd64 # Older GPU-specific image (Nov 2024)
     container_name: crawl4ai
     restart: unless-stopped
-    pull_policy: always # Always pull latest updates from Docker Hub
+    # pull_policy: always # Disabled: only pull on explicit rebuild to avoid slow startups
     expose:
       - 8000 # Expose port internally for nginx proxy
     volumes:
@@ -681,6 +681,46 @@ services:
       timeout: 10s
       retries: 3
       start_period: 300s  # Give model loading time (5 minutes)
+
+  # YouTube Tools - YouTube Segment Downloader with WhisperX transcription
+  # Download audio segments from YouTube videos with automated transcription
+  youtube-tools:
+    build:
+      context: ./youtube-tools
+      dockerfile: Dockerfile
+    container_name: youtube-tools
+    restart: unless-stopped
+    expose:
+      - 7860  # Gradio UI
+      - 8456  # FastAPI backend
+    networks:
+      - default
+    volumes:
+      # Downloads storage - preserves downloaded audio files
+      - ./youtube-tools/downloads:/app/downloads
+      # Task storage - persists task status across restarts
+      - ./youtube-tools/task_storage:/app/task_storage
+      # Gradio downloads - temporary UI downloads
+      - ./youtube-tools/gradio_downloads:/app/gradio_downloads
+      # Shared cache volumes - prevent re-downloading models
+      - hf-cache:/data/.huggingface
+      - torch-cache:/data/.torch
+    environment:
+      # Service configuration
+      - WHISPERX_URL=http://whisperx:8000
+      - API_BASE_URL=http://localhost:8456
+      - PYTHONUNBUFFERED=1
+      # Cache optimization - share models across services
+      - HF_HOME=/data/.huggingface
+      - TORCH_HOME=/data/.torch
+    depends_on:
+      - whisperx
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8456/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 # Networks configuration - shared network for cross-project communication
 # Services join ai-services-network to communicate with services in other compose projects

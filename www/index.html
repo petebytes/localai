@@ -165,29 +165,29 @@
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 0.75rem;
-            padding: 1.25rem;
+            padding: 1rem;
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 0.375rem;
         }
 
         .status-card-label {
-            font-size: 0.875rem;
+            font-size: 0.8125rem;
             color: var(--text-secondary);
             font-weight: 500;
         }
 
         .status-card-value {
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: 700;
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.5rem;
         }
 
         .status-indicator {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             flex-shrink: 0;
         }
@@ -250,7 +250,8 @@
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 0.875rem;
-            padding: 1.5rem;
+            padding: 1rem;
+            padding-bottom: 2rem;
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
         }
@@ -276,11 +277,62 @@
             flex: 1;
         }
 
+        .info-icon {
+            position: absolute;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            width: 20px;
+            height: 20px;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            z-index: 1;
+        }
+
+        .info-icon:hover {
+            color: var(--accent);
+            transform: scale(1.15);
+        }
+
+        .service-status-group {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
         .service-card h3 {
             font-size: 1.125rem;
             font-weight: 600;
             color: var(--text-primary);
             margin: 0;
+        }
+
+        .service-title-link {
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.2s;
+            position: relative;
+        }
+
+        .service-title-link:hover {
+            color: var(--accent);
+        }
+
+        .service-title-link:after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+
+        .service-title-link:hover:after {
+            width: 100%;
         }
 
         .status-badge {
@@ -367,9 +419,10 @@
         }
 
         .service-port {
-            font-size: 0.8125rem;
+            font-size: 0.75rem;
             color: var(--text-tertiary);
             font-family: 'Courier New', monospace;
+            white-space: nowrap;
         }
 
         .hidden {
@@ -473,6 +526,142 @@
             100% { background-position: -200% 0; }
         }
 
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 2rem;
+            position: relative;
+            box-shadow: 0 20px 40px var(--shadow);
+            transform: scale(0.9);
+            transition: transform 0.2s;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            gap: 1rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            padding: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            border-radius: 0.5rem;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .modal-body p {
+            margin-bottom: 1rem;
+        }
+
+        .modal-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .modal-body h3 {
+            color: var(--text-primary);
+            font-size: 1.125rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .modal-body ul {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .modal-body li {
+            margin-bottom: 0.5rem;
+        }
+
+        .modal-footer {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .github-link:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .github-icon {
+            width: 20px;
+            height: 20px;
+        }
+
         /* Print styles */
         @media print {
             .header-actions,
@@ -482,6 +671,10 @@
 
             .service-card {
                 break-inside: avoid;
+            }
+
+            .modal-overlay {
+                display: none;
             }
         }
     </style>
@@ -579,30 +772,54 @@
         </section>
     </div>
 
+    <!-- Service Details Modal -->
+    <div class="modal-overlay" id="service-modal" role="dialog" aria-labelledby="modal-title" aria-modal="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-title"></h2>
+                <button class="modal-close" id="modal-close" aria-label="Close modal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+            <div class="modal-footer" id="modal-footer" style="display: none;">
+                <!-- GitHub link will be inserted here if available -->
+            </div>
+        </div>
+    </div>
+
     <script>
         const services = {
             ui: [
                 {
                     name: 'Open WebUI',
-                    description: 'Modern chat interface for interacting with AI models. Includes text-to-speech capabilities.',
+                    description: 'Chat with AI models and convert text to speech.',
+                    detailedDescription: '<p>Open WebUI provides a user-friendly interface for interacting with large language models (LLMs) running locally or via API. It offers chat-based conversations, text-to-speech capabilities, and model management features.</p><h3>Key Features</h3><ul><li>Multi-model chat interface supporting various LLMs</li><li>Text-to-speech integration for audio output</li><li>Conversation history and management</li><li>Customizable model parameters</li><li>Document upload and context injection</li></ul>',
                     url: 'https://openwebui.lan',
                     port: '8080',
+                    githubUrl: 'https://github.com/open-webui/open-webui',
                     links: [
                         { text: 'Access Open WebUI', url: 'https://openwebui.lan', primary: true }
                     ]
                 },
                 {
                     name: 'n8n',
-                    description: 'Powerful workflow automation platform for connecting and automating various services and APIs.',
+                    description: 'Automate workflows across services and APIs.',
+                    detailedDescription: '<p>n8n is a workflow automation platform that connects different services and APIs together. Create complex automation workflows with a visual node-based editor.</p><h3>Key Features</h3><ul><li>Visual workflow builder with 400+ integrations</li><li>Webhook support for triggering workflows</li><li>Schedule-based automation</li><li>Data transformation and manipulation</li><li>Self-hosted with full data control</li></ul>',
                     url: 'https://n8n.lan',
                     port: '5678',
+                    githubUrl: 'https://github.com/n8n-io/n8n',
                     links: [
                         { text: 'Access n8n', url: 'https://n8n.lan', primary: true }
                     ]
                 },
                 {
-                    name: 'Video Upload & Processing',
-                    description: 'Upload videos for automated transcription and processing through n8n workflows.',
+                    name: 'Video transcription',
+                    description: 'Upload videos for automated transcription.',
+                    detailedDescription: '<p>This service allows you to upload video files for automated transcription and processing. Videos are analyzed, transcribed, and segmented for further use.</p><h3>Key Features</h3><ul><li>Drag-and-drop video upload interface</li><li>Automatic speech-to-text transcription</li><li>Speaker diarization and timestamps</li><li>Video segmentation and analysis</li><li>Export transcripts in multiple formats</li></ul>',
                     url: null,
                     port: 'Web Interface',
                     status: 'online',
@@ -612,27 +829,33 @@
                 },
                 {
                     name: 'NocoDB',
-                    description: 'Open source Airtable alternative - spreadsheet interface for database management.',
+                    description: 'Manage databases with a spreadsheet interface.',
+                    detailedDescription: '<p>NocoDB transforms your relational databases into smart spreadsheets, providing a no-code interface for database management. Perfect for rapid application development and data management.</p><h3>Key Features</h3><ul><li>Spreadsheet-like interface for databases</li><li>Support for MySQL, PostgreSQL, SQL Server, and SQLite</li><li>Rich field types and formulas</li><li>API generation for all tables</li><li>Role-based access control</li></ul>',
                     url: 'https://nocodb.lan',
                     port: '8080',
+                    githubUrl: 'https://github.com/nocodb/nocodb',
                     links: [
                         { text: 'Access NocoDB', url: 'https://nocodb.lan', primary: true }
                     ]
                 },
                 {
                     name: 'Supabase Studio',
-                    description: 'Modern database management interface for PostgreSQL with built-in auth and realtime subscriptions.',
+                    description: 'Manage PostgreSQL with auth and realtime features.',
+                    detailedDescription: '<p>Supabase Studio is a visual interface for managing your PostgreSQL database. It includes built-in authentication, realtime subscriptions, and storage management.</p><h3>Key Features</h3><ul><li>Visual database schema editor</li><li>SQL editor with autocomplete</li><li>Authentication and user management</li><li>Realtime database subscriptions</li><li>File storage management</li><li>API documentation auto-generation</li></ul>',
                     url: 'https://studio.lan',
                     port: '4180',
+                    githubUrl: 'https://github.com/supabase/supabase',
                     links: [
                         { text: 'Access Studio', url: 'https://studio.lan', primary: true }
                     ]
                 },
                 {
                     name: 'Kokoro TTS',
-                    description: 'Web interface for managing and monitoring the Kokoro text-to-speech service.',
+                    description: 'Generate high-quality text-to-speech audio.',
+                    detailedDescription: '<p>Kokoro TTS is a GPU-accelerated text-to-speech service that generates natural-sounding speech from text input. It supports multiple voices and languages with high-quality output.</p><h3>Key Features</h3><ul><li>Multiple voice profiles and accents</li><li>GPU-accelerated synthesis for fast generation</li><li>Support for SSML markup</li><li>Adjustable speech rate and pitch</li><li>High-quality audio output (up to 48kHz)</li><li>REST API for programmatic access</li></ul>',
                     url: 'https://kokoro.lan',
                     port: '8880',
+                    githubUrl: 'https://github.com/remsky/Kokoro-FastAPI',
                     links: [
                         { text: 'Access Kokoro', url: 'https://kokoro.lan/web/', primary: true },
                         { text: 'Documentation', url: 'https://kokoro.lan/docs', primary: false }
@@ -640,16 +863,19 @@
                 },
                 {
                     name: 'ComfyUI',
-                    description: 'Node-based interface for Stable Diffusion models, enabling complex image generation workflows.',
+                    description: 'Build complex image generation workflows.',
+                    detailedDescription: '<p>ComfyUI is a powerful node-based interface for building and executing Stable Diffusion workflows. Create complex image generation pipelines with fine-grained control over every step.</p><h3>Key Features</h3><ul><li>Node-based workflow builder</li><li>Support for multiple SD models and checkpoints</li><li>ControlNet, LoRA, and custom model support</li><li>Batch processing capabilities</li><li>Workflow templates and sharing</li><li>Advanced sampling and scheduling options</li></ul>',
                     url: 'https://comfyui.lan',
                     port: '8188',
+                    githubUrl: 'https://github.com/comfyanonymous/ComfyUI',
                     links: [
                         { text: 'Access ComfyUI', url: 'https://comfyui.lan', primary: true }
                     ]
                 },
                 {
                     name: 'Ovi',
-                    description: 'Twin Backbone Cross-Modal Fusion - generates synchronized 5-second videos with audio from text or images using an 11B parameter model.',
+                    description: 'Generate 5-second videos with synchronized audio.',
+                    detailedDescription: '<p>Ovi is a video generation service that creates short 5-second video clips with synchronized audio. Perfect for creating social media content and animated sequences.</p><h3>Key Features</h3><ul><li>Text-to-video generation</li><li>Audio-synchronized video output</li><li>Multiple style presets</li><li>Frame interpolation for smooth motion</li><li>Export in multiple video formats</li></ul>',
                     url: 'https://ovi.lan',
                     port: '7860',
                     links: [
@@ -658,7 +884,8 @@
                 },
                 {
                     name: 'Wan2GP',
-                    description: 'Multi-model video generation platform supporting Wan 2.1/2.2, Hunyuan, LTX, Flux, and Qwen with integrated tools and LoRA support.',
+                    description: 'Generate videos with multiple AI models.',
+                    detailedDescription: '<p>Wan2GP leverages multiple AI models to generate high-quality videos from text prompts or images. It supports various video generation techniques and model combinations.</p><h3>Key Features</h3><ul><li>Multiple AI model support</li><li>Text-to-video and image-to-video generation</li><li>Customizable video length and resolution</li><li>Style transfer and effects</li><li>Batch video generation</li></ul>',
                     url: 'https://wan.lan',
                     port: '7860',
                     links: [
@@ -667,25 +894,39 @@
                 },
                 {
                     name: 'InfiniteTalk',
-                    description: 'Audio-driven video generation for unlimited-length talking videos with accurate lip sync, head movements, and facial expressions.',
+                    description: 'Create talking videos with accurate lip sync.',
+                    detailedDescription: '<p>InfiniteTalk creates realistic talking head videos with accurate lip synchronization. Upload an image and audio to generate videos of people speaking with natural mouth movements.</p><h3>Key Features</h3><ul><li>Accurate lip synchronization</li><li>Single image to talking video</li><li>Support for multiple languages</li><li>Natural facial expressions</li><li>High-resolution output</li><li>Batch processing support</li></ul>',
                     url: 'https://infinitetalk.lan',
                     port: '8418',
                     links: [
                         { text: 'Access InfiniteTalk', url: 'https://infinitetalk.lan', primary: true }
+                    ]
+                },
+                {
+                    name: 'YouTube Downloader',
+                    description: 'Download YouTube segments with AI transcription.',
+                    detailedDescription: '<p>YouTube Segment Downloader extracts audio from YouTube videos with optional Whisper AI transcription. Download entire videos or specific time segments with high-quality audio and accurate transcripts.</p><h3>Key Features</h3><ul><li>YouTube audio extraction in multiple formats</li><li>Precise time segment selection</li><li>MLX-optimized Whisper transcription</li><li>Multiple transcript formats (JSON, SRT, TXT)</li><li>YouTube built-in transcript support</li><li>Background task processing</li></ul>',
+                    url: 'https://yttools.lan',
+                    port: '7860',
+                    githubUrl: 'https://github.com/petermartens98/YouTube-Segment-Downloader',
+                    links: [
+                        { text: 'Access YouTube Tools', url: 'https://yttools.lan', primary: true }
                     ]
                 }
             ],
             backend: [
                 {
                     name: 'Kokoro FastAPI',
-                    description: 'Text-to-Speech service utilizing GPU acceleration for high-quality voice synthesis.',
+                    description: 'GPU-accelerated text-to-speech API.',
+                    detailedDescription: '<p>Kokoro FastAPI is the backend REST API for the Kokoro TTS service. It provides programmatic access to GPU-accelerated text-to-speech synthesis.</p><h3>Key Features</h3><ul><li>REST API for text-to-speech conversion</li><li>GPU acceleration for fast synthesis</li><li>Multiple audio format support</li><li>Batch processing endpoints</li><li>Voice selection and customization</li></ul>',
                     url: null,
                     port: '8880',
                     status: 'unknown'
                 },
                 {
                     name: 'LM Studio',
-                    description: 'Local LLM server with OpenAI-compatible API. Run large language models locally with high performance.',
+                    description: 'Run large language models locally.',
+                    detailedDescription: '<p>LM Studio enables running large language models locally with an OpenAI-compatible API. Perfect for privacy-focused AI applications and offline LLM usage.</p><h3>Key Features</h3><ul><li>OpenAI-compatible API endpoint</li><li>Support for various model formats (GGUF, GGML)</li><li>GPU acceleration with CUDA support</li><li>Model management and switching</li><li>Context length customization</li><li>Inference parameter tuning</li></ul>',
                     url: 'https://lmstudio.lan',
                     port: '1234',
                     links: [
@@ -694,7 +935,8 @@
                 },
                 {
                     name: 'Supabase API Gateway',
-                    description: 'API gateway managing routes, authentication, and access to backend services (Auth, REST, Realtime).',
+                    description: 'Route requests to backend services.',
+                    detailedDescription: '<p>The Supabase API Gateway (Kong) routes requests to various backend services including authentication, database, storage, and edge functions. It provides a unified entry point for all Supabase services.</p><h3>Key Features</h3><ul><li>Request routing and load balancing</li><li>API authentication and authorization</li><li>Rate limiting and throttling</li><li>Request/response transformation</li><li>Monitoring and analytics</li></ul>',
                     url: 'https://supabase.lan',
                     port: '8000',
                     links: [
@@ -703,97 +945,123 @@
                 },
                 {
                     name: 'Supabase Auth',
-                    description: 'Authentication service supporting multiple providers and row level security.',
+                    description: 'Handle authentication and row-level security.',
+                    detailedDescription: '<p>Supabase Auth provides user authentication, session management, and row-level security for your PostgreSQL database. Supports multiple authentication providers and JWT-based sessions.</p><h3>Key Features</h3><ul><li>Email/password authentication</li><li>OAuth provider integration</li><li>Magic link authentication</li><li>JWT-based sessions</li><li>Row-level security policies</li><li>User management API</li></ul>',
                     url: null,
                     port: 'API Gateway',
                     status: 'unknown'
                 },
                 {
                     name: 'Supabase REST',
-                    description: 'Auto-generated REST API for your PostgreSQL database.',
+                    description: 'Auto-generated REST API for PostgreSQL.',
+                    detailedDescription: '<p>Supabase REST (PostgREST) automatically generates a RESTful API from your PostgreSQL schema. Every table becomes an API endpoint with full CRUD operations.</p><h3>Key Features</h3><ul><li>Auto-generated REST endpoints</li><li>Advanced filtering and sorting</li><li>Pagination support</li><li>Full-text search</li><li>JSON column querying</li><li>Stored procedure invocation</li></ul>',
                     url: null,
                     port: '3000',
                     status: 'unknown'
                 },
                 {
                     name: 'Supabase Realtime',
-                    description: 'Listen to your PostgreSQL database changes in realtime via websockets.',
+                    description: 'Listen to database changes via websockets.',
+                    detailedDescription: '<p>Supabase Realtime enables real-time subscriptions to database changes via WebSockets. Get instant notifications when data is inserted, updated, or deleted.</p><h3>Key Features</h3><ul><li>WebSocket-based subscriptions</li><li>Row-level change notifications</li><li>Presence and broadcast channels</li><li>Filtering and authorization</li><li>Multi-tenant support</li><li>Low-latency updates</li></ul>',
                     url: null,
                     port: 'Websocket',
                     status: 'unknown'
                 },
                 {
                     name: 'Crawl4AI',
-                    description: 'AI-powered web crawler and scraper for extracting structured data from websites.',
+                    description: 'Extract structured data from websites.',
+                    detailedDescription: '<p>Crawl4AI is a web scraping service that extracts structured data from websites. It handles JavaScript rendering, rate limiting, and data extraction with AI-powered parsing.</p><h3>Key Features</h3><ul><li>JavaScript rendering support</li><li>AI-powered content extraction</li><li>Rate limiting and proxy support</li><li>Structured data output (JSON, CSV)</li><li>Custom extraction rules</li><li>Batch crawling support</li></ul>',
                     url: 'https://crawl4ai.lan',
                     port: '8000',
+                    githubUrl: 'https://github.com/unclecode/crawl4ai',
                     links: [
                         { text: 'Access Crawl4AI', url: 'https://crawl4ai.lan', primary: true }
                     ]
                 },
                 {
                     name: 'WhisperX',
-                    description: 'Fast audio/video transcription with word-level timestamps, speaker diarization, and GPU acceleration.',
+                    description: 'Transcribe audio/video with timestamps and speakers.',
+                    detailedDescription: '<p>WhisperX is an advanced speech-to-text service based on OpenAI\'s Whisper. It provides accurate transcription with word-level timestamps and speaker diarization.</p><h3>Key Features</h3><ul><li>High-accuracy transcription</li><li>Word-level timestamps</li><li>Speaker diarization (who spoke when)</li><li>Multi-language support</li><li>Audio and video file support</li><li>Batch processing API</li></ul>',
                     url: 'https://whisper.lan',
                     port: '8000',
+                    githubUrl: 'https://github.com/m-bain/whisperX',
                     links: [
                         { text: 'API Documentation', url: 'https://whisper.lan/docs', primary: true }
+                    ]
+                },
+                {
+                    name: 'YouTube Downloader API',
+                    description: 'REST API for YouTube audio downloads.',
+                    detailedDescription: '<p>FastAPI-based REST API for the YouTube Segment Downloader. Provides background task processing for long-running downloads and transcriptions with OpenAPI documentation.</p><h3>Key Features</h3><ul><li>RESTful API endpoints</li><li>Background task queue</li><li>Task status tracking</li><li>File download endpoints</li><li>OpenAPI/Swagger documentation</li><li>Pydantic validation</li></ul>',
+                    url: 'https://yttools.lan',
+                    port: '8456',
+                    githubUrl: 'https://github.com/petermartens98/YouTube-Segment-Downloader',
+                    links: [
+                        { text: 'API Documentation', url: 'https://yttools.lan/docs', primary: true }
                     ]
                 }
             ],
             infrastructure: [
                 {
                     name: 'NGINX',
-                    description: 'Reverse proxy handling SSL termination and routing requests to appropriate services.',
+                    description: 'Handle SSL and route requests to services.',
+                    detailedDescription: '<p>NGINX is the main reverse proxy and load balancer for all services. It handles SSL/TLS termination, request routing, and serves as the entry point for all external traffic.</p><h3>Key Features</h3><ul><li>SSL/TLS certificate management</li><li>HTTP/2 and HTTP/3 support</li><li>Request routing and load balancing</li><li>Static file serving</li><li>Caching and compression</li><li>Rate limiting and DDoS protection</li></ul>',
                     url: null,
                     port: '80, 443',
                     status: 'unknown'
                 },
                 {
                     name: 'Kong Gateway',
-                    description: 'API Gateway for Supabase Studio services. Accessible via https://studio.lan',
+                    description: 'API gateway for Supabase Studio.',
+                    detailedDescription: '<p>Kong Gateway is a cloud-native API gateway that provides a unified entry point for Supabase services. It handles authentication, rate limiting, and request transformation.</p><h3>Key Features</h3><ul><li>API routing and versioning</li><li>Plugin-based architecture</li><li>Authentication and authorization</li><li>Rate limiting and quotas</li><li>Request/response transformation</li><li>Analytics and monitoring</li></ul>',
                     url: null,
                     port: '8000',
                     status: 'unknown'
                 },
                 {
                     name: 'Supabase Edge Functions',
-                    description: 'Serverless functions runtime for custom backend logic.',
+                    description: 'Run serverless backend functions.',
+                    detailedDescription: '<p>Supabase Edge Functions allow you to run serverless TypeScript functions at the edge. Perfect for custom business logic, webhooks, and API integrations.</p><h3>Key Features</h3><ul><li>TypeScript/JavaScript support</li><li>Deploy to edge locations globally</li><li>Access to Supabase client libraries</li><li>Environment variable support</li><li>HTTP trigger endpoints</li><li>Integration with Auth and Database</li></ul>',
                     url: null,
                     port: 'Via Kong',
                     status: 'unknown'
                 },
                 {
                     name: 'Supabase Storage',
-                    description: 'Object storage service for files and media.',
+                    description: 'Store and serve files and media.',
+                    detailedDescription: '<p>Supabase Storage provides S3-compatible object storage for your files and media. It includes row-level security, automatic image optimization, and CDN integration.</p><h3>Key Features</h3><ul><li>S3-compatible API</li><li>Row-level security policies</li><li>Automatic image optimization</li><li>Resumable uploads</li><li>Public and private buckets</li><li>CDN integration</li></ul>',
                     url: null,
                     port: '5000',
                     status: 'unknown'
                 },
                 {
                     name: 'Supabase Vector',
-                    description: 'Log aggregation and processing service.',
+                    description: 'Aggregate and process logs.',
+                    detailedDescription: '<p>Supabase Vector is a high-performance log aggregation and processing service. It collects, processes, and stores logs from all Supabase services for analysis and monitoring.</p><h3>Key Features</h3><ul><li>Real-time log aggregation</li><li>Log filtering and transformation</li><li>High-throughput processing</li><li>Structured log storage</li><li>Integration with Analytics</li><li>Custom log routing</li></ul>',
                     url: null,
                     port: 'Internal',
                     status: 'unknown'
                 },
                 {
                     name: 'Supabase Analytics',
-                    description: 'Log analytics and visualization platform (Logflare).',
+                    description: 'Visualize logs and analytics.',
+                    detailedDescription: '<p>Supabase Analytics provides insights into your application usage, performance, and errors. Visualize logs, track API usage, and monitor database performance.</p><h3>Key Features</h3><ul><li>Real-time dashboards</li><li>API usage metrics</li><li>Database performance monitoring</li><li>Error tracking and alerting</li><li>Custom analytics queries</li><li>Export and reporting</li></ul>',
                     url: null,
                     port: '4000',
                     status: 'unknown'
                 },
                 {
                     name: 'Supabase Image Proxy',
-                    description: 'Image processing and transformation service.',
+                    description: 'Process and transform images.',
+                    detailedDescription: '<p>Supabase Image Proxy automatically processes and transforms images on-the-fly. Resize, crop, optimize, and convert images via URL parameters.</p><h3>Key Features</h3><ul><li>On-the-fly image transformation</li><li>Automatic format conversion</li><li>Smart cropping and resizing</li><li>Image optimization</li><li>CDN-ready caching</li><li>URL-based transformations</li></ul>',
                     url: null,
                     port: '8080',
                     status: 'unknown'
                 },
                 {
                     name: 'Supabase Database',
-                    description: 'PostgreSQL database with extensions for auth, realtime, and more.',
+                    description: 'PostgreSQL with auth and realtime extensions.',
+                    detailedDescription: '<p>Supabase Database is a fully-managed PostgreSQL instance with extensions for authentication, realtime, and vector operations. It\'s the core data layer for your applications.</p><h3>Key Features</h3><ul><li>PostgreSQL 15+ with extensions</li><li>Row-level security</li><li>Full-text search</li><li>Vector similarity search (pgvector)</li><li>Automatic backups</li><li>Connection pooling</li></ul>',
                     url: null,
                     port: '5432',
                     status: 'unknown'
@@ -816,12 +1084,19 @@
             const statusClass = service.status || 'unknown';
             const statusText = statusClass === 'online' ? 'Online' : statusClass === 'offline' ? 'Offline' : 'Checking';
 
+            // Get the primary link URL for the title
+            const primaryLink = service.links && service.links.length > 0 ? service.links.find(link => link.primary) : null;
+            const primaryUrl = primaryLink ? primaryLink.url : null;
+
+            // Filter out primary "Access..." links, keep only secondary links
+            const secondaryLinks = service.links ? service.links.filter(link => !link.primary) : [];
+
             let linksHtml = '';
-            if (service.links && service.links.length > 0) {
+            if (secondaryLinks.length > 0) {
                 linksHtml = `
                     <div class="service-actions">
-                        ${service.links.map(link => `
-                            <a href="${link.url}" target="_blank" class="service-link ${link.primary ? '' : 'secondary'}" aria-label="${link.text} - ${service.name}">
+                        ${secondaryLinks.map(link => `
+                            <a href="${link.url}" target="_blank" class="service-link secondary" aria-label="${link.text} - ${service.name}">
                                 ${link.text}
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -834,22 +1109,47 @@
                 `;
             }
 
+            const infoIconHtml = service.detailedDescription ? `
+                <svg class="info-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="button" aria-label="View detailed information about ${service.name}">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+            ` : '';
+
+            // Create title HTML - make it a link if primary URL exists
+            const titleHtml = primaryUrl
+                ? `<a href="${primaryUrl}" target="_blank" class="service-title-link">${service.name}</a>`
+                : `<span>${service.name}</span>`;
+
             card.innerHTML = `
                 <div class="service-header">
                     <div class="service-title-row">
-                        <h3>${service.name}</h3>
+                        <h3>${titleHtml}</h3>
                     </div>
-                    <div class="status-badge ${statusClass}" role="status" aria-label="${statusText}">
-                        <span class="status-dot"></span>
-                        <span>${statusText}</span>
+                    <div class="service-status-group">
+                        <span class="service-port">${service.port}</span>
+                        <div class="status-badge ${statusClass}" role="status" aria-label="${statusText}">
+                            <span class="status-dot"></span>
+                            <span>${statusText}</span>
+                        </div>
                     </div>
                 </div>
                 <p class="service-description">${service.description}</p>
                 ${linksHtml}
-                <div class="service-meta">
-                    <span class="service-port">${service.port}</span>
-                </div>
+                ${infoIconHtml}
             `;
+
+            // Add click handler for info icon if detailed description exists
+            if (service.detailedDescription) {
+                const infoIcon = card.querySelector('.info-icon');
+                if (infoIcon) {
+                    infoIcon.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showServiceDetails(service.name, service.detailedDescription, service.githubUrl);
+                    });
+                }
+            }
 
             return card;
         }
@@ -1031,6 +1331,62 @@
             if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
                 e.preventDefault();
                 updateServiceStatuses();
+            }
+        });
+
+        // Modal functions
+        function showServiceDetails(serviceName, detailedDescription, githubUrl) {
+            const modal = document.getElementById('service-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const modalFooter = document.getElementById('modal-footer');
+
+            modalTitle.textContent = serviceName;
+            modalBody.innerHTML = detailedDescription;
+
+            // Show GitHub link if available
+            if (githubUrl) {
+                modalFooter.innerHTML = `
+                    <a href="${githubUrl}" target="_blank" rel="noopener noreferrer" class="github-link">
+                        <svg class="github-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        View on GitHub
+                    </a>
+                `;
+                modalFooter.style.display = 'block';
+            } else {
+                modalFooter.innerHTML = '';
+                modalFooter.style.display = 'none';
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+
+        function closeServiceDetails() {
+            const modal = document.getElementById('service-modal');
+            modal.classList.remove('active');
+            document.body.style.overflow = ''; // Restore scrolling
+        }
+
+        // Modal event listeners
+        document.getElementById('modal-close').addEventListener('click', closeServiceDetails);
+
+        // Close modal when clicking overlay (but not the modal content)
+        document.getElementById('service-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'service-modal') {
+                closeServiceDetails();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('service-modal');
+                if (modal.classList.contains('active')) {
+                    closeServiceDetails();
+                }
             }
         });
 
