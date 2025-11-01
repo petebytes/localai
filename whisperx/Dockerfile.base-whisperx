@@ -1,0 +1,26 @@
+# WhisperX-specific CUDA base image
+# Fixes torchaudio 2.9 AudioMetaData compatibility issue for WhisperX
+# Build: docker build -f Dockerfile.base-whisperx -t cuda-base:whisperx-12.8 .
+
+ARG CUDA_VERSION=12.8
+FROM cuda-base:runtime-${CUDA_VERSION}
+
+LABEL maintainer="Local AI Packaged"
+LABEL description="CUDA base with torchaudio 2.8 for WhisperX compatibility"
+LABEL service.type="base-image"
+
+# Downgrade PyTorch stack to 2.8.0+cu128 / torchaudio 2.8.0+cu128
+# torchaudio 2.9+ removed AudioMetaData attribute which breaks pyannote.audio/whisperx
+# torchaudio 2.8 requires PyTorch 2.8.0 (dependency constraint)
+# See: https://github.com/m-bain/whisperX/issues/1270
+#
+# This creates a specialized base image for WhisperX without affecting other services
+# Other services can continue using cuda-base:runtime-12.8 with PyTorch 2.9
+RUN --mount=type=cache,id=pip-cache-shared,target=/root/.cache/pip,sharing=shared \
+    pip3 install --force-reinstall --index-url https://download.pytorch.org/whl/cu128 \
+    'torch==2.8.0+cu128' 'torchvision==0.23.0+cu128' 'torchaudio==2.8.0+cu128'
+
+# Verify the installations (CUDA availability can only be checked at runtime with GPU access)
+RUN python3 -c "import torch; print(f'PyTorch version: {torch.__version__}')" && \
+    python3 -c "import torchaudio; print(f'torchaudio version: {torchaudio.__version__}')" && \
+    python3 -c "import torch; print(f'CUDA compiled: {torch.cuda.is_available.__module__}')"

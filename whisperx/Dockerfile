@@ -20,7 +20,9 @@
 # Build base images first: ./scripts/build-cuda-base.sh all-versions
 
 ARG CUDA_VERSION=12.8
-FROM cuda-base:runtime-${CUDA_VERSION}
+# Use WhisperX-specific base with PyTorch 2.8.0 + torchaudio 2.8.0 (fixes AudioMetaData issue)
+# See Dockerfile.base-whisperx for details on this compatibility fix
+FROM cuda-base:whisperx-${CUDA_VERSION}
 
 LABEL maintainer="Local AI Packaged"
 LABEL description="WhisperX transcription service - flexible CUDA testing"
