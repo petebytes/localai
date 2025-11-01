@@ -363,7 +363,7 @@ To set up automated rotation (not configured by default):
 
 ```bash
 # Add to crontab (example: monthly on 1st at 2am)
-0 2 1 * * cd /home/ghar/code/local-ai-packaged && ./scripts/rotate-secrets.py && ./scripts/restart-after-rotation.sh
+0 2 1 * * cd /home/ghar/code/localai && ./scripts/rotate-secrets.py && ./scripts/restart-after-rotation.sh
 ```
 
 ### Integration with Monitoring
@@ -423,7 +423,7 @@ Services are restarted in dependency order:
    - `crawl4ai`, `whisperx`, `kokoro-fastapi-gpu`
    - `open-webui`, `comfyui`
    - `ovi`, `wan2gp`, `infinitetalk`
-   - `youtube-tools`
+   - `yttools`
 
 ## What Gets Rotated
 

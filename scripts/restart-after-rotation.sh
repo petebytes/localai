@@ -171,7 +171,7 @@ if [ "$RESTART_ALL" = true ]; then
         "ovi"
         "wan2gp"
         "infinitetalk"
-        "youtube-tools"
+        "yttools"
 
         # Infrastructure
         "nginx"

@@ -3,7 +3,7 @@
 ## TL;DR - Rotate Everything
 
 ```bash
-cd /home/ghar/code/local-ai-packaged
+cd /home/ghar/code/localai
 
 # 1. Check health
 ./scripts/check-services.py

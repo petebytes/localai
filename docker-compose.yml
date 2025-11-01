@@ -685,13 +685,13 @@ services:
       retries: 3
       start_period: 300s  # Give model loading time (5 minutes)
 
-  # YouTube Tools - YouTube Segment Downloader with WhisperX transcription
+  # YouTube Tools - YouTube Tools with WhisperX transcription
   # Download audio segments from YouTube videos with automated transcription
-  youtube-tools:
+  yttools:
     build:
-      context: ./youtube-tools
+      context: ./yttools
       dockerfile: Dockerfile
-    container_name: youtube-tools
+    container_name: yttools
     restart: unless-stopped
     expose:
       - 7860  # Gradio UI
@@ -700,11 +700,11 @@ services:
       - default
     volumes:
       # Downloads storage - preserves downloaded audio files
-      - ./youtube-tools/downloads:/app/downloads
+      - ./yttools/downloads:/app/downloads
       # Task storage - persists task status across restarts
-      - ./youtube-tools/task_storage:/app/task_storage
+      - ./yttools/task_storage:/app/task_storage
       # Gradio downloads - temporary UI downloads
-      - ./youtube-tools/gradio_downloads:/app/gradio_downloads
+      - ./yttools/gradio_downloads:/app/gradio_downloads
       # Shared cache volumes - prevent re-downloading models
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
@@ -724,6 +724,60 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  # VibeVoice API - Microsoft VibeVoice TTS API Server
+  # REST API for voice cloning and multi-speaker text-to-speech
+  vibevoice-api:
+    build:
+      context: ./vibevoice-api-server
+      dockerfile: Dockerfile
+      args:
+        CUDA_VERSION: "12.8"  # RTX 5090 requires CUDA 12.8
+    container_name: vibevoice-api
+    restart: unless-stopped
+    expose:
+      - 8100  # FastAPI backend
+    networks:
+      - default
+    volumes:
+      # Bind mount VibeVoice models directory directly from host
+      - ./ComfyUI/models/vibevoice:/workspace/ComfyUI/models/vibevoice
+      # Output storage - preserves generated audio files
+      - ./vibevoice-api-server/output:/output
+      # Shared cache volumes - prevent re-downloading models
+      - hf-cache:/data/.huggingface
+      - torch-cache:/data/.torch
+    environment:
+      # Service configuration
+      - MODELS_DIR=/workspace/ComfyUI/models/vibevoice
+      - HOST=0.0.0.0
+      - PORT=8100
+      - DEFAULT_MODEL=VibeVoice-1.5B
+      - ENABLE_CORS=true
+      - PYTHONUNBUFFERED=1
+      # CUDA configuration for RTX 5090
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+      # Cache optimization - share models across services
+      - HF_HOME=/data/.huggingface
+      - TRANSFORMERS_CACHE=/data/.huggingface/transformers
+      - TORCH_HOME=/data/.torch
+      # Performance optimizations for RTX 5090
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - CUDA_MODULE_LOADING=LAZY
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s  # Give model loading time to complete
 
 # Networks configuration - shared network for cross-project communication
 # Services join ai-services-network to communicate with services in other compose projects

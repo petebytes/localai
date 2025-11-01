@@ -16,8 +16,9 @@ InfiniteTalk/
 kokoro-build/
 ovi/
 wan2gp/
-youtube-tools/
+yttools/
 
 # Secret rotation backups (contains sensitive data)
 backups/secrets/
 backups/service-state-*.json
+.mcp.json
