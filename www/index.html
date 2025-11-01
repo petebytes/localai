@@ -164,7 +164,7 @@
         .status-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 0.75rem;
+            border-radius: 0.5rem;
             padding: 1rem;
             display: flex;
             flex-direction: column;
@@ -249,9 +249,8 @@
         .service-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 0.875rem;
+            border-radius: 0.5rem;
             padding: 1rem;
-            padding-bottom: 2rem;
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
         }
@@ -278,16 +277,14 @@
         }
 
         .info-icon {
-            position: absolute;
-            bottom: 1.5rem;
-            right: 1.5rem;
             width: 20px;
             height: 20px;
             color: var(--text-tertiary);
             cursor: pointer;
             transition: all 0.2s;
             flex-shrink: 0;
-            z-index: 1;
+            display: inline-block;
+            vertical-align: middle;
         }
 
         .info-icon:hover {
@@ -423,6 +420,29 @@
             color: var(--text-tertiary);
             font-family: 'Courier New', monospace;
             white-space: nowrap;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.125rem;
+        }
+
+        .port-label {
+            font-size: 0.625rem;
+            color: var(--text-tertiary);
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+        }
+
+        .port-value {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .port-external {
+            color: var(--accent);
         }
 
         .hidden {
@@ -799,7 +819,8 @@
                     description: 'Chat with AI models and convert text to speech.',
                     detailedDescription: '<p>Open WebUI provides a user-friendly interface for interacting with large language models (LLMs) running locally or via API. It offers chat-based conversations, text-to-speech capabilities, and model management features.</p><h3>Key Features</h3><ul><li>Multi-model chat interface supporting various LLMs</li><li>Text-to-speech integration for audio output</li><li>Conversation history and management</li><li>Customizable model parameters</li><li>Document upload and context injection</li></ul>',
                     url: 'https://openwebui.lan',
-                    port: '8080',
+                    internalPort: '8080',
+                    externalPort: 'internal only',
                     githubUrl: 'https://github.com/open-webui/open-webui',
                     links: [
                         { text: 'Access Open WebUI', url: 'https://openwebui.lan', primary: true }
@@ -810,7 +831,8 @@
                     description: 'Automate workflows across services and APIs.',
                     detailedDescription: '<p>n8n is a workflow automation platform that connects different services and APIs together. Create complex automation workflows with a visual node-based editor.</p><h3>Key Features</h3><ul><li>Visual workflow builder with 400+ integrations</li><li>Webhook support for triggering workflows</li><li>Schedule-based automation</li><li>Data transformation and manipulation</li><li>Self-hosted with full data control</li></ul>',
                     url: 'https://n8n.lan',
-                    port: '5678',
+                    internalPort: '5678',
+                    externalPort: 'internal only',
                     githubUrl: 'https://github.com/n8n-io/n8n',
                     links: [
                         { text: 'Access n8n', url: 'https://n8n.lan', primary: true }
@@ -821,7 +843,7 @@
                     description: 'Upload videos for automated transcription.',
                     detailedDescription: '<p>This service allows you to upload video files for automated transcription and processing. Videos are analyzed, transcribed, and segmented for further use.</p><h3>Key Features</h3><ul><li>Drag-and-drop video upload interface</li><li>Automatic speech-to-text transcription</li><li>Speaker diarization and timestamps</li><li>Video segmentation and analysis</li><li>Export transcripts in multiple formats</li></ul>',
                     url: null,
-                    port: 'Web Interface',
+                    port: '443',
                     status: 'online',
                     links: [
                         { text: 'Upload Video', url: '/video-selector.html', primary: true }
@@ -854,7 +876,8 @@
                     description: 'Generate high-quality text-to-speech audio.',
                     detailedDescription: '<p>Kokoro TTS is a GPU-accelerated text-to-speech service that generates natural-sounding speech from text input. It supports multiple voices and languages with high-quality output.</p><h3>Key Features</h3><ul><li>Multiple voice profiles and accents</li><li>GPU-accelerated synthesis for fast generation</li><li>Support for SSML markup</li><li>Adjustable speech rate and pitch</li><li>High-quality audio output (up to 48kHz)</li><li>REST API for programmatic access</li></ul>',
                     url: 'https://kokoro.lan',
-                    port: '8880',
+                    internalPort: '8880',
+                    externalPort: 'internal only',
                     githubUrl: 'https://github.com/remsky/Kokoro-FastAPI',
                     links: [
                         { text: 'Access Kokoro', url: 'https://kokoro.lan/web/', primary: true },
@@ -866,7 +889,8 @@
                     description: 'Build complex image generation workflows.',
                     detailedDescription: '<p>ComfyUI is a powerful node-based interface for building and executing Stable Diffusion workflows. Create complex image generation pipelines with fine-grained control over every step.</p><h3>Key Features</h3><ul><li>Node-based workflow builder</li><li>Support for multiple SD models and checkpoints</li><li>ControlNet, LoRA, and custom model support</li><li>Batch processing capabilities</li><li>Workflow templates and sharing</li><li>Advanced sampling and scheduling options</li></ul>',
                     url: 'https://comfyui.lan',
-                    port: '8188',
+                    internalPort: '8188',
+                    externalPort: '18188',
                     githubUrl: 'https://github.com/comfyanonymous/ComfyUI',
                     links: [
                         { text: 'Access ComfyUI', url: 'https://comfyui.lan', primary: true }
@@ -905,12 +929,25 @@
                 {
                     name: 'YouTube Downloader',
                     description: 'Download YouTube segments with AI transcription.',
-                    detailedDescription: '<p>YouTube Segment Downloader extracts audio from YouTube videos with optional Whisper AI transcription. Download entire videos or specific time segments with high-quality audio and accurate transcripts.</p><h3>Key Features</h3><ul><li>YouTube audio extraction in multiple formats</li><li>Precise time segment selection</li><li>MLX-optimized Whisper transcription</li><li>Multiple transcript formats (JSON, SRT, TXT)</li><li>YouTube built-in transcript support</li><li>Background task processing</li></ul>',
+                    detailedDescription: '<p>YouTube Tools extracts audio from YouTube videos with optional Whisper AI transcription. Download entire videos or specific time segments with high-quality audio and accurate transcripts.</p><h3>Key Features</h3><ul><li>YouTube audio extraction in multiple formats</li><li>Precise time segment selection</li><li>WhisperX AI transcription (<a href="https://whisper.lan/docs">docs</a>)</li><li>Multiple transcript formats (JSON, SRT, TXT)</li><li>YouTube built-in transcript support</li><li>Background task processing</li></ul>',
                     url: 'https://yttools.lan',
                     port: '7860',
                     githubUrl: 'https://github.com/petermartens98/YouTube-Segment-Downloader',
                     links: [
                         { text: 'Access YouTube Tools', url: 'https://yttools.lan', primary: true }
+                    ]
+                },
+                {
+                    name: 'VibeVoice TTS Studio',
+                    description: 'TTS with voice cloning and multi-speaker support.',
+                    detailedDescription: '<p>VibeVoice TTS Studio provides a comprehensive interface for Microsoft VibeVoice text-to-speech generation. Clone voices from audio samples, generate multi-speaker conversations, and create natural-sounding speech with advanced controls.</p><h3>Key Features</h3><ul><li>Basic TTS with customizable parameters (temperature, speed)</li><li>Voice cloning from WAV audio samples</li><li>Multi-speaker conversations (2-4 speakers)</li><li>Real-time audio preview and playback</li><li>Model management and switching</li><li>Download generated audio in WAV format</li><li>GPU-accelerated generation</li><li>Advanced options (seed, CFG scale)</li></ul>',
+                    url: 'https://vibevoice.lan',
+                    internalPort: '8100',
+                    externalPort: 'internal only',
+                    githubUrl: 'https://github.com/microsoft/VibeVoice',
+                    links: [
+                        { text: 'Access VibeVoice Studio', url: 'https://vibevoice.lan', primary: true },
+                        { text: 'API Documentation', url: 'https://vibevoice.lan/docs', primary: false }
                     ]
                 }
             ],
@@ -972,10 +1009,12 @@
                     description: 'Extract structured data from websites.',
                     detailedDescription: '<p>Crawl4AI is a web scraping service that extracts structured data from websites. It handles JavaScript rendering, rate limiting, and data extraction with AI-powered parsing.</p><h3>Key Features</h3><ul><li>JavaScript rendering support</li><li>AI-powered content extraction</li><li>Rate limiting and proxy support</li><li>Structured data output (JSON, CSV)</li><li>Custom extraction rules</li><li>Batch crawling support</li></ul>',
                     url: 'https://crawl4ai.lan',
-                    port: '8000',
+                    internalPort: '8000',
+                    externalPort: 'internal only',
                     githubUrl: 'https://github.com/unclecode/crawl4ai',
                     links: [
-                        { text: 'Access Crawl4AI', url: 'https://crawl4ai.lan', primary: true }
+                        { text: 'Access Crawl4AI', url: 'https://crawl4ai.lan', primary: true },
+                        { text: 'API Documentation', url: 'https://crawl4ai.lan/docs', primary: false }
                     ]
                 },
                 {
@@ -983,7 +1022,8 @@
                     description: 'Transcribe audio/video with timestamps and speakers.',
                     detailedDescription: '<p>WhisperX is an advanced speech-to-text service based on OpenAI\'s Whisper. It provides accurate transcription with word-level timestamps and speaker diarization.</p><h3>Key Features</h3><ul><li>High-accuracy transcription</li><li>Word-level timestamps</li><li>Speaker diarization (who spoke when)</li><li>Multi-language support</li><li>Audio and video file support</li><li>Batch processing API</li></ul>',
                     url: 'https://whisper.lan',
-                    port: '8000',
+                    internalPort: '8000',
+                    externalPort: 'internal only',
                     githubUrl: 'https://github.com/m-bain/whisperX',
                     links: [
                         { text: 'API Documentation', url: 'https://whisper.lan/docs', primary: true }
@@ -992,12 +1032,26 @@
                 {
                     name: 'YouTube Downloader API',
                     description: 'REST API for YouTube audio downloads.',
-                    detailedDescription: '<p>FastAPI-based REST API for the YouTube Segment Downloader. Provides background task processing for long-running downloads and transcriptions with OpenAPI documentation.</p><h3>Key Features</h3><ul><li>RESTful API endpoints</li><li>Background task queue</li><li>Task status tracking</li><li>File download endpoints</li><li>OpenAPI/Swagger documentation</li><li>Pydantic validation</li></ul>',
+                    detailedDescription: '<p>FastAPI-based REST API for the YouTube Tools. Provides background task processing for long-running downloads and transcriptions with OpenAPI documentation.</p><h3>Key Features</h3><ul><li>RESTful API endpoints</li><li>Background task queue</li><li>Task status tracking</li><li>File download endpoints</li><li>OpenAPI/Swagger documentation</li><li>Pydantic validation</li></ul>',
                     url: 'https://yttools.lan',
-                    port: '8456',
+                    internalPort: '8456',
+                    externalPort: 'internal only',
                     githubUrl: 'https://github.com/petermartens98/YouTube-Segment-Downloader',
                     links: [
                         { text: 'API Documentation', url: 'https://yttools.lan/docs', primary: true }
+                    ]
+                },
+                {
+                    name: 'VibeVoice API',
+                    description: 'REST API for voice cloning and multi-speaker TTS.',
+                    detailedDescription: '<p>FastAPI-based REST API for Microsoft VibeVoice text-to-speech. <strong>Clone any voice from 10-60 second audio samples</strong> and generate natural speech.</p><h3>🎤 Voice Cloning</h3><p>Provide a voice sample via <code>voice_audio_base64</code> (base64) or <code>voice_audio</code> (file upload) to clone the voice. Works with single-speaker and multi-speaker endpoints.</p><h3>Key Features</h3><ul><li><strong>Voice Cloning</strong>: Clone voices from short audio samples</li><li><strong>Multi-Speaker</strong>: Up to 4 speakers with distinct voices</li><li><strong>Streaming Audio</strong>: Server-Sent Events for low latency</li><li><strong>Model Management</strong>: Load/unload/switch between models</li><li><strong>Output Formats</strong>: WAV, MP3, OGG</li><li><strong>GPU Accelerated</strong>: CUDA optimized for RTX 5090</li><li><strong>Voice Speed Control</strong>: 0.8x-1.2x adjustment</li><li><strong>LoRA Support</strong>: Fine-tuned voice adapters</li></ul><h3>Quick Start</h3><pre><code>curl -X POST "https://vibevoice.lan/api/tts" \\\n  -F "text=Hello world" \\\n  -F "voice_audio=@my_voice.wav"</code></pre>',
+                    url: 'https://vibevoice.lan',
+                    internalPort: '8100',
+                    externalPort: 'internal only',
+                    githubUrl: 'https://github.com/microsoft/VibeVoice',
+                    links: [
+                        { text: 'API Documentation', url: 'https://vibevoice.lan/docs', primary: true },
+                        { text: 'ReDoc', url: 'https://vibevoice.lan/redoc', primary: false }
                     ]
                 }
             ],
@@ -1007,7 +1061,8 @@
                     description: 'Handle SSL and route requests to services.',
                     detailedDescription: '<p>NGINX is the main reverse proxy and load balancer for all services. It handles SSL/TLS termination, request routing, and serves as the entry point for all external traffic.</p><h3>Key Features</h3><ul><li>SSL/TLS certificate management</li><li>HTTP/2 and HTTP/3 support</li><li>Request routing and load balancing</li><li>Static file serving</li><li>Caching and compression</li><li>Rate limiting and DDoS protection</li></ul>',
                     url: null,
-                    port: '80, 443',
+                    internalPort: 'N/A',
+                    externalPort: '80, 443',
                     status: 'unknown'
                 },
                 {
@@ -1109,8 +1164,9 @@
                 `;
             }
 
+            // Create info icon HTML
             const infoIconHtml = service.detailedDescription ? `
-                <svg class="info-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="button" aria-label="View detailed information about ${service.name}">
+                <svg class="info-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="button" aria-label="View detailed information about ${service.name}" style="position: static; margin-left: 0.5rem;">
                     <circle cx="12" cy="12" r="10"/>
                     <line x1="12" y1="16" x2="12" y2="12"/>
                     <line x1="12" y1="8" x2="12.01" y2="8"/>
@@ -1119,8 +1175,22 @@
 
             // Create title HTML - make it a link if primary URL exists
             const titleHtml = primaryUrl
-                ? `<a href="${primaryUrl}" target="_blank" class="service-title-link">${service.name}</a>`
-                : `<span>${service.name}</span>`;
+                ? `<a href="${primaryUrl}" target="_blank" class="service-title-link">${service.name}</a>${infoIconHtml}`
+                : `<span>${service.name}</span>${infoIconHtml}`;
+
+            // Build port display HTML
+            let portHtml = '';
+            if (service.internalPort) {
+                portHtml = `
+                    <span class="service-port">
+                        <span class="port-label">Port</span>
+                        <span class="port-value">${service.internalPort}</span>
+                    </span>
+                `;
+            } else if (service.port) {
+                // Legacy single port display
+                portHtml = `<span class="service-port"><span class="port-value">${service.port}</span></span>`;
+            }
 
             card.innerHTML = `
                 <div class="service-header">
@@ -1128,7 +1198,7 @@
                         <h3>${titleHtml}</h3>
                     </div>
                     <div class="service-status-group">
-                        <span class="service-port">${service.port}</span>
+                        ${portHtml}
                         <div class="status-badge ${statusClass}" role="status" aria-label="${statusText}">
                             <span class="status-dot"></span>
                             <span>${statusText}</span>
@@ -1137,7 +1207,6 @@
                 </div>
                 <p class="service-description">${service.description}</p>
                 ${linksHtml}
-                ${infoIconHtml}
             `;
 
             // Add click handler for info icon if detailed description exists
@@ -1145,6 +1214,7 @@
                 const infoIcon = card.querySelector('.info-icon');
                 if (infoIcon) {
                     infoIcon.addEventListener('click', (e) => {
+                        e.preventDefault();
                         e.stopPropagation();
                         showServiceDetails(service.name, service.detailedDescription, service.githubUrl);
                     });
