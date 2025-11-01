@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeVoice TTS Studio</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.294.0"></script>
+
+    <style>
+        /* Custom animations and transitions */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .animate-spin-slow {
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .toast-enter {
+            animation: slideInRight 200ms ease-out;
+        }
+
+        .toast-exit {
+            animation: slideOutRight 200ms ease-in;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Focus visible styles for better accessibility */
+        *:focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+
+        /* Custom scrollbar for dark theme */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #475569 #1e293b;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Drag and drop styles */
+        .drag-over {
+            border-color: #3b82f6 !important;
+            background-color: rgba(59, 130, 246, 0.1) !important;
+        }
+
+        .upload-progress {
+            transition: width 300ms ease-out;
+        }
+
+        /* Tab styles */
+        .tab-button {
+            transition: all 200ms ease;
+        }
+
+        .tab-button.active {
+            background-color: #1e40af;
+            color: white;
+        }
+
+        /* Audio player custom styles */
+        audio {
+            width: 100%;
+            height: 40px;
+        }
+
+        audio::-webkit-media-controls-panel {
+            background-color: #1e293b;
+        }
+
+        /* Hide inactive tabs */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Range slider styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-track {
+            background-color: #334155;
+            border-radius: 0.5rem;
+            height: 0.5rem;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -4px;
+            background-color: #3b82f6;
+            border-radius: 0.5rem;
+            height: 1rem;
+            width: 1rem;
+        }
+
+        input[type="range"]::-moz-range-track {
+            background-color: #334155;
+            border-radius: 0.5rem;
+            height: 0.5rem;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            background-color: #3b82f6;
+            border: none;
+            border-radius: 0.5rem;
+            height: 1rem;
+            width: 1rem;
+        }
+
+        input[type="range"]:focus::-webkit-slider-thumb {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen font-sans antialiased">
+    <!-- Fixed Header -->
+    <header class="fixed top-0 left-0 right-0 bg-slate-900 border-b border-slate-700 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="mic" class="w-6 h-6 text-blue-500"></i>
+                    <h1 class="text-lg sm:text-xl font-semibold text-slate-100">VibeVoice TTS Studio</h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="healthStatus" class="flex items-center gap-2 text-xs">
+                    <div class="w-2 h-2 rounded-full bg-slate-500" id="healthIndicator"></div>
+                    <span id="healthText" class="text-slate-400">Checking...</span>
+                </div>
+                <button id="helpToggle" class="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg px-3 py-2" aria-label="Toggle help section">
+                    <i data-lucide="help-circle" class="w-5 h-5"></i>
+                    <span class="hidden sm:inline text-sm font-medium">Help</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-24">
+        <!-- Help Section (Collapsible) -->
+        <section id="helpSection" class="mb-6 hidden" role="region" aria-label="Help and instructions">
+            <div class="bg-slate-900 border border-slate-700 rounded-lg p-6 shadow-xl">
+                <div class="flex items-start gap-3">
+                    <i data-lucide="info" class="w-5 h-5 text-blue-500 mt-0.5"></i>
+                    <div class="flex-1">
+                        <h2 class="text-lg font-semibold text-slate-100 mb-3">VibeVoice TTS Features</h2>
+                        <div class="grid md:grid-cols-2 gap-4 text-sm text-slate-400">
+                            <div>
+                                <h3 class="font-semibold text-blue-400 mb-2">Basic TTS</h3>
+                                <p>Generate natural-sounding speech from text with customizable voice parameters.</p>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-emerald-400 mb-2">Voice Cloning</h3>
+                                <p>Upload a voice sample (WAV format) to clone and use for text-to-speech generation.</p>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-purple-400 mb-2">Multi-Speaker</h3>
+                                <p>Create conversations with multiple speakers, each with their own unique voice.</p>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-amber-400 mb-2">Model Management</h3>
+                                <p>Load and manage different TTS models for various voice qualities and languages.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab Navigation -->
+        <div class="mb-6">
+            <div class="bg-slate-900 border border-slate-700 rounded-lg p-1 inline-flex gap-1">
+                <button class="tab-button active px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2" data-tab="basic-tts">
+                    <i data-lucide="message-square" class="w-4 h-4"></i>
+                    <span>Basic TTS</span>
+                </button>
+                <button class="tab-button px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2" data-tab="voice-cloning">
+                    <i data-lucide="user-voice" class="w-4 h-4"></i>
+                    <span>Voice Cloning</span>
+                </button>
+                <button class="tab-button px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2" data-tab="multi-speaker">
+                    <i data-lucide="users" class="w-4 h-4"></i>
+                    <span>Multi-Speaker</span>
+                </button>
+                <button class="tab-button px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2" data-tab="models">
+                    <i data-lucide="database" class="w-4 h-4"></i>
+                    <span>Models</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Content Container -->
+        <div class="space-y-6">
+            <!-- Basic TTS Tab -->
+            <div id="basic-tts" class="tab-content active">
+                <div class="bg-slate-900 rounded-xl shadow-2xl border border-slate-700 overflow-hidden">
+                    <div class="p-6 sm:p-8">
+                        <div class="flex items-center gap-3 mb-6">
+                            <i data-lucide="message-square" class="w-6 h-6 text-blue-500"></i>
+                            <h2 class="text-xl font-semibold text-slate-100">Basic Text-to-Speech</h2>
+                        </div>
+
+                        <form id="basicTtsForm" class="space-y-6">
+                            <!-- Text Input -->
+                            <div>
+                                <label for="basicText" class="block text-sm font-medium text-slate-300 mb-2">
+                                    Text to Speak
+                                </label>
+                                <textarea
+                                    id="basicText"
+                                    rows="6"
+                                    class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                    placeholder="Enter the text you want to convert to speech..."
+                                    required
+                                ></textarea>
+                                <div class="mt-1 text-xs text-slate-500">
+                                    <span id="basicCharCount">0</span> characters
+                                </div>
+                            </div>
+
+                            <!-- Model Selection -->
+                            <div>
+                                <label for="basicModel" class="block text-sm font-medium text-slate-300 mb-2">
+                                    Model
+                                </label>
+                                <select
+                                    id="basicModel"
+                                    class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                >
+                                    <option value="">Loading models...</option>
+                                </select>
+                            </div>
+
+                            <!-- Parameters Grid -->
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <!-- Temperature -->
+                                <div>
+                                    <label for="basicTemperature" class="block text-sm font-medium text-slate-300 mb-2">
+                                        Temperature: <span id="basicTempValue" class="text-blue-400">1.0</span>
+                                    </label>
+                                    <input
+                                        type="range"
+                                        id="basicTemperature"
+                                        min="0.1"
+                                        max="2.0"
+                                        step="0.1"
+                                        value="1.0"
+                                        class="w-full"
+                                    >
+                                    <div class="flex justify-between text-xs text-slate-500 mt-1">
+                                        <span>Conservative</span>
+                                        <span>Creative</span>
+                                    </div>
+                                </div>
+
+                                <!-- Speed Factor -->
+                                <div>
+                                    <label for="basicSpeed" class="block text-sm font-medium text-slate-300 mb-2">
+                                        Speed: <span id="basicSpeedValue" class="text-blue-400">1.0x</span>
+                                    </label>
+                                    <input
+                                        type="range"
+                                        id="basicSpeed"
+                                        min="0.5"
+                                        max="2.0"
+                                        step="0.1"
+                                        value="1.0"
+                                        class="w-full"
+                                    >
+                                    <div class="flex justify-between text-xs text-slate-500 mt-1">
+                                        <span>Slow</span>
+                                        <span>Fast</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Advanced Options (Collapsible) -->
+                            <div>
+                                <button type="button" id="basicAdvancedToggle" class="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors">
+                                    <i data-lucide="chevron-right" class="w-4 h-4 transition-transform" id="basicAdvancedIcon"></i>
+                                    <span>Advanced Options</span>
+                                </button>
+                                <div id="basicAdvancedOptions" class="hidden mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700 space-y-4">
+                                    <div class="grid md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="basicSeed" class="block text-sm font-medium text-slate-300 mb-2">
+                                                Seed (optional)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                id="basicSeed"
+                                                class="w-full bg-slate-900 border border-slate-600 text-slate-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                placeholder="Random"
+                                            >
+                                        </div>
+                                        <div>
+                                            <label for="basicCfgScale" class="block text-sm font-medium text-slate-300 mb-2">
+                                                CFG Scale
+                                            </label>
+                                            <input
+                                                type="number"
+                                                id="basicCfgScale"
+                                                min="1"
+                                                max="20"
+                                                step="0.5"
+                                                value="7.5"
+                                                class="w-full bg-slate-900 border border-slate-600 text-slate-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Generate Button -->
+                            <button
+                                type="submit"
+                                id="basicGenerateBtn"
+                                class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                            >
+                                <i data-lucide="play" class="w-5 h-5"></i>
+                                <span>Generate Speech</span>
+                            </button>
+                        </form>
+
+                        <!-- Progress Section -->
+                        <div id="basicProgress" class="mt-6 p-4 bg-slate-800 rounded-lg border border-slate-700 hidden">
+                            <div class="flex items-center gap-2 mb-3">
+                                <i data-lucide="loader-2" class="w-5 h-5 text-blue-500 animate-spin-slow"></i>
+                                <span class="text-sm font-semibold text-slate-200">Generating speech...</span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div id="basicProgressBar" class="h-full bg-gradient-to-r from-blue-600 to-blue-500 animate-pulse" style="width: 100%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Audio Player Section -->
+                        <div id="basicAudioSection" class="mt-6 p-6 bg-emerald-950/30 border border-emerald-700/50 rounded-lg hidden">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500"></i>
+                                    <span class="text-sm font-semibold text-emerald-400">Speech Generated Successfully</span>
+                                </div>
+                                <span id="basicDuration" class="text-xs text-slate-400"></span>
+                            </div>
+                            <audio id="basicAudioPlayer" controls class="w-full mb-4"></audio>
+                            <div class="flex gap-2">
+                                <button id="basicDownloadBtn" class="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200">
+                                    <i data-lucide="download" class="w-4 h-4"></i>
+                                    <span>Download WAV</span>
+                                </button>
+                                <button id="basicNewBtn" class="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg transition-all duration-200">
+                                    <i data-lucide="plus" class="w-4 h-4"></i>
+                                    <span>New</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voice Cloning Tab -->
+            <div id="voice-cloning" class="tab-content">
+                <div class="bg-slate-900 rounded-xl shadow-2xl border border-slate-700 overflow-hidden">
+                    <div class="p-6 sm:p-8">
+                        <div class="flex items-center gap-3 mb-6">
+                            <i data-lucide="user-voice" class="w-6 h-6 text-emerald-500"></i>
+                            <h2 class="text-xl font-semibold text-slate-100">Voice Cloning</h2>
+                        </div>
+
+                        <form id="voiceCloningForm" class="space-y-6">
+                            <!-- Voice Upload -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-300 mb-2">
+                                    Reference Voice Sample (WAV format)
+                                </label>
+                                <div id="voiceDropZone" class="relative border-2 border-dashed border-slate-600 rounded-lg p-8 text-center transition-all duration-200 hover:border-slate-500 hover:bg-slate-800/50 cursor-pointer">
+                                    <input type="file" id="voiceFileInput" accept=".wav,audio/wav" class="hidden" />
+
+                                    <div id="voiceDropZoneContent">
+                                        <i data-lucide="upload-cloud" class="w-12 h-12 text-slate-500 mx-auto mb-3"></i>
+                                        <p class="text-slate-400 mb-2">
+                                            <span class="font-semibold text-slate-300">Click to browse</span> or drag and drop
+                                        </p>
+                                        <p class="text-xs text-slate-500">
+                                            WAV format only • Recommended: 5-30 seconds of clear speech
+                                        </p>
+                                    </div>
+
+                                    <div id="voiceFileDisplay" class="hidden">
+                                        <div class="flex items-center justify-center gap-3 mb-3">
+                                            <i data-lucide="file-audio" class="w-8 h-8 text-emerald-500"></i>
+                                            <div class="text-left">
+                                                <p id="voiceFileName" class="text-sm font-medium text-slate-200"></p>
+                                                <p id="voiceFileSize" class="text-xs text-slate-400"></p>
+                                            </div>
+                                            <button type="button" id="clearVoiceBtn" class="text-slate-400 hover:text-slate-200 transition-colors duration-200">
+                                                <i data-lucide="x-circle" class="w-5 h-5"></i>
+                                            </button>
+                                        </div>
+                                        <audio id="voicePreviewPlayer" controls class="w-full"></audio>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Text Input -->
+                            <div>
+                                <label for="cloneText" class="block text-sm font-medium text-slate-300 mb-2">
+                                    Text to Speak (in cloned voice)
+                                </label>
+                                <textarea
+                                    id="cloneText"
+                                    rows="6"
+                                    class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                                    placeholder="Enter the text to speak using the cloned voice..."
+                                    required
+                                ></textarea>
+                            </div>
+
+                            <!-- Model Selection -->
+                            <div>
+                                <label for="cloneModel" class="block text-sm font-medium text-slate-300 mb-2">
+                                    Model
+                                </label>
+                                <select
+                                    id="cloneModel"
+                                    class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                                >
+                                    <option value="">Loading models...</option>
+                                </select>
+                            </div>
+
+                            <!-- Generate Button -->
+                            <button
+                                type="submit"
+                                id="cloneGenerateBtn"
+                                class="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                disabled
+                            >
+                                <i data-lucide="play" class="w-5 h-5"></i>
+                                <span>Clone & Generate</span>
+                            </button>
+                        </form>
+
+                        <!-- Progress Section -->
+                        <div id="cloneProgress" class="mt-6 p-4 bg-slate-800 rounded-lg border border-slate-700 hidden">
+                            <div class="flex items-center gap-2 mb-3">
+                                <i data-lucide="loader-2" class="w-5 h-5 text-emerald-500 animate-spin-slow"></i>
+                                <span class="text-sm font-semibold text-slate-200">Cloning voice and generating speech...</span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div id="cloneProgressBar" class="h-full bg-gradient-to-r from-emerald-600 to-emerald-500 animate-pulse" style="width: 100%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Audio Player Section -->
+                        <div id="cloneAudioSection" class="mt-6 p-6 bg-emerald-950/30 border border-emerald-700/50 rounded-lg hidden">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500"></i>
+                                    <span class="text-sm font-semibold text-emerald-400">Voice Cloned Successfully</span>
+                                </div>
+                            </div>
+                            <audio id="cloneAudioPlayer" controls class="w-full mb-4"></audio>
+                            <div class="flex gap-2">
+                                <button id="cloneDownloadBtn" class="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200">
+                                    <i data-lucide="download" class="w-4 h-4"></i>
+                                    <span>Download WAV</span>
+                                </button>
+                                <button id="cloneNewBtn" class="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg transition-all duration-200">
+                                    <i data-lucide="plus" class="w-4 h-4"></i>
+                                    <span>New</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Multi-Speaker Tab -->
+            <div id="multi-speaker" class="tab-content">
+                <div class="bg-slate-900 rounded-xl shadow-2xl border border-slate-700 overflow-hidden">
+                    <div class="p-6 sm:p-8">
+                        <div class="flex items-center gap-3 mb-6">
+                            <i data-lucide="users" class="w-6 h-6 text-purple-500"></i>
+                            <h2 class="text-xl font-semibold text-slate-100">Multi-Speaker Conversation</h2>
+                        </div>
+
+                        <form id="multiSpeakerForm" class="space-y-6">
+                            <!-- Conversation Text -->
+                            <div>
+                                <label for="multiText" class="block text-sm font-medium text-slate-300 mb-2">
+                                    Conversation Script
+                                </label>
+                                <textarea
+                                    id="multiText"
+                                    rows="8"
+                                    class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none font-mono"
+                                    placeholder="<Speaker1> Hello, how are you today?&#10;<Speaker2> I'm doing great, thanks for asking!&#10;<Speaker1> That's wonderful to hear."
+                                    required
+                                ></textarea>
+                                <p class="mt-2 text-xs text-slate-500">
+                                    Format: &lt;SpeakerName&gt; Text for that speaker. Use &lt;Speaker1&gt;, &lt;Speaker2&gt;, etc.
+                                </p>
+                            </div>
+
+                            <!-- Speaker Voice Uploads -->
+                            <div class="space-y-4">
+                                <h3 class="text-sm font-medium text-slate-300">Speaker Voice Samples (Optional)</h3>
+                                <p class="text-xs text-slate-500">Upload WAV files to assign custom voices to speakers. Leave empty to use default voices.</p>
+
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <!-- Speaker 1 -->
+                                    <div class="p-4 bg-slate-800 rounded-lg border border-slate-700">
+                                        <label class="block text-sm font-medium text-purple-400 mb-2">Speaker 1</label>
+                                        <input type="file" id="speaker1File" accept=".wav,audio/wav" class="hidden" />
+                                        <button type="button" class="speaker-upload-btn w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 px-3 rounded-lg text-sm transition-all" data-speaker="1">
+                                            <i data-lucide="upload" class="w-4 h-4"></i>
+                                            <span>Upload Voice</span>
+                                        </button>
+                                        <div id="speaker1Display" class="mt-2 text-xs text-slate-400 hidden"></div>
+                                    </div>
+
+                                    <!-- Speaker 2 -->
+                                    <div class="p-4 bg-slate-800 rounded-lg border border-slate-700">
+                                        <label class="block text-sm font-medium text-purple-400 mb-2">Speaker 2</label>
+                                        <input type="file" id="speaker2File" accept=".wav,audio/wav" class="hidden" />
+                                        <button type="button" class="speaker-upload-btn w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 px-3 rounded-lg text-sm transition-all" data-speaker="2">
+                                            <i data-lucide="upload" class="w-4 h-4"></i>
+                                            <span>Upload Voice</span>
+                                        </button>
+                                        <div id="speaker2Display" class="mt-2 text-xs text-slate-400 hidden"></div>
+                                    </div>
+
+                                    <!-- Speaker 3 -->
+                                    <div class="p-4 bg-slate-800 rounded-lg border border-slate-700">
+                                        <label class="block text-sm font-medium text-purple-400 mb-2">Speaker 3</label>
+                                        <input type="file" id="speaker3File" accept=".wav,audio/wav" class="hidden" />
+                                        <button type="button" class="speaker-upload-btn w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 px-3 rounded-lg text-sm transition-all" data-speaker="3">
+                                            <i data-lucide="upload" class="w-4 h-4"></i>
+                                            <span>Upload Voice</span>
+                                        </button>
+                                        <div id="speaker3Display" class="mt-2 text-xs text-slate-400 hidden"></div>
+                                    </div>
+
+                                    <!-- Speaker 4 -->
+                                    <div class="p-4 bg-slate-800 rounded-lg border border-slate-700">
+                                        <label class="block text-sm font-medium text-purple-400 mb-2">Speaker 4</label>
+                                        <input type="file" id="speaker4File" accept=".wav,audio/wav" class="hidden" />
+                                        <button type="button" class="speaker-upload-btn w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 px-3 rounded-lg text-sm transition-all" data-speaker="4">
+                                            <i data-lucide="upload" class="w-4 h-4"></i>
+                                            <span>Upload Voice</span>
+                                        </button>
+                                        <div id="speaker4Display" class="mt-2 text-xs text-slate-400 hidden"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Model Selection -->
+                            <div>
+                                <label for="multiModel" class="block text-sm font-medium text-slate-300 mb-2">
+                                    Model
+                                </label>
+                                <select
+                                    id="multiModel"
+                                    class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                >
+                                    <option value="">Loading models...</option>
+                                </select>
+                            </div>
+
+                            <!-- Generate Button -->
+                            <button
+                                type="submit"
+                                id="multiGenerateBtn"
+                                class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                            >
+                                <i data-lucide="play" class="w-5 h-5"></i>
+                                <span>Generate Conversation</span>
+                            </button>
+                        </form>
+
+                        <!-- Progress Section -->
+                        <div id="multiProgress" class="mt-6 p-4 bg-slate-800 rounded-lg border border-slate-700 hidden">
+                            <div class="flex items-center gap-2 mb-3">
+                                <i data-lucide="loader-2" class="w-5 h-5 text-purple-500 animate-spin-slow"></i>
+                                <span class="text-sm font-semibold text-slate-200">Generating multi-speaker conversation...</span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div id="multiProgressBar" class="h-full bg-gradient-to-r from-purple-600 to-purple-500 animate-pulse" style="width: 100%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Audio Player Section -->
+                        <div id="multiAudioSection" class="mt-6 p-6 bg-emerald-950/30 border border-emerald-700/50 rounded-lg hidden">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500"></i>
+                                    <span class="text-sm font-semibold text-emerald-400">Conversation Generated Successfully</span>
+                                </div>
+                            </div>
+                            <audio id="multiAudioPlayer" controls class="w-full mb-4"></audio>
+                            <div class="flex gap-2">
+                                <button id="multiDownloadBtn" class="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200">
+                                    <i data-lucide="download" class="w-4 h-4"></i>
+                                    <span>Download WAV</span>
+                                </button>
+                                <button id="multiNewBtn" class="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2 px-4 rounded-lg transition-all duration-200">
+                                    <i data-lucide="plus" class="w-4 h-4"></i>
+                                    <span>New</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Models Tab -->
+            <div id="models" class="tab-content">
+                <div class="bg-slate-900 rounded-xl shadow-2xl border border-slate-700 overflow-hidden">
+                    <div class="p-6 sm:p-8">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="database" class="w-6 h-6 text-amber-500"></i>
+                                <h2 class="text-xl font-semibold text-slate-100">Model Management</h2>
+                            </div>
+                            <button id="refreshModelsBtn" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm transition-all">
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                                <span>Refresh</span>
+                            </button>
+                        </div>
+
+                        <!-- Current Model Info -->
+                        <div id="currentModelInfo" class="mb-6 p-4 bg-blue-950/30 border border-blue-700/50 rounded-lg">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i data-lucide="info" class="w-4 h-4 text-blue-400"></i>
+                                <span class="text-sm font-semibold text-blue-400">Currently Loaded Model</span>
+                            </div>
+                            <p id="currentModelName" class="text-slate-300 font-mono">None</p>
+                        </div>
+
+                        <!-- Models List -->
+                        <div class="space-y-3">
+                            <h3 class="text-sm font-medium text-slate-400">Available Models</h3>
+                            <div id="modelsList" class="space-y-2">
+                                <div class="flex items-center justify-center py-8">
+                                    <i data-lucide="loader-2" class="w-6 h-6 text-slate-500 animate-spin-slow"></i>
+                                    <span class="ml-2 text-slate-500">Loading models...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-20 right-4 z-50 space-y-2" role="region" aria-label="Notifications"></div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // ===== CONFIGURATION =====
+        const API_BASE_URL = window.location.origin + '/api';
+
+        // ===== STATE =====
+        let currentAudioData = {
+            basic: null,
+            clone: null,
+            multi: null
+        };
+
+        let currentVoiceFile = null;
+        let speakerVoiceFiles = {
+            1: null,
+            2: null,
+            3: null,
+            4: null
+        };
+
+        // ===== TOAST NOTIFICATIONS =====
+        class ToastManager {
+            show(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `toast-enter flex items-start gap-3 bg-slate-800 border px-4 py-3 rounded-lg shadow-lg max-w-md ${
+                    type === 'success' ? 'border-emerald-700' :
+                    type === 'error' ? 'border-red-700' :
+                    'border-blue-700'
+                }`;
+
+                const icon = type === 'success' ? 'check-circle' :
+                            type === 'error' ? 'alert-circle' :
+                            'info';
+                const iconColor = type === 'success' ? 'text-emerald-500' :
+                                 type === 'error' ? 'text-red-500' :
+                                 'text-blue-500';
+
+                toast.innerHTML = `
+                    <i data-lucide="${icon}" class="w-5 h-5 ${iconColor} mt-0.5"></i>
+                    <p class="text-sm text-slate-200 flex-1">${message}</p>
+                    <button class="text-slate-400 hover:text-slate-200" onclick="this.parentElement.remove()">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                `;
+
+                document.getElementById('toastContainer').appendChild(toast);
+                lucide.createIcons();
+
+                setTimeout(() => {
+                    toast.classList.remove('toast-enter');
+                    toast.classList.add('toast-exit');
+                    setTimeout(() => toast.remove(), 200);
+                }, 5000);
+            }
+        }
+
+        const toast = new ToastManager();
+
+        // ===== API CLIENT =====
+        class VibeVoiceAPI {
+            async request(endpoint, options = {}) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                    if (!response.ok) {
+                        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                        throw new Error(error.detail || `HTTP ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error('API request failed:', error);
+                    throw error;
+                }
+            }
+
+            async checkHealth() {
+                return this.request('/health');
+            }
+
+            async listModels() {
+                return this.request('/models');
+            }
+
+            async getCurrentModel() {
+                return this.request('/models/current');
+            }
+
+            async loadModel(modelName) {
+                return this.request(`/models/${encodeURIComponent(modelName)}/load`, {
+                    method: 'POST'
+                });
+            }
+
+            async unloadModel(modelName) {
+                return this.request(`/models/${encodeURIComponent(modelName)}/unload`, {
+                    method: 'POST'
+                });
+            }
+
+            async generateTTS(data) {
+                return this.request('/tts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            }
+
+            async generateMultiSpeaker(data) {
+                return this.request('/tts/multi-speaker', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            }
+        }
+
+        const api = new VibeVoiceAPI();
+
+        // ===== UTILITY FUNCTIONS =====
+        function base64ToBlob(base64, mimeType = 'audio/wav') {
+            const byteCharacters = atob(base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            return new Blob([byteArray], { type: mimeType });
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function formatDuration(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // ===== HEALTH CHECK =====
+        async function checkHealth() {
+            try {
+                const health = await api.checkHealth();
+                const indicator = document.getElementById('healthIndicator');
+                const text = document.getElementById('healthText');
+
+                if (health.status === 'healthy') {
+                    indicator.className = 'w-2 h-2 rounded-full bg-emerald-500';
+                    text.textContent = health.model_loaded ? 'Model Loaded' : 'Ready';
+                    text.className = 'text-emerald-400';
+                } else {
+                    indicator.className = 'w-2 h-2 rounded-full bg-red-500';
+                    text.textContent = 'Error';
+                    text.className = 'text-red-400';
+                }
+            } catch (error) {
+                const indicator = document.getElementById('healthIndicator');
+                const text = document.getElementById('healthText');
+                indicator.className = 'w-2 h-2 rounded-full bg-red-500';
+                text.textContent = 'Offline';
+                text.className = 'text-red-400';
+            }
+        }
+
+        // ===== MODEL MANAGEMENT =====
+        async function loadModels() {
+            try {
+                const data = await api.listModels();
+                const modelSelects = [
+                    document.getElementById('basicModel'),
+                    document.getElementById('cloneModel'),
+                    document.getElementById('multiModel')
+                ];
+
+                modelSelects.forEach(select => {
+                    select.innerHTML = '';
+                    if (data.models && data.models.length > 0) {
+                        data.models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model.model_id;
+                            option.textContent = model.display_name;
+                            if (model.model_id === data.current_model) {
+                                option.textContent += ' (loaded)';
+                            }
+                            select.appendChild(option);
+                        });
+                    } else {
+                        const option = document.createElement('option');
+                        option.value = '';
+                        option.textContent = 'No models available';
+                        select.appendChild(option);
+                    }
+                });
+
+                // Update models list in Models tab
+                updateModelsList(data.models, data.current_model);
+
+                // Update current model info
+                document.getElementById('currentModelName').textContent = data.current_model || 'None';
+            } catch (error) {
+                console.error('Failed to load models:', error);
+                toast.show('Failed to load models: ' + error.message, 'error');
+            }
+        }
+
+        function updateModelsList(models, currentModel) {
+            const container = document.getElementById('modelsList');
+            container.innerHTML = '';
+
+            if (!models || models.length === 0) {
+                container.innerHTML = '<p class="text-slate-500 text-sm text-center py-4">No models found</p>';
+                return;
+            }
+
+            models.forEach(model => {
+                const isLoaded = model.model_id === currentModel;
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-4 bg-slate-800 rounded-lg border border-slate-700';
+                div.innerHTML = `
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="${isLoaded ? 'check-circle' : 'circle'}" class="w-4 h-4 ${isLoaded ? 'text-emerald-500' : 'text-slate-500'}"></i>
+                            <span class="font-medium text-slate-200">${model.display_name}</span>
+                        </div>
+                        ${isLoaded ? '<span class="text-xs text-emerald-400 ml-6">Currently loaded</span>' : ''}
+                    </div>
+                    <div class="flex gap-2">
+                        ${isLoaded ?
+                            `<button class="unload-model-btn px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-all" data-model="${model.model_id}">
+                                Unload
+                            </button>` :
+                            `<button class="load-model-btn px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-all" data-model="${model.model_id}">
+                                Load
+                            </button>`
+                        }
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            lucide.createIcons();
+
+            // Add event listeners
+            container.querySelectorAll('.load-model-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const modelName = btn.dataset.model;
+                    btn.disabled = true;
+                    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin-slow inline"></i> Loading...';
+                    lucide.createIcons();
+
+                    try {
+                        await api.loadModel(modelName);
+                        toast.show(`Model "${modelName}" loaded successfully`, 'success');
+                        await loadModels();
+                        await checkHealth();
+                    } catch (error) {
+                        toast.show(`Failed to load model: ${error.message}`, 'error');
+                        btn.disabled = false;
+                        btn.textContent = 'Load';
+                    }
+                });
+            });
+
+            container.querySelectorAll('.unload-model-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const modelName = btn.dataset.model;
+                    btn.disabled = true;
+                    btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin-slow inline"></i> Unloading...';
+                    lucide.createIcons();
+
+                    try {
+                        await api.unloadModel(modelName);
+                        toast.show(`Model "${modelName}" unloaded successfully`, 'success');
+                        await loadModels();
+                        await checkHealth();
+                    } catch (error) {
+                        toast.show(`Failed to unload model: ${error.message}`, 'error');
+                        btn.disabled = false;
+                        btn.textContent = 'Unload';
+                    }
+                });
+            });
+        }
+
+        // ===== TAB NAVIGATION =====
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
+                // Update button states
+                document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+
+                // Update content visibility
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                document.getElementById(button.dataset.tab).classList.add('active');
+            });
+        });
+
+        // ===== HELP TOGGLE =====
+        document.getElementById('helpToggle').addEventListener('click', () => {
+            const helpSection = document.getElementById('helpSection');
+            helpSection.classList.toggle('hidden');
+        });
+
+        // ===== BASIC TTS =====
+        const basicTextArea = document.getElementById('basicText');
+        const basicCharCount = document.getElementById('basicCharCount');
+        const basicTempSlider = document.getElementById('basicTemperature');
+        const basicTempValue = document.getElementById('basicTempValue');
+        const basicSpeedSlider = document.getElementById('basicSpeed');
+        const basicSpeedValue = document.getElementById('basicSpeedValue');
+
+        basicTextArea.addEventListener('input', () => {
+            basicCharCount.textContent = basicTextArea.value.length;
+        });
+
+        basicTempSlider.addEventListener('input', () => {
+            basicTempValue.textContent = basicTempSlider.value;
+        });
+
+        basicSpeedSlider.addEventListener('input', () => {
+            basicSpeedValue.textContent = basicSpeedSlider.value + 'x';
+        });
+
+        document.getElementById('basicAdvancedToggle').addEventListener('click', () => {
+            const options = document.getElementById('basicAdvancedOptions');
+            const icon = document.getElementById('basicAdvancedIcon');
+            options.classList.toggle('hidden');
+            icon.style.transform = options.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(90deg)';
+        });
+
+        document.getElementById('basicTtsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('basicGenerateBtn');
+            const progress = document.getElementById('basicProgress');
+            const audioSection = document.getElementById('basicAudioSection');
+
+            btn.disabled = true;
+            progress.classList.remove('hidden');
+            audioSection.classList.add('hidden');
+
+            try {
+                const data = {
+                    text: basicTextArea.value,
+                    model: document.getElementById('basicModel').value,
+                    temperature: parseFloat(basicTempSlider.value),
+                    voice_speed_factor: parseFloat(basicSpeedSlider.value),
+                    cfg_scale: parseFloat(document.getElementById('basicCfgScale').value) || 7.5
+                };
+
+                const seed = document.getElementById('basicSeed').value;
+                if (seed) {
+                    data.seed = parseInt(seed);
+                }
+
+                const result = await api.generateTTS(data);
+
+                currentAudioData.basic = result.audio_base64;
+
+                const audioBlob = base64ToBlob(result.audio_base64);
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const player = document.getElementById('basicAudioPlayer');
+                player.src = audioUrl;
+
+                if (result.duration_seconds) {
+                    document.getElementById('basicDuration').textContent = `Duration: ${formatDuration(result.duration_seconds)}`;
+                }
+
+                progress.classList.add('hidden');
+                audioSection.classList.remove('hidden');
+                toast.show('Speech generated successfully!', 'success');
+            } catch (error) {
+                progress.classList.add('hidden');
+                toast.show('Generation failed: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('basicDownloadBtn').addEventListener('click', () => {
+            if (currentAudioData.basic) {
+                const blob = base64ToBlob(currentAudioData.basic);
+                downloadBlob(blob, `vibevoice-tts-${Date.now()}.wav`);
+            }
+        });
+
+        document.getElementById('basicNewBtn').addEventListener('click', () => {
+            document.getElementById('basicAudioSection').classList.add('hidden');
+            basicTextArea.value = '';
+            basicCharCount.textContent = '0';
+            currentAudioData.basic = null;
+        });
+
+        // ===== VOICE CLONING =====
+        const voiceDropZone = document.getElementById('voiceDropZone');
+        const voiceFileInput = document.getElementById('voiceFileInput');
+        const voiceDropZoneContent = document.getElementById('voiceDropZoneContent');
+        const voiceFileDisplay = document.getElementById('voiceFileDisplay');
+        const cloneGenerateBtn = document.getElementById('cloneGenerateBtn');
+
+        voiceDropZone.addEventListener('click', () => voiceFileInput.click());
+
+        voiceDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            voiceDropZone.classList.add('drag-over');
+        });
+
+        voiceDropZone.addEventListener('dragleave', () => {
+            voiceDropZone.classList.remove('drag-over');
+        });
+
+        voiceDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            voiceDropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.wav')) {
+                handleVoiceFile(file);
+            } else {
+                toast.show('Please upload a WAV file', 'error');
+            }
+        });
+
+        voiceFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleVoiceFile(file);
+            }
+        });
+
+        function handleVoiceFile(file) {
+            currentVoiceFile = file;
+            document.getElementById('voiceFileName').textContent = file.name;
+            document.getElementById('voiceFileSize').textContent = formatFileSize(file.size);
+
+            const url = URL.createObjectURL(file);
+            document.getElementById('voicePreviewPlayer').src = url;
+
+            voiceDropZoneContent.classList.add('hidden');
+            voiceFileDisplay.classList.remove('hidden');
+            cloneGenerateBtn.disabled = false;
+            lucide.createIcons();
+        }
+
+        document.getElementById('clearVoiceBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentVoiceFile = null;
+            voiceFileInput.value = '';
+            voiceDropZoneContent.classList.remove('hidden');
+            voiceFileDisplay.classList.add('hidden');
+            cloneGenerateBtn.disabled = true;
+        });
+
+        document.getElementById('voiceCloningForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('cloneGenerateBtn');
+            const progress = document.getElementById('cloneProgress');
+            const audioSection = document.getElementById('cloneAudioSection');
+
+            btn.disabled = true;
+            progress.classList.remove('hidden');
+            audioSection.classList.add('hidden');
+
+            try {
+                const voiceBase64 = await fileToBase64(currentVoiceFile);
+
+                const data = {
+                    text: document.getElementById('cloneText').value,
+                    model: document.getElementById('cloneModel').value,
+                    voice_audio_base64: voiceBase64
+                };
+
+                const result = await api.generateTTS(data);
+
+                currentAudioData.clone = result.audio_base64;
+
+                const audioBlob = base64ToBlob(result.audio_base64);
+                const audioUrl = URL.createObjectURL(audioBlob);
+                document.getElementById('cloneAudioPlayer').src = audioUrl;
+
+                progress.classList.add('hidden');
+                audioSection.classList.remove('hidden');
+                toast.show('Voice cloned and speech generated successfully!', 'success');
+            } catch (error) {
+                progress.classList.add('hidden');
+                toast.show('Generation failed: ' + error.message, 'error');
+            } finally {
+                btn.disabled = currentVoiceFile === null;
+            }
+        });
+
+        document.getElementById('cloneDownloadBtn').addEventListener('click', () => {
+            if (currentAudioData.clone) {
+                const blob = base64ToBlob(currentAudioData.clone);
+                downloadBlob(blob, `vibevoice-cloned-${Date.now()}.wav`);
+            }
+        });
+
+        document.getElementById('cloneNewBtn').addEventListener('click', () => {
+            document.getElementById('cloneAudioSection').classList.add('hidden');
+            document.getElementById('cloneText').value = '';
+            currentAudioData.clone = null;
+        });
+
+        // ===== MULTI-SPEAKER =====
+        document.querySelectorAll('.speaker-upload-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const speakerNum = btn.dataset.speaker;
+                document.getElementById(`speaker${speakerNum}File`).click();
+            });
+        });
+
+        for (let i = 1; i <= 4; i++) {
+            document.getElementById(`speaker${i}File`).addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    speakerVoiceFiles[i] = file;
+                    const display = document.getElementById(`speaker${i}Display`);
+                    display.textContent = `✓ ${file.name}`;
+                    display.classList.remove('hidden');
+                }
+            });
+        }
+
+        document.getElementById('multiSpeakerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('multiGenerateBtn');
+            const progress = document.getElementById('multiProgress');
+            const audioSection = document.getElementById('multiAudioSection');
+
+            btn.disabled = true;
+            progress.classList.remove('hidden');
+            audioSection.classList.add('hidden');
+
+            try {
+                const data = {
+                    text: document.getElementById('multiText').value,
+                    model: document.getElementById('multiModel').value
+                };
+
+                // Add speaker voices
+                for (let i = 1; i <= 4; i++) {
+                    if (speakerVoiceFiles[i]) {
+                        const voiceBase64 = await fileToBase64(speakerVoiceFiles[i]);
+                        data[`speaker${i}_voice`] = voiceBase64;
+                    }
+                }
+
+                const result = await api.generateMultiSpeaker(data);
+
+                currentAudioData.multi = result.audio_base64;
+
+                const audioBlob = base64ToBlob(result.audio_base64);
+                const audioUrl = URL.createObjectURL(audioBlob);
+                document.getElementById('multiAudioPlayer').src = audioUrl;
+
+                progress.classList.add('hidden');
+                audioSection.classList.remove('hidden');
+                toast.show('Multi-speaker conversation generated successfully!', 'success');
+            } catch (error) {
+                progress.classList.add('hidden');
+                toast.show('Generation failed: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('multiDownloadBtn').addEventListener('click', () => {
+            if (currentAudioData.multi) {
+                const blob = base64ToBlob(currentAudioData.multi);
+                downloadBlob(blob, `vibevoice-multi-${Date.now()}.wav`);
+            }
+        });
+
+        document.getElementById('multiNewBtn').addEventListener('click', () => {
+            document.getElementById('multiAudioSection').classList.add('hidden');
+            document.getElementById('multiText').value = '';
+            currentAudioData.multi = null;
+        });
+
+        // ===== MODELS TAB =====
+        document.getElementById('refreshModelsBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('refreshModelsBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin-slow"></i> <span>Refreshing...</span>';
+            lucide.createIcons();
+
+            await loadModels();
+
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4"></i> <span>Refresh</span>';
+            lucide.createIcons();
+        });
+
+        // ===== INITIALIZATION =====
+        async function initialize() {
+            await checkHealth();
+            await loadModels();
+
+            // Check health every 30 seconds
+            setInterval(checkHealth, 30000);
+        }
+
+        // Start when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initialize);
+        } else {
+            initialize();
+        }
+    </script>
+</body>
+</html>

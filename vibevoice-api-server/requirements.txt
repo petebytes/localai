@@ -1,0 +1,35 @@
+# Core dependencies
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.18
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+
+# VibeVoice core dependencies
+transformers>=4.51.3
+torch>=2.0.0
+torchaudio>=2.0.0
+accelerate>=1.6.0
+diffusers>=0.32.0
+peft>=0.17.0
+bitsandbytes>=0.48.1
+librosa>=0.9.0
+soundfile>=0.12.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Audio processing
+pydub>=0.25.1
+
+# Optional performance enhancements
+# flash-attn>=2.0.0  # Uncomment for Flash Attention 2
+# sageattention>=1.0.0  # Uncomment for SageAttention
+
+# Utilities
+python-dotenv>=1.0.0
+aiofiles>=24.1.0
+
+# Development dependencies (optional)
+pytest>=8.3.0
+pytest-asyncio>=0.24.0
+httpx>=0.28.0

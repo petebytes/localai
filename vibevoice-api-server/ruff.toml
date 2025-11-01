@@ -1,0 +1,15 @@
+# Ruff configuration for VibeVoice API Server
+
+[lint]
+# Ignore E402 (module level imports) and E722 (bare except) in vendored vvembed code
+# This code is from Microsoft's VibeVoice and should not be modified
+ignore = []
+
+[lint.per-file-ignores]
+"vvembed/**/*.py" = ["E402", "E722", "F401"]
+
+[format]
+# Use black-compatible formatting
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
