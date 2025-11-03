@@ -17,6 +17,7 @@ kokoro-build/
 ovi/
 wan2gp/
 yttools/
+emu3/
 
 # Secret rotation backups (contains sensitive data)
 backups/secrets/

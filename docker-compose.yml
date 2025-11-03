@@ -50,6 +50,9 @@ volumes:
   wan2gp-config:
     driver: local
   # InfiniteTalk volumes - Audio-Driven Video Dubbing
+  # Emu3 volumes - Multimodal Image Generation
+  emu3-models:
+    driver: local
 
 x-n8n: &service-n8n
   build:
@@ -218,7 +221,11 @@ services:
       retries: 3
 
   comfyui:
-    image: ghcr.io/ai-dock/comfyui:latest
+    build:
+      context: ./ComfyUI
+      dockerfile: Dockerfile
+      args:
+        CUDA_VERSION: "12.8"
     container_name: comfyui
     restart: unless-stopped
     ports:
@@ -226,20 +233,17 @@ services:
     expose:
       - 8188
     volumes:
-      - ./ComfyUI:/workspace/ComfyUI
       - ./shared:/app/shared
       - comfyui-models:/workspace/ComfyUI/models
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
+      # Shared Wan models from wan2gp (read-only to avoid conflicts)
+      - wan2gp-models:/workspace/shared-wan-models:ro
     environment:
       - NVIDIA_VISIBLE_DEVICES=0
-      - COMFYUI_ARGS=--listen 0.0.0.0 --port 18188 --fast
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - HF_HOME=/data/.huggingface
       - TORCH_HOME=/data/.torch
-      - WEB_ENABLE_AUTH=false
-      - SERVERPORT=8188
-      - SERVICEPORTAL_PORT_HOST=8188
     deploy:
       resources:
         reservations:
@@ -685,6 +689,79 @@ services:
       retries: 3
       start_period: 300s  # Give model loading time (5 minutes)
 
+  # InfiniteTalk API - FastAPI wrapper for automated video generation (Step 4)
+  # Provides REST API for n8n workflow integration
+  infinitetalk-api:
+    build:
+      context: ./infinitetalk-api-server
+      dockerfile: Dockerfile
+      args:
+        CUDA_VERSION: "12.8"
+    image: infinitetalk-api:latest
+    container_name: infinitetalk-api
+    restart: unless-stopped
+    # WSL2 optimization: use host IPC for efficient inter-process communication
+    ipc: host
+    # WSL2 optimization: increase shared memory for large model inference
+    shm_size: '8gb'
+    # WSL2 optimization: remove memory limits for better GPU performance
+    ulimits:
+      memlock: -1  # unlimited lockable memory
+      stack: 67108864  # 64MB stack size
+    expose:
+      - 8200  # FastAPI backend
+    networks:
+      - default
+    volumes:
+      # Shared files with other services
+      - ./shared:/data/shared
+      # Output storage - preserves generated videos
+      - ./infinitetalk-api-server/output:/output
+      # Mount InfiniteTalk source code (read-only to avoid conflicts)
+      # This provides access to wan modules and core generation logic
+      - ./InfiniteTalk:/workspace:ro
+      # Shared cache volumes - prevent re-downloading models
+      - hf-cache:/data/.huggingface
+      - torch-cache:/data/.torch
+    environment:
+      # Service configuration
+      - HOST=0.0.0.0
+      - PORT=8200
+      - PYTHONUNBUFFERED=1
+      # Model paths (from mounted InfiniteTalk directory)
+      - CKPT_DIR=/workspace/weights/Wan2.1-I2V-14B-480P
+      - WAV2VEC_DIR=/workspace/weights/chinese-wav2vec2-base
+      - INFINITETALK_DIR=/workspace/weights/InfiniteTalk/single/infinitetalk.safetensors
+      # VRAM management (full GPU mode for RTX 5090 32GB - keep all params in VRAM)
+      - NUM_PERSISTENT_PARAM_IN_DIT=999999
+      - MOTION_FRAME=9
+      - TASK=infinitetalk-14B
+      - FRAME_NUM=81
+      - MODE=streaming
+      # CUDA configuration for RTX 5090
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+      # Cache optimization - shared across all AI services
+      - HF_HOME=/data/.huggingface
+      - TRANSFORMERS_CACHE=/data/.huggingface/transformers
+      - TORCH_HOME=/data/.torch
+      # Performance optimizations for RTX 5090
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - CUDA_MODULE_LOADING=LAZY
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8200/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s  # Quick startup (models load on first request)
+
   # YouTube Tools - YouTube Tools with WhisperX transcription
   # Download audio segments from YouTube videos with automated transcription
   yttools:
@@ -752,7 +829,7 @@ services:
       - MODELS_DIR=/workspace/ComfyUI/models/vibevoice
       - HOST=0.0.0.0
       - PORT=8100
-      - DEFAULT_MODEL=VibeVoice-1.5B
+      - DEFAULT_MODEL=VibeVoice-Large
       - ENABLE_CORS=true
       - PYTHONUNBUFFERED=1
       # CUDA configuration for RTX 5090
@@ -778,6 +855,60 @@ services:
       timeout: 10s
       retries: 3
       start_period: 120s  # Give model loading time to complete
+
+  # Emu3 - Multimodal Image Generation with Emu3.5
+  # Dual-mode service with Gradio UI and FastAPI endpoints
+  # Supports text-to-image, image understanding, and story generation
+  # emu3:
+  #   build:
+  #     context: ./emu3
+  #     dockerfile: Dockerfile
+  #     args:
+  #       CUDA_VERSION: "12.8"  # RTX 5090 requires CUDA 12.8
+  #       # No CUDA_ARCHITECTURES needed - using prebuilt wheels to avoid WSL crashes
+  #   container_name: emu3
+  #   restart: unless-stopped
+  #   expose:
+  #     - 8200  # Gradio UI + FastAPI backend
+  #   networks:
+  #     - default
+  #   volumes:
+  #     # Named volume for model persistence
+  #     - emu3-models:/app/models
+  #     # Bind mount for generated images
+  #     - ./emu3/outputs:/app/outputs
+  #     # Shared cache volumes - prevent re-downloading models
+  #     - hf-cache:/data/.huggingface
+  #     - torch-cache:/data/.torch
+  #   environment:
+  #     # Service configuration
+  #     - GRADIO_SERVER_NAME=0.0.0.0
+  #     - GRADIO_SERVER_PORT=8200
+  #     - PYTHONUNBUFFERED=1
+  #     # CUDA configuration for RTX 5090
+  #     - CUDA_VISIBLE_DEVICES=0
+  #     - NVIDIA_VISIBLE_DEVICES=0
+  #     # Cache optimization - share models across services
+  #     - HF_HOME=/data/.huggingface
+  #     - TRANSFORMERS_CACHE=/data/.huggingface/transformers
+  #     - TORCH_HOME=/data/.torch
+  #     # Performance optimizations for RTX 5090
+  #     - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+  #     - CUDA_MODULE_LOADING=LAZY
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   user: "1000:1000"
+  #   healthcheck:
+  #     test: ["CMD", "python3", "-c", "import requests; requests.get('http://localhost:8200/api/v1/health', timeout=5)"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 180s  # Extended startup time for model loading
 
 # Networks configuration - shared network for cross-project communication
 # Services join ai-services-network to communicate with services in other compose projects
