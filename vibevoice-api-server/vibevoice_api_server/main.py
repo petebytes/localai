@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     models_dir: Path = Path(os.getenv("MODELS_DIR", "./models/vibevoice"))
     host: str = os.getenv("HOST", "0.0.0.0")
     port: int = int(os.getenv("PORT", "8000"))
-    default_model: str = os.getenv("DEFAULT_MODEL", "VibeVoice-1.5B")
+    default_model: str = os.getenv("DEFAULT_MODEL", "VibeVoice-Large")
     enable_cors: bool = os.getenv("ENABLE_CORS", "true").lower() == "true"
     api_version: str = "1.0.0"
 
@@ -356,7 +356,7 @@ async def generate_tts(
             audio_tensor, audio_processor.TARGET_SAMPLE_RATE
         )
 
-        return TTSResponse(
+        response = TTSResponse(
             audio_base64=audio_base64,
             sample_rate=audio_processor.TARGET_SAMPLE_RATE,
             format=tts_request.output_format,
@@ -367,6 +367,15 @@ async def generate_tts(
                 "cfg_scale": str(tts_request.cfg_scale),
             },
         )
+
+        # Clear GPU cache to free VRAM for next step (ComfyUI)
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            logger.info("Cleared CUDA cache after TTS generation")
+
+        return response
 
     except Exception as e:
         logger.error(f"TTS generation failed: {e}", exc_info=True)

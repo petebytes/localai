@@ -108,6 +108,30 @@ class AudioProcessor:
         return librosa.effects.time_stretch(audio, rate=speed_factor)
 
     @staticmethod
+    def trim_silence(
+        audio: np.ndarray,
+        sample_rate: int,
+        top_db: int = 40,
+    ) -> np.ndarray:
+        """Trim silence from beginning and end of audio.
+
+        Args:
+            audio: Audio array
+            sample_rate: Sample rate
+            top_db: Threshold in dB below reference to consider as silence
+
+        Returns:
+            Trimmed audio array
+        """
+        trimmed_audio, _ = librosa.effects.trim(
+            audio, top_db=top_db, frame_length=2048, hop_length=512
+        )
+        logger.info(
+            f"Trimmed audio from {len(audio) / sample_rate:.2f}s to {len(trimmed_audio) / sample_rate:.2f}s"
+        )
+        return trimmed_audio
+
+    @staticmethod
     def prepare_voice_sample(
         audio_base64: str,
         speed_factor: float = 1.0,

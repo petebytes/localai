@@ -156,7 +156,12 @@ class TTSGenerator:
 
                     # Prepare inputs
                     if voice_audio is not None:
-                        voice_samples = [voice_audio]
+                        # Convert tensor to numpy array for the processor
+                        if isinstance(voice_audio, torch.Tensor):
+                            voice_audio_np = voice_audio.cpu().numpy()
+                        else:
+                            voice_audio_np = voice_audio
+                        voice_samples = [voice_audio_np]
                     else:
                         voice_samples = None
 
@@ -325,7 +330,7 @@ class TTSGenerator:
                     text_segment, kwargs.get("max_words_per_chunk", 250)
                 )
 
-                for i, chunk in enumerate(chunks):
+                for chunk in chunks:
                     # Generate audio for this chunk
                     audio = self.generate_single_speaker(
                         text=chunk,

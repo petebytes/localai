@@ -67,7 +67,7 @@ class TTSRequest(BaseModel):
 
     text: str = Field(..., min_length=1, description="Text to synthesize")
     model: str = Field(
-        "VibeVoice-1.5B",
+        "VibeVoice-Large",
         description="Model to use (VibeVoice-1.5B, VibeVoice-Large, VibeVoice-Large-Q8, VibeVoice-Large-Q4)",
     )
 
