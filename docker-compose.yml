@@ -776,6 +776,8 @@ services:
     networks:
       - default
     volumes:
+      # Source code - mount for live development (comment out for production)
+      - ./yttools:/app
       # Downloads storage - preserves downloaded audio files
       - ./yttools/downloads:/app/downloads
       # Task storage - persists task status across restarts
