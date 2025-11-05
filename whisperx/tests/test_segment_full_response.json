@@ -1,0 +1,185 @@
+{
+  "filename": "test_audio.mp3",
+  "language": "en",
+  "segments": [
+    {
+      "start": 0.031,
+      "end": 3.381,
+      "text": " Hello, this is a test of the Whisper X transcription service.",
+      "words": [
+        {
+          "word": "Hello,",
+          "start": 0.031,
+          "end": 0.432,
+          "score": 0.894
+        },
+        {
+          "word": "this",
+          "start": 0.693,
+          "end": 0.833,
+          "score": 0.999
+        },
+        {
+          "word": "is",
+          "start": 0.894,
+          "end": 0.974,
+          "score": 0.899
+        },
+        {
+          "word": "a",
+          "start": 1.034,
+          "end": 1.054,
+          "score": 1.0
+        },
+        {
+          "word": "test",
+          "start": 1.094,
+          "end": 1.435,
+          "score": 0.883
+        },
+        {
+          "word": "of",
+          "start": 1.535,
+          "end": 1.576,
+          "score": 0.889
+        },
+        {
+          "word": "the",
+          "start": 1.616,
+          "end": 1.696,
+          "score": 0.829
+        },
+        {
+          "word": "Whisper",
+          "start": 1.756,
+          "end": 2.157,
+          "score": 0.755
+        },
+        {
+          "word": "X",
+          "start": 2.177,
+          "end": 2.278,
+          "score": 0.986
+        },
+        {
+          "word": "transcription",
+          "start": 2.358,
+          "end": 2.939,
+          "score": 0.844
+        },
+        {
+          "word": "service.",
+          "start": 2.98,
+          "end": 3.381,
+          "score": 0.912
+        }
+      ]
+    },
+    {
+      "start": 4.183,
+      "end": 11.003,
+      "text": "I am testing whether the audio transcription is working correctly with word-level timestamps and speaker diurization.",
+      "words": [
+        {
+          "word": "I",
+          "start": 4.183,
+          "end": 4.243,
+          "score": 0.88
+        },
+        {
+          "word": "am",
+          "start": 4.303,
+          "end": 4.364,
+          "score": 1.0
+        },
+        {
+          "word": "testing",
+          "start": 4.424,
+          "end": 4.825,
+          "score": 0.902
+        },
+        {
+          "word": "whether",
+          "start": 4.905,
+          "end": 5.106,
+          "score": 0.924
+        },
+        {
+          "word": "the",
+          "start": 5.126,
+          "end": 5.206,
+          "score": 0.768
+        },
+        {
+          "word": "audio",
+          "start": 5.326,
+          "end": 5.607,
+          "score": 0.973
+        },
+        {
+          "word": "transcription",
+          "start": 5.647,
+          "end": 6.249,
+          "score": 0.768
+        },
+        {
+          "word": "is",
+          "start": 6.45,
+          "end": 6.51,
+          "score": 0.642
+        },
+        {
+          "word": "working",
+          "start": 6.57,
+          "end": 6.871,
+          "score": 0.833
+        },
+        {
+          "word": "correctly",
+          "start": 6.931,
+          "end": 7.413,
+          "score": 0.798
+        },
+        {
+          "word": "with",
+          "start": 7.453,
+          "end": 7.693,
+          "score": 0.791
+        },
+        {
+          "word": "word-level",
+          "start": 7.754,
+          "end": 8.255,
+          "score": 0.745
+        },
+        {
+          "word": "timestamps",
+          "start": 8.315,
+          "end": 8.897,
+          "score": 0.816
+        },
+        {
+          "word": "and",
+          "start": 9.358,
+          "end": 9.438,
+          "score": 0.851
+        },
+        {
+          "word": "speaker",
+          "start": 9.519,
+          "end": 9.88,
+          "score": 0.833
+        },
+        {
+          "word": "diurization.",
+          "start": 9.92,
+          "end": 11.003,
+          "score": 0.878
+        }
+      ]
+    }
+  ],
+  "srt": "1\n00:00:00,031 --> 00:00:00,432\nHello,\n\n2\n00:00:00,693 --> 00:00:00,833\nthis\n\n3\n00:00:00,894 --> 00:00:00,974\nis\n\n4\n00:00:01,034 --> 00:00:01,054\na\n\n5\n00:00:01,094 --> 00:00:01,435\ntest\n\n6\n00:00:01,534 --> 00:00:01,576\nof\n\n7\n00:00:01,616 --> 00:00:01,696\nthe\n\n8\n00:00:01,756 --> 00:00:02,157\nWhisper\n\n9\n00:00:02,177 --> 00:00:02,278\nX\n\n10\n00:00:02,358 --> 00:00:02,939\ntranscription\n\n11\n00:00:02,980 --> 00:00:03,380\nservice.\n\n12\n00:00:04,182 --> 00:00:04,243\nI\n\n13\n00:00:04,302 --> 00:00:04,363\nam\n\n14\n00:00:04,424 --> 00:00:04,825\ntesting\n\n15\n00:00:04,905 --> 00:00:05,105\nwhether\n\n16\n00:00:05,126 --> 00:00:05,206\nthe\n\n17\n00:00:05,325 --> 00:00:05,607\naudio\n\n18\n00:00:05,647 --> 00:00:06,248\ntranscription\n\n19\n00:00:06,450 --> 00:00:06,509\nis\n\n20\n00:00:06,570 --> 00:00:06,871\nworking\n\n21\n00:00:06,931 --> 00:00:07,413\ncorrectly\n\n22\n00:00:07,453 --> 00:00:07,692\nwith\n\n23\n00:00:07,753 --> 00:00:08,255\nword-level\n\n24\n00:00:08,314 --> 00:00:08,897\ntimestamps\n\n25\n00:00:09,358 --> 00:00:09,438\nand\n\n26\n00:00:09,519 --> 00:00:09,880\nspeaker\n\n27\n00:00:09,919 --> 00:00:11,003\ndiurization.\n",
+  "segments_srt": "1\n00:00:00,031 --> 00:00:03,380\nHello, this is a test of the Whisper X transcription service.\n\n2\n00:00:04,182 --> 00:00:11,003\nI am testing whether the audio transcription is working correctly with word-level timestamps and speaker diurization.\n",
+  "txt": "Hello, this is a test of the Whisper X transcription service. I am testing whether the audio transcription is working correctly with word-level timestamps and speaker diurization."
+}

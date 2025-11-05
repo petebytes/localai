@@ -12,8 +12,9 @@ import whisperx
 import uvicorn
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.responses import JSONResponse
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from pathlib import Path
+from pydantic import BaseModel, Field
 import logging
 import time
 import requests
@@ -21,6 +22,149 @@ import requests
 # Import our custom modules
 from ffmpeg_processor import FFmpegProcessor
 from video_segmenter import VideoSegmenter, AudioSegment
+
+
+# Pydantic models for API documentation
+class WordTiming(BaseModel):
+    """Individual word timing information"""
+    word: str = Field(..., description="The word text")
+    start: float = Field(..., description="Start time in seconds")
+    end: float = Field(..., description="End time in seconds")
+    score: float = Field(..., description="Confidence score (0-1)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "word": "Hello,",
+                "start": 0.031,
+                "end": 0.432,
+                "score": 0.894
+            }
+        }
+
+
+class TranscriptionSegment(BaseModel):
+    """Transcription segment with optional word-level timing"""
+    start: float = Field(..., description="Segment start time in seconds")
+    end: float = Field(..., description="Segment end time in seconds")
+    text: str = Field(..., description="Transcribed text for this segment")
+    words: Optional[List[WordTiming]] = Field(None, description="Word-level timing array (available after alignment)")
+    speaker: Optional[str] = Field(None, description="Speaker label (e.g., 'SPEAKER_00') if diarization enabled")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "start": 0.031,
+                "end": 3.381,
+                "text": " Hello, this is a test.",
+                "words": [
+                    {"word": "Hello,", "start": 0.031, "end": 0.432, "score": 0.894},
+                    {"word": "this", "start": 0.693, "end": 0.833, "score": 0.999}
+                ]
+            }
+        }
+
+
+class TranscriptionResponse(BaseModel):
+    """Standard transcription response with four output formats"""
+    filename: str = Field(..., description="Original filename")
+    language: str = Field(..., description="Detected or specified language code")
+    segments: List[TranscriptionSegment] = Field(..., description="Array of transcription segments with word-level timing")
+    srt: str = Field(..., description="Pre-formatted word-level SRT subtitles (one word per entry, for karaoke/animations)")
+    segments_srt: str = Field(..., description="Pre-formatted segment-level SRT subtitles (one phrase per entry, ideal for AI analysis)")
+    txt: str = Field(..., description="Plain text transcript without timestamps")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "filename": "audio.wav",
+                "language": "en",
+                "segments": [
+                    {
+                        "start": 0.031,
+                        "end": 3.381,
+                        "text": " Hello, this is a test.",
+                        "words": [
+                            {"word": "Hello,", "start": 0.031, "end": 0.432, "score": 0.894},
+                            {"word": "this", "start": 0.693, "end": 0.833, "score": 0.999}
+                        ]
+                    }
+                ],
+                "srt": "1\n00:00:00,031 --> 00:00:00,432\nHello,\n\n2\n00:00:00,693 --> 00:00:00,833\nthis\n\n",
+                "segments_srt": "1\n00:00:00,031 --> 00:00:03,381\nHello, this is a test.\n\n",
+                "txt": "Hello, this is a test."
+            }
+        }
+
+
+class LargeTranscriptionResponse(TranscriptionResponse):
+    """Extended response for large file transcription with performance metadata"""
+    duration: float = Field(..., description="Total audio duration in seconds")
+    num_segments: int = Field(..., description="Number of transcription segments")
+    num_chunks: int = Field(..., description="Number of processing chunks used")
+    chunking_strategy: str = Field(..., description="Chunking strategy used (auto/vad/time/silence)")
+    processing_time: float = Field(..., description="Total processing time in seconds")
+    realtime_factor: float = Field(..., description="Processing speed relative to audio duration (higher is faster)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "filename": "long-video.mp4",
+                "duration": 1834.5,
+                "language": "en",
+                "num_segments": 156,
+                "num_chunks": 12,
+                "chunking_strategy": "vad",
+                "processing_time": 89.3,
+                "realtime_factor": 20.5,
+                "segments": [],
+                "srt": "1\n00:00:00,031 --> 00:00:00,432\nHello,\n\n",
+                "segments_srt": "1\n00:00:00,031 --> 00:00:05,381\nHello, this is a test.\n\n",
+                "txt": "Full transcript text..."
+            }
+        }
+
+
+class VideoInfo(BaseModel):
+    """Video file metadata"""
+    format: str = Field(..., description="Video container format")
+    duration: float = Field(..., description="Video duration in seconds")
+    size_bytes: int = Field(..., description="File size in bytes")
+    video_codec: str = Field(..., description="Video codec")
+    resolution: str = Field(..., description="Video resolution (e.g., '1920x1080')")
+    audio_codec: str = Field(..., description="Audio codec")
+
+
+class VideoTranscriptionResponse(LargeTranscriptionResponse):
+    """Video processing response with video metadata"""
+    video_info: VideoInfo = Field(..., description="Video file metadata")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "filename": "video.mp4",
+                "language": "en",
+                "duration": 120.5,
+                "num_segments": 45,
+                "num_chunks": 4,
+                "chunking_strategy": "auto",
+                "processing_time": 12.3,
+                "realtime_factor": 9.8,
+                "segments": [],
+                "srt": "...",
+                "segments_srt": "...",
+                "txt": "...",
+                "video_info": {
+                    "format": "mp4",
+                    "duration": 120.5,
+                    "size_bytes": 15728640,
+                    "video_codec": "h264",
+                    "resolution": "1920x1080",
+                    "audio_codec": "aac"
+                }
+            }
+        }
+
 
 # Configure logging
 logging.basicConfig(
@@ -63,6 +207,120 @@ TEMP_DIR = SHARED_DIR / "temp"
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
 logger.info(f"Starting WhisperX API Server on {DEVICE} with compute type {COMPUTE_TYPE}")
+
+
+def format_timestamp_srt(seconds: float) -> str:
+    """
+    Convert seconds to SRT timestamp format (HH:MM:SS,mmm).
+
+    Args:
+        seconds: Time in seconds
+
+    Returns:
+        Formatted timestamp string
+    """
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int((seconds % 1) * 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+
+def generate_srt_from_segments(segments: list) -> str:
+    """
+    Generate SRT subtitle content from transcription segments.
+
+    Creates word-level subtitles where each word appears individually
+    with precise timing.
+
+    Args:
+        segments: List of segment dictionaries with 'words' arrays
+
+    Returns:
+        SRT formatted string
+    """
+    srt_lines = []
+    counter = 1
+
+    for segment in segments:
+        words = segment.get("words", [])
+
+        for word_obj in words:
+            word_text = word_obj.get("word", "").strip()
+            start = word_obj.get("start")
+            end = word_obj.get("end")
+
+            if not word_text or start is None or end is None:
+                continue
+
+            # SRT format:
+            # Counter
+            # Start --> End
+            # Text
+            # (blank line)
+            srt_lines.append(f"{counter}")
+            srt_lines.append(f"{format_timestamp_srt(start)} --> {format_timestamp_srt(end)}")
+            srt_lines.append(word_text)
+            srt_lines.append("")  # Blank line between entries
+
+            counter += 1
+
+    return "\n".join(srt_lines)
+
+
+def generate_segment_srt(segments: list) -> str:
+    """
+    Generate SRT subtitle content from segments (not words).
+    Creates segment-level subtitles where each subtitle shows
+    the full text of a segment.
+
+    Args:
+        segments: List of segment dictionaries with 'start', 'end', and 'text' fields
+
+    Returns:
+        SRT formatted string with segment-level subtitles
+    """
+    srt_lines = []
+    counter = 1
+
+    for segment in segments:
+        text = segment.get("text", "").strip()
+        start = segment.get("start")
+        end = segment.get("end")
+
+        if not text or start is None or end is None:
+            continue
+
+        srt_lines.append(f"{counter}")
+        srt_lines.append(f"{format_timestamp_srt(start)} --> {format_timestamp_srt(end)}")
+        srt_lines.append(text)
+        srt_lines.append("")  # Blank line between entries
+
+        counter += 1
+
+    return "\n".join(srt_lines)
+
+
+def generate_txt_from_segments(segments: list) -> str:
+    """
+    Generate plain text transcript from transcription segments.
+
+    Concatenates all segment texts into a readable paragraph format.
+
+    Args:
+        segments: List of segment dictionaries with 'text' fields
+
+    Returns:
+        Plain text transcript
+    """
+    text_lines = []
+
+    for segment in segments:
+        text = segment.get("text", "").strip()
+        if text:
+            text_lines.append(text)
+
+    return " ".join(text_lines)
 
 
 def send_progress_callback(callback_url: str, job_id: str, progress: int, stage: str, message: str, segment_info: dict = None):
@@ -116,7 +374,7 @@ async def health_check():
     }
 
 
-@app.post("/transcribe")
+@app.post("/transcribe", response_model=TranscriptionResponse)
 async def transcribe(
     file: UploadFile = File(...),
     model: str = Form(default="large-v3"),
@@ -129,7 +387,16 @@ async def transcribe(
     """
     Transcribe audio file with word-level timestamps and optional speaker diarization.
 
-    Parameters:
+    **Example Request (curl):**
+    ```bash
+    curl -X POST https://whisper.lan/transcribe \\
+      -F "file=@audio.wav" \\
+      -F "model=large-v3" \\
+      -F "enable_diarization=false" \\
+      --insecure
+    ```
+
+    **Parameters:**
     - file: Audio file (mp3, wav, m4a, etc.)
     - model: Whisper model size (tiny, base, small, medium, large-v2, large-v3, large-v3-turbo)
     - language: Language code (auto-detect if None)
@@ -138,8 +405,33 @@ async def transcribe(
     - max_speakers: Maximum number of speakers (for diarization)
     - hf_token: HuggingFace token for diarization models
 
-    Returns:
-    - JSON with segments, word-level timestamps, and speaker labels
+    **Returns JSON with four ready-to-use formats:**
+    - segments: Array of segments with word-level timing (segments[].words[])
+    - srt: Pre-formatted word-level subtitles (one word per entry, for karaoke/animations)
+    - segments_srt: Pre-formatted segment-level subtitles (one phrase per entry, ideal for AI analysis)
+    - txt: Plain text transcript (no timestamps)
+
+    **Example Response:**
+    ```json
+    {
+      "filename": "audio.wav",
+      "language": "en",
+      "segments": [
+        {
+          "start": 0.031,
+          "end": 3.381,
+          "text": " Hello, this is a test.",
+          "words": [
+            {"word": "Hello,", "start": 0.031, "end": 0.432, "score": 0.894},
+            {"word": "this", "start": 0.693, "end": 0.833, "score": 0.999}
+          ]
+        }
+      ],
+      "srt": "1\\n00:00:00,031 --> 00:00:00,432\\nHello,\\n\\n2\\n...",
+      "segments_srt": "1\\n00:00:00,031 --> 00:00:03,381\\nHello, this is a test.\\n\\n",
+      "txt": "Hello, this is a test."
+    }
+    ```
     """
 
     temp_file = None
@@ -232,12 +524,33 @@ async def transcribe(
             else:
                 logger.warning("Diarization requested but no HF_TOKEN provided. Skipping diarization.")
 
+        # DEBUG: Log result structure after alignment
+        logger.info(f"Result keys after alignment: {result.keys() if isinstance(result, dict) else 'Not a dict'}")
+        if isinstance(result, dict) and "segments" in result and result["segments"]:
+            first_seg = result["segments"][0]
+            logger.info(f"First segment keys: {first_seg.keys()}")
+            if "words" in first_seg:
+                logger.info(f"✓ Words array present with {len(first_seg['words'])} words")
+                logger.info(f"Sample word: {first_seg['words'][0] if first_seg['words'] else 'Empty'}")
+            else:
+                logger.warning("✗ NO 'words' array in segment after alignment!")
+
         # Prepare response
+        # Note: word-level timestamps are in segments[].words[] after alignment
+        segments = result.get("segments", [])
+
+        # Generate SRT subtitle content and plain text
+        srt_content = generate_srt_from_segments(segments)
+        segment_srt_content = generate_segment_srt(segments)
+        txt_content = generate_txt_from_segments(segments)
+
         response = {
             "filename": file.filename,
             "language": detected_language,
-            "segments": result.get("segments", []),
-            "word_segments": result.get("word_segments", [])
+            "segments": segments,
+            "srt": srt_content,
+            "segments_srt": segment_srt_content,
+            "txt": txt_content
         }
 
         logger.info(f"Transcription completed for {file.filename}")
@@ -312,7 +625,7 @@ def transcribe_audio_segment(
         }
 
 
-@app.post("/transcribe-large")
+@app.post("/transcribe-large", response_model=LargeTranscriptionResponse)
 async def transcribe_large(
     file: UploadFile = File(...),
     model: str = Form(default="large-v3"),
@@ -329,7 +642,18 @@ async def transcribe_large(
     Uses VAD-based chunking for optimal performance (12x speedup per research).
     Automatically segments files >10 minutes for efficient processing.
 
-    Parameters:
+    **Example Request (curl):**
+    ```bash
+    curl -X POST https://whisper.lan/transcribe-large \\
+      -F "file=@long-video.mp4" \\
+      -F "model=large-v3" \\
+      -F "chunking_strategy=vad" \\
+      -F "enable_diarization=true" \\
+      -F "hf_token=hf_xxxxx" \\
+      --insecure
+    ```
+
+    **Parameters:**
     - file: Audio or video file
     - model: Whisper model (default: large-v3)
     - language: Language code (auto-detect if None)
@@ -339,8 +663,31 @@ async def transcribe_large(
     - callback_url: Optional URL to POST progress updates
     - job_id: Optional job ID for progress tracking
 
-    Returns:
-    - JSON with stitched transcription, timestamps, and speakers
+    **Returns JSON with four ready-to-use formats:**
+    - segments: Array of stitched segments with word-level timing (segments[].words[])
+    - srt: Pre-formatted word-level subtitles (one word per entry, for karaoke/animations)
+    - segments_srt: Pre-formatted segment-level subtitles (one phrase per entry, ideal for AI analysis)
+    - txt: Plain text transcript (no timestamps)
+
+    Plus metadata: duration, processing_time, realtime_factor, num_chunks, chunking_strategy
+
+    **Example Response:**
+    ```json
+    {
+      "filename": "long-video.mp4",
+      "duration": 1834.5,
+      "language": "en",
+      "num_segments": 156,
+      "num_chunks": 12,
+      "chunking_strategy": "vad",
+      "processing_time": 89.3,
+      "realtime_factor": 20.5,
+      "segments": [...],
+      "srt": "1\\n00:00:00,031 --> 00:00:00,432\\nHello,\\n\\n...",
+      "segments_srt": "1\\n00:00:00,031 --> 00:00:05,381\\nHello, this is a test.\\n\\n...",
+      "txt": "Full transcript text..."
+    }
+    ```
     """
     temp_file = None
     audio_file = None
@@ -496,6 +843,11 @@ async def transcribe_large(
         processing_time = time.time() - start_time
         realtime_factor = duration / processing_time if processing_time > 0 else 0
 
+        # Generate SRT subtitle content
+        srt_content = generate_srt_from_segments(all_segments)
+        segment_srt_content = generate_segment_srt(all_segments)
+        txt_content = generate_txt_from_segments(all_segments)
+
         response = {
             "filename": file.filename,
             "duration": duration,
@@ -505,7 +857,10 @@ async def transcribe_large(
             "chunking_strategy": chunking_strategy,
             "processing_time": processing_time,
             "realtime_factor": realtime_factor,
-            "segments": all_segments
+            "segments": all_segments,
+            "srt": srt_content,
+            "segments_srt": segment_srt_content,
+            "txt": txt_content
         }
 
         logger.info(f"Large file transcription completed in {processing_time:.1f}s ({realtime_factor:.1f}x realtime)")
@@ -526,7 +881,7 @@ async def transcribe_large(
         torch.cuda.empty_cache()
 
 
-@app.post("/process-video")
+@app.post("/process-video", response_model=VideoTranscriptionResponse)
 async def process_video(
     file: UploadFile = File(...),
     model: str = Form(default="large-v3"),
@@ -540,7 +895,16 @@ async def process_video(
 
     Optimized workflow for video transcription with speech enhancement.
 
-    Parameters:
+    **Example Request (curl):**
+    ```bash
+    curl -X POST https://whisper.lan/process-video \\
+      -F "file=@video.mp4" \\
+      -F "model=large-v3" \\
+      -F "enhance_audio=true" \\
+      --insecure
+    ```
+
+    **Parameters:**
     - file: Video file (mp4, avi, mkv, etc.)
     - model: Whisper model
     - language: Language code
@@ -548,8 +912,33 @@ async def process_video(
     - enable_diarization: Enable speaker diarization
     - hf_token: HuggingFace token
 
-    Returns:
-    - JSON with video metadata and transcription
+    **Returns JSON with four ready-to-use formats:**
+    - segments: Array of segments with word-level timing (segments[].words[])
+    - srt: Pre-formatted word-level subtitles (one word per entry, for karaoke/animations)
+    - segments_srt: Pre-formatted segment-level subtitles (one phrase per entry, ideal for AI analysis)
+    - txt: Plain text transcript (no timestamps)
+
+    Plus video metadata: format, duration, size, codecs, resolution
+
+    **Example Response:**
+    ```json
+    {
+      "filename": "video.mp4",
+      "language": "en",
+      "segments": [...],
+      "srt": "...",
+      "segments_srt": "...",
+      "txt": "...",
+      "video_info": {
+        "format": "mp4",
+        "duration": 120.5,
+        "size_bytes": 15728640,
+        "video_codec": "h264",
+        "resolution": "1920x1080",
+        "audio_codec": "aac"
+      }
+    }
+    ```
     """
     temp_video = None
     temp_audio = None

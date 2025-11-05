@@ -1,0 +1,7 @@
+{
+  "type": "comfyui_workflow_reference",
+  "title": "Official VACE guide (reference aided)",
+  "reference_url": "https://docs.comfy.org/tutorials/video/wan/vace",
+  "how_to_use_in_t2i_or_i2i": "Use a T2V workflow and set frames=1 (or extract first frame).",
+  "note": "This is a link stub to the original (official/community) ComfyUI workflow. Open the URL to download the workflow JSON. For still images, set total frames to 1 or export the first frame."
+}

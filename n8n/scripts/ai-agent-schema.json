@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "clips": {
+      "type": "array",
+      "description": "Array of 5-7 identified clip segments",
+      "minItems": 5,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "properties": {
+          "clip_number": {
+            "type": "integer",
+            "description": "Sequential clip number (1-7)"
+          },
+          "title_hook": {
+            "type": "string",
+            "description": "Suggested title hook for the Short (concise, engaging)"
+          },
+          "clip_type": {
+            "type": "string",
+            "enum": ["Aha! Moment", "Validating Statement", "Relatable Question", "Perspective Shift"],
+            "description": "Type of clip identified"
+          },
+          "timestamp_start": {
+            "type": "string",
+            "pattern": "^\\d{2}:\\d{2}:\\d{2},\\d{3}$",
+            "description": "Start timestamp in SRT format (HH:MM:SS,mmm)"
+          },
+          "timestamp_end": {
+            "type": "string",
+            "pattern": "^\\d{2}:\\d{2}:\\d{2},\\d{3}$",
+            "description": "End timestamp in SRT format (HH:MM:SS,mmm)"
+          },
+          "full_text": {
+            "type": "string",
+            "description": "Complete word-for-word transcript of the clip"
+          },
+          "directors_note": {
+            "type": "string",
+            "description": "Brief explanation of why this clip is powerful and how it bridges to long-form"
+          },
+          "text_styling": {
+            "type": "object",
+            "description": "Metadata for text overlay generation",
+            "properties": {
+              "hook_title_overlay": {
+                "type": "string",
+                "description": "Static overlay text for first 3-5 seconds (use \\n for line breaks)"
+              },
+              "power_words": {
+                "type": "array",
+                "items": {"type": "string"},
+                "minItems": 1,
+                "maxItems": 3,
+                "description": "1-3 key words to emphasize in ALL CAPS"
+              },
+              "cta_start_timestamp": {
+                "type": "string",
+                "pattern": "^\\d{2}:\\d{2}:\\d{2},\\d{3}$",
+                "description": "When CTA should appear (last 5-8 seconds)"
+              },
+              "cta_promise_text": {
+                "type": "string",
+                "description": "The call-to-action promise text"
+              },
+              "cta_verbal_cue": {
+                "type": "string",
+                "description": "What Peggy says during the CTA, verbatim"
+              }
+            },
+            "required": ["hook_title_overlay", "power_words", "cta_start_timestamp", "cta_promise_text"]
+          }
+        },
+        "required": [
+          "clip_number",
+          "title_hook",
+          "clip_type",
+          "timestamp_start",
+          "timestamp_end",
+          "full_text",
+          "directors_note",
+          "text_styling"
+        ]
+      }
+    },
+    "analysis_summary": {
+      "type": "string",
+      "description": "Brief summary of the overall video content and clip selection strategy"
+    }
+  },
+  "required": ["clips"]
+}

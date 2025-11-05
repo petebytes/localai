@@ -274,6 +274,7 @@ services:
       - ./shared:/data/shared
       - /mnt/nas:/nas
       - n8n-certs:/opt/custom-certificates:ro # Mount the prepared named volume
+      - ./n8n/scripts:/scripts:ro # Mount Python scripts for subtitle generation
     environment:
       - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
       - NODE_EXTRA_CA_CERTS=/opt/custom-certificates/local-cert.pem
@@ -527,6 +528,8 @@ services:
       - ./ovi/example_prompts:/workspace/example_prompts:ro
       # Mount config for runtime modifications
       - ./ovi/ovi/configs:/workspace/ovi/configs
+      # Mount gradio_app.py for live code updates (development mode)
+      - ./ovi/gradio_app.py:/workspace/gradio_app.py
     environment:
       # Gradio configuration
       - GRADIO_SERVER_NAME=0.0.0.0

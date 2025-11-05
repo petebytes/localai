@@ -1,0 +1,7 @@
+1
+00:00:00,031 --> 00:00:03,380
+Hello, this is a test of the Whisper X transcription service.
+
+2
+00:00:04,182 --> 00:00:11,003
+I am testing whether the audio transcription is working correctly with word-level timestamps and speaker diurization.

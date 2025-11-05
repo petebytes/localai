@@ -1,0 +1,440 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "f8d247ac-70b5-4d70-9a40-dc7517dbe090",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2960,
+        16
+      ],
+      "id": "355cb42b-4cb4-4467-a897-c94d4929ab64",
+      "name": "Video Generation Webhook",
+      "webhookId": "f8d247ac-70b5-4d70-9a40-dc7517dbe090"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate input parameters\nconst item = $input.first();\nconst body = item.json.body || item.json;\n\n// YouTube URL\nconst youtubeUrl = body.youtube_url || body.url;\nif (!youtubeUrl) {\n  throw new Error('Missing required parameter: youtube_url');\n}\n\nif (!youtubeUrl.includes('youtube.com') && !youtubeUrl.includes('youtu.be')) {\n  throw new Error('Invalid YouTube URL');\n}\n\n// Script for TTS\nconst script = body.script;\nif (!script) {\n  throw new Error('Missing required parameter: script (the 8-second script for TTS)');\n}\n\nif (script.length > 500) {\n  throw new Error('Script too long (max 500 characters)');\n}\n\n// Segment times\nconst segmentStart = body.segment_start || 40;\nconst segmentEnd = body.segment_end || 70;\n\nif (segmentEnd <= segmentStart) {\n  throw new Error('segment_end must be greater than segment_start');\n}\n\nconst duration = segmentEnd - segmentStart;\nif (duration > 60) {\n  throw new Error('Maximum segment duration is 60 seconds');\n}\n\n// TTS parameters (r5_p3 optimal defaults from video5 optimization)\nconst cfgScale = body.cfg_scale || 1.5;\nconst diffusionSteps = body.diffusion_steps || 30;\nconst temperature = body.temperature || 0.75;\nconst topP = body.top_p || 0.85;\nconst useSampling = body.use_sampling !== undefined ? body.use_sampling : true;\n\nreturn [{\n  json: {\n    youtube_url: youtubeUrl,\n    script: script,\n    segment_start: segmentStart,\n    segment_end: segmentEnd,\n    duration: duration,\n    format: 'mp3',\n    cfg_scale: cfgScale,\n    diffusion_steps: diffusionSteps,\n    temperature: temperature,\n    top_p: topP,\n    use_sampling: useSampling\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2768,
+        16
+      ],
+      "id": "5ae31da0-cbfc-4a27-ac87-fff9291b4250",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://yttools:8456/api/download",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  \"url\": $json.youtube_url,\n  \"start_time\": $json.segment_start,\n  \"end_time\": $json.segment_end,\n  \"audio_format\": \"mp3\",\n  \"enable_whisper\": false\n}) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2560,
+        16
+      ],
+      "id": "9fb353de-afa6-4966-9958-43ee9877d626",
+      "name": "Submit to yttools"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract task_id from yttools response\nconst item = $input.first();\nconst response = item.json;\n\nif (!response.task_id) {\n  throw new Error('yttools did not return task_id: ' + JSON.stringify(response));\n}\n\nreturn [{\n  json: {\n    task_id: response.task_id,\n    youtube_url: $('Validate Input').item.json.youtube_url,\n    script: $('Validate Input').item.json.script,\n    segment_start: $('Validate Input').item.json.segment_start,\n    segment_end: $('Validate Input').item.json.segment_end,\n    poll_count: 0,\n    max_polls: 60\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2368,
+        16
+      ],
+      "id": "5ed102a0-492b-47f7-a71a-67288445f062",
+      "name": "Extract Task ID"
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2160,
+        16
+      ],
+      "id": "d7835e6c-1922-4731-a439-06f477bdfcb7",
+      "name": "Wait 3s",
+      "webhookId": "e9b41abe-17c0-4654-b936-3d19005a49f8"
+    },
+    {
+      "parameters": {
+        "url": "=http://yttools:8456/api/status/{{ $json.task_id }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1968,
+        16
+      ],
+      "id": "02fcc538-cf0d-4af2-b01f-8e74d98593dc",
+      "name": "Check Status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if task is complete\nconst item = $input.first();\nconst status = item.json;\n\nconst taskId = $('Extract Task ID').item.json.task_id;\nconst pollCount = ($('Extract Task ID').item.json.poll_count || 0) + 1;\nconst maxPolls = $('Extract Task ID').item.json.max_polls || 60;\n\nif (pollCount >= maxPolls) {\n  throw new Error(`Task timeout after ${maxPolls} attempts`);\n}\n\nif (status.status === 'completed') {\n  return [{\n    json: {\n      task_id: taskId,\n      status: 'completed',\n      ready_to_download: true,\n      youtube_url: $('Validate Input').item.json.youtube_url,\n      script: $('Validate Input').item.json.script,\n      segment_start: $('Validate Input').item.json.segment_start,\n      segment_end: $('Validate Input').item.json.segment_end\n    }\n  }];\n} else if (status.status === 'failed') {\n  throw new Error(`yttools task failed: ${status.error || 'Unknown error'}`);\n} else {\n  return [{\n    json: {\n      task_id: taskId,\n      status: status.status,\n      progress: status.progress || 0,\n      poll_count: pollCount,\n      max_polls: maxPolls,\n      ready_to_download: false\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1760,
+        16
+      ],
+      "id": "f3d5e9e3-6d16-4ae4-acd2-118fca65fa86",
+      "name": "Check Completion"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-complete",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1568,
+        16
+      ],
+      "id": "80000697-2b71-4ca9-9a25-7361d7aa6886",
+      "name": "Is Complete?"
+    },
+    {
+      "parameters": {
+        "url": "=http://yttools:8456/api/download/{{ $json.task_id }}/audio",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1360,
+        -96
+      ],
+      "id": "6141d97f-8c90-49b5-9230-22d1357a2e0e",
+      "name": "Download Reference Audio"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare data for Step 2 (TTS)\nconst item = $input.first();\nconst taskId = $json.task_id;\nconst script = $json.script;\nconst binary = item.binary;\n\nif (!binary || Object.keys(binary).length === 0) {\n  throw new Error('No audio data received from yttools');\n}\n\n// Get the binary key\nconst binaryKey = Object.keys(binary)[0];\nconst audioData = binary[binaryKey];\n\nreturn [{\n  json: {\n    step1_task_id: taskId,\n    script: script,\n    youtube_url: $json.youtube_url,\n    segment_start: $json.segment_start,\n    segment_end: $json.segment_end\n  },\n  binary: {\n    reference_audio: audioData\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        -96
+      ],
+      "id": "73658eb3-fdb8-4995-8bd7-5289caad3c40",
+      "name": "Prepare for Voice Cloning"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://vibevoice-api:8100/api/tts",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.script }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "voice_audio",
+              "inputDataFieldName": "reference_audio"
+            },
+            {
+              "name": "model",
+              "value": "VibeVoice-Large"
+            },
+            {
+              "name": "cfg_scale",
+              "value": "={{ $json.cfg_scale || '1.5' }}"
+            },
+            {
+              "name": "diffusion_steps",
+              "value": "={{ $json.diffusion_steps || '30' }}"
+            },
+            {
+              "name": "use_sampling",
+              "value": "={{ $json.use_sampling || 'true' }}"
+            },
+            {
+              "name": "temperature",
+              "value": "={{ $json.temperature || '0.75' }}"
+            },
+            {
+              "name": "top_p",
+              "value": "={{ $json.top_p || '0.85' }}"
+            },
+            {
+              "name": "output_format",
+              "value": "mp3"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -960,
+        -96
+      ],
+      "id": "65efb0d7-1979-4964-b208-110483940a3e",
+      "name": "Voice Clone & TTS"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare final response for Steps 1 + 2\nconst item = $input.first();\n\n// Get TTS response from VibeVoice API\nconst ttsResponse = $json;\nconst audioBase64 = ttsResponse.audio_base64;\n\nif (!audioBase64) {\n  throw new Error('No audio data received from VibeVoice API');\n}\n\n// Convert base64 to binary buffer\nconst audioBuffer = Buffer.from(audioBase64, 'base64');\n\nconst step1TaskId = $('Prepare for Voice Cloning').item.json.step1_task_id;\nconst script = $('Prepare for Voice Cloning').item.json.script;\nconst timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);\nconst ttsFileName = `cloned_voice_${timestamp}.mp3`;\n\n// Use prepareBinaryData to create proper n8n binary structure\nconst binaryData = await this.helpers.prepareBinaryData(audioBuffer, ttsFileName);\n\nreturn [{\n  json: {\n    success: true,\n    message: 'Steps 1-2 completed: Audio extracted and voice cloned',\n    step1: {\n      task_id: step1TaskId,\n      youtube_url: $('Prepare for Voice Cloning').item.json.youtube_url,\n      segment_start: $('Prepare for Voice Cloning').item.json.segment_start,\n      segment_end: $('Prepare for Voice Cloning').item.json.segment_end\n    },\n    step2: {\n      script: script,\n      tts_file_name: ttsFileName,\n      model: ttsResponse.model_used || 'VibeVoice',\n      output_format: ttsResponse.format || 'mp3',\n      duration_seconds: ttsResponse.duration_seconds\n    },\n    completion_time: new Date().toISOString()\n  },\n  binary: {\n    data: binaryData\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -768,
+        -96
+      ],
+      "id": "28fafea9-d50f-4301-9f60-dc16224af5c0",
+      "name": "Prepare Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "responseDataSource": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -560,
+        -96
+      ],
+      "id": "67e3531e-9b37-484b-bf2d-4b299e28da5c",
+      "name": "Respond Success"
+    }
+  ],
+  "connections": {
+    "Video Generation Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Submit to yttools",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit to yttools": {
+      "main": [
+        [
+          {
+            "node": "Extract Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Task ID": {
+      "main": [
+        [
+          {
+            "node": "Wait 3s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 3s": {
+      "main": [
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Status": {
+      "main": [
+        [
+          {
+            "node": "Check Completion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Completion": {
+      "main": [
+        [
+          {
+            "node": "Is Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Complete?": {
+      "main": [
+        [
+          {
+            "node": "Download Reference Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 3s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Reference Audio": {
+      "main": [
+        [
+          {
+            "node": "Prepare for Voice Cloning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare for Voice Cloning": {
+      "main": [
+        [
+          {
+            "node": "Voice Clone & TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voice Clone & TTS": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Video Generation Webhook": [
+      {
+        "headers": {
+          "host": "n8n.lan",
+          "x-real-ip": "172.18.0.1",
+          "x-forwarded-for": "172.18.0.1",
+          "x-forwarded-proto": "https",
+          "connection": "close",
+          "content-length": "345",
+          "user-agent": "curl/8.5.0",
+          "accept": "*/*",
+          "content-type": "application/json"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "youtube_url": "https://www.youtube.com/watch?v=ojIIaobmOEU",
+          "script": "This is a test of voice cloning quality using different reference audio samples from Peggy Oliveira videos.",
+          "segment_start": 360,
+          "segment_end": 405,
+          "cfg_scale": 2,
+          "diffusion_steps": 30,
+          "temperature": 0.85,
+          "top_p": 0.95,
+          "use_sampling": false
+        },
+        "webhookUrl": "https://n8n.lan/webhook/generate-video-step1-2",
+        "executionMode": "production"
+      }
+    ]
+  },
+  "meta": {
+    "instanceId": "99ff97a0c56026a2c1b3a849547491eb857e68a0b770f2b7c6688eea83f57eda"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "type": "comfyui_workflow_reference",
+  "title": "ComfyUI-Wiki: Wan2.1 ComfyUI Workflow \u2013 Complete Guide",
+  "reference_url": "https://comfyui-wiki.com/en/tutorial/advanced/video/wan2.1/wan2-1-video-model",
+  "how_to_use_in_t2i_or_i2i": "Use I2V/VACE/Fun/FLF2V workflows; supply a source image; set frames=1 for a single image.",
+  "note": "This is a link stub to the original (official/community) ComfyUI workflow. Open the URL to download the workflow JSON. For still images, set total frames to 1 or export the first frame."
+}
