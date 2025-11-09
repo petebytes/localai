@@ -3,19 +3,19 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "ca6bda83-afc4-4845-9b0f-834adfbe7b95",
+        "path": "shorts",
         "responseMode": "responseNode",
         "options": {}
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -4800,
-        672
+        -1840,
+        -432
       ],
-      "id": "98700041-8345-4f05-bd55-90ee9206e18d",
+      "id": "2d0f32c8-1486-42b9-acf4-838d3d993b21",
       "name": "YouTube Download Webhook",
-      "webhookId": "ca6bda83-afc4-4845-9b0f-834adfbe7b95"
+      "webhookId": "shorts"
     },
     {
       "parameters": {
@@ -24,10 +24,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -4608,
-        672
+        -1648,
+        -432
       ],
-      "id": "0a5e6525-326e-4880-a842-deacf382aa7b",
+      "id": "a156cfe8-f797-41b8-a102-8d3bb1d68129",
       "name": "Validate Input"
     },
     {
@@ -44,10 +44,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -4400,
-        672
+        -1440,
+        -432
       ],
-      "id": "6f5f3a9d-3fe5-41b0-a5f8-c7f1307689c6",
+      "id": "15404d98-0aaf-46c8-9457-562a08cbaebb",
       "name": "Submit to yttools"
     },
     {
@@ -57,11 +57,78 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -4192,
-        672
+        -1232,
+        -432
       ],
-      "id": "f21e6630-871d-440b-883a-e5a578bebcf2",
+      "id": "2725f9cc-125d-4628-9a82-21cfa52e73d7",
       "name": "Extract Task ID"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format immediate response with task_id\nconst item = $input.first();\n\nreturn [{\n  json: {\n    status: 'processing',\n    task_id: item.json.task_id,\n    message: 'Processing started. Poll the status endpoint for updates.',\n    poll_url: `https://yttools.lan/api/status/${item.json.task_id}`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1024,
+        -816
+      ],
+      "id": "939a2ff2-13bf-4734-af32-8aa1c24bb519",
+      "name": "Format Immediate Response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://yttools:8456/api/status/{{ $('Extract Task ID').item.json.task_id }}/update",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { stage: 'extracting', progress: 60, message: 'Extracting clips...' } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        32,
+        -208
+      ],
+      "id": "3e473644-7e87-435e-81e1-7e89f722c7fe",
+      "name": "Progress: Extracting Clips"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://yttools:8456/api/status/{{ $('Extract Task ID').item.json.task_id }}/update",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { stage: 'subtitling', progress: 90, message: 'Adding subtitles...' } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1616,
+        48
+      ],
+      "id": "a9acdb12-3c65-431a-8797-575774e298ee",
+      "name": "Progress: Adding Subtitles"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://yttools:8456/api/status/{{ $('Extract Task ID').item.json.task_id }}/update",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { stage: 'completed', progress: 100, message: 'Processing complete!', clips_result: $json } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1024,
+        288
+      ],
+      "id": "8a17e2fb-7557-4f4c-b5a3-6eb895135f35",
+      "name": "Progress: Completed"
     },
     {
       "parameters": {
@@ -70,10 +137,10 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -4784,
-        912
+        -1824,
+        -192
       ],
-      "id": "c630a383-d579-43e3-bd66-ebfb415c6eab",
+      "id": "7f3054e1-fb09-4c09-bdd2-126386fa7699",
       "name": "Wait 3s",
       "webhookId": "1b598c88-392d-4286-a898-ead60fde558d"
     },
@@ -87,10 +154,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -4592,
-        912
+        -1632,
+        -192
       ],
-      "id": "95797d53-0503-4796-922f-bb820bd5e957",
+      "id": "2a651fcb-1557-49a4-bffa-51576dbbffed",
       "name": "Check Status"
     },
     {
@@ -100,10 +167,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -4384,
-        912
+        -1424,
+        -192
       ],
-      "id": "a7fd01ad-4dda-485e-b234-b4bf5ab4facb",
+      "id": "1ef3cfa9-02cf-4474-8cfd-e02910c268d8",
       "name": "Check Completion"
     },
     {
@@ -132,10 +199,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -4192,
-        912
+        -1232,
+        -192
       ],
-      "id": "69227832-80cc-4606-90d8-60301034e055",
+      "id": "b4f6e9ca-0cf0-4dfd-8a07-719614ace862",
       "name": "Is Complete?"
     },
     {
@@ -153,10 +220,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -3648,
-        1440
+        -688,
+        336
       ],
-      "id": "7a962352-f168-4223-ab70-581a03fdf266",
+      "id": "35bd0e5e-4058-48cb-b3cd-b2cdcd9d92f6",
       "name": "Download Audio"
     },
     {
@@ -174,10 +241,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -3648,
-        1248
+        -688,
+        144
       ],
-      "id": "3cd641b4-1ccf-4e88-a130-1e6e25f85629",
+      "id": "4beb6f1b-1c70-46fc-89f7-6de1cb06ddfb",
       "name": "Download Video"
     },
     {
@@ -188,10 +255,10 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        -3648,
-        896
+        -800,
+        -240
       ],
-      "id": "21555c2d-d934-4f42-893f-3da3af72e6fe",
+      "id": "c1d6adfa-1aa4-4dbb-a860-59dd55fc16ed",
       "name": "Extract SRT Content"
     },
     {
@@ -201,10 +268,10 @@
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1,
       "position": [
-        -3280,
-        1072
+        -464,
+        -48
       ],
-      "id": "43735f8c-3663-4523-a127-738e52682ebc",
+      "id": "69977c4f-0202-48de-8849-be3001763b91",
       "name": "Stage 1: Output Parser"
     },
     {
@@ -217,10 +284,10 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3,
       "position": [
-        -3472,
-        896
+        -656,
+        -224
       ],
-      "id": "53677ae0-b0d4-466d-9915-8c20964eaade",
+      "id": "68992cb9-b972-4a44-98b5-90776223ec78",
       "name": "Stage 1: Clip Identification"
     },
     {
@@ -250,10 +317,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -3184,
-        896
+        -368,
+        -224
       ],
-      "id": "443c036a-4e49-45cc-9004-43ccf93e1518",
+      "id": "eacd6e7c-b027-4e39-b62a-428d7671e773",
       "name": "Check If Clips Found"
     },
     {
@@ -263,10 +330,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2928,
-        880
+        -160,
+        -240
       ],
-      "id": "b92eb390-7ba7-4311-8e25-e95036290498",
+      "id": "c2f163cb-1202-4af5-a466-93248f180fba",
       "name": "Parse AI Clips"
     },
     {
@@ -277,10 +344,10 @@
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
       "position": [
-        -3040,
-        1168
+        -80,
+        64
       ],
-      "id": "ed0e97b1-e970-40d1-817b-a4529fe34a39",
+      "id": "84a12920-7765-49d0-a43c-314181d739c1",
       "name": "Write Video to Temp"
     },
     {
@@ -291,10 +358,10 @@
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
       "position": [
-        -3184,
-        720
+        -224,
+        -384
       ],
-      "id": "fbe79e51-572f-44e5-aebe-f5bbfb5f70fa",
+      "id": "cb2c5265-5cde-4fc8-9aa4-0d414ea9842a",
       "name": "Write SRT to Temp"
     },
     {
@@ -307,10 +374,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -2640,
-        832
+        320,
+        -272
       ],
-      "id": "1683c7f2-339c-4d0e-b76f-7e4bfec4c5eb",
+      "id": "0c2924ff-7214-4ab5-9393-9a717cd74c2b",
       "name": "Merge Temp File Results"
     },
     {
@@ -320,24 +387,23 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2784,
-        1168
+        176,
+        64
       ],
-      "id": "a579d491-1f08-461a-a490-e8eae57a1f90",
+      "id": "14f672ed-49f0-4abb-9f41-0d75d2dda4e7",
       "name": "Format No Clips Response"
     },
     {
       "parameters": {
-        "respondWith": "allIncomingItems",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        -2160,
-        1424
+        -560,
+        -816
       ],
-      "id": "5e156394-8ca2-45a6-9365-3442beeaa9e5",
+      "id": "e3f11508-f751-401b-9f0b-fb1461cee6d5",
       "name": "Respond to Webhook1"
     },
     {
@@ -353,10 +419,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.3,
       "position": [
-        -3504,
-        1072
+        -688,
+        -48
       ],
-      "id": "c1390eff-314b-4a08-b90e-7e8130f24516",
+      "id": "c30bb16a-ced2-4ef1-b59a-ab390e077c3b",
       "name": "Anthropic Chat Model",
       "credentials": {
         "anthropicApi": {
@@ -373,10 +439,10 @@
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
       "position": [
-        -3184,
-        528
+        -224,
+        -576
       ],
-      "id": "2aad7765-d557-4c5d-b1d2-472a07059b9e",
+      "id": "ff66d487-f8b8-42d3-b43e-72816a29866a",
       "name": "Write WhisperX JSON to Temp"
     },
     {
@@ -386,10 +452,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3392,
-        528
+        -432,
+        -576
       ],
-      "id": "3c0ccd80-c6df-4ef2-9a2e-34629cc4d549",
+      "id": "a74780f0-c4b8-4077-a8cb-282c97c10db8",
       "name": "Parse WhisperX JSON"
     },
     {
@@ -400,10 +466,10 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        -3648,
-        528
+        -688,
+        -576
       ],
-      "id": "9df67afe-038a-4fd5-91f1-b7fdd396415c",
+      "id": "be2ab300-32be-450f-a3b0-a96f98201f1b",
       "name": "Extract WhisperX JSON Content"
     },
     {
@@ -421,10 +487,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -3856,
-        528
+        -896,
+        -576
       ],
-      "id": "c678e715-bbd4-4f8b-8dd5-a653e9e90aca",
+      "id": "56c8409f-1d71-499a-928a-34cec7b3b8f6",
       "name": "Download WhisperX JSON"
     },
     {
@@ -442,10 +508,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -3856,
-        720
+        -944,
+        -384
       ],
-      "id": "3c6a612e-425f-4d7e-9840-68a1cd085076",
+      "id": "7c3ab508-a63c-4c3e-87d3-e18c8983c2b6",
       "name": "Download Segment SRT"
     },
     {
@@ -455,10 +521,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2432,
-        864
+        528,
+        -240
       ],
-      "id": "95a5a141-0201-4c38-8d91-699b57a8625d",
+      "id": "c96218e3-f8d4-4441-9809-c28d1ac29584",
       "name": "Extract Clips Data"
     },
     {
@@ -468,10 +534,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2160,
-        464
+        800,
+        -640
       ],
-      "id": "272d9591-ab07-4017-8409-f7e0f4553a4b",
+      "id": "a587e8fd-b0c3-4d7d-b404-a8adc3fe58b5",
       "name": "Add Temp Paths to Data"
     },
     {
@@ -481,10 +547,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1536,
-        464
+        1424,
+        -640
       ],
-      "id": "571ae0c8-b789-4dd0-b460-d33c7ed8a0a5",
+      "id": "b62273a5-40c9-4441-b357-2b511000333d",
       "name": "Wait for Directory Creation"
     },
     {
@@ -496,10 +562,10 @@
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [
-        -2160,
-        688
+        800,
+        -416
       ],
-      "id": "ef68c9fb-5186-46a9-a49a-8e1d33d2eeb1",
+      "id": "a010ff79-ba31-4080-8498-b6b84093c31f",
       "name": "Split Out Clips"
     },
     {
@@ -509,10 +575,10 @@
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        -1952,
-        464
+        1008,
+        -640
       ],
-      "id": "e4fbfca9-d7df-488a-a85a-d340f300dad0",
+      "id": "b72c108c-0753-40b5-a4df-019c680496b0",
       "name": "Create Output Directory"
     },
     {
@@ -522,10 +588,10 @@
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        -1744,
-        464
+        1216,
+        -640
       ],
-      "id": "f513d965-9aa2-489f-a194-d812e3996604",
+      "id": "1a81eeb8-2d53-4a90-b451-7f9aba4e1acf",
       "name": "Create Scratch Directory"
     },
     {
@@ -535,10 +601,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1952,
-        688
+        1008,
+        -416
       ],
-      "id": "c72a5c8c-cfd9-4166-b063-642f2915a8b7",
+      "id": "55e32c8b-e136-4ba2-9c93-7df972043bf2",
       "name": "Prepare ffmpeg Command"
     },
     {
@@ -548,10 +614,10 @@
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        -1744,
-        688
+        1216,
+        -416
       ],
-      "id": "72a5a762-b12b-43e0-94ea-e314563a31e3",
+      "id": "2f5f856f-ea13-49cd-9cd0-18326ccf1e4b",
       "name": "Extract Video Clip"
     },
     {
@@ -561,10 +627,10 @@
       "type": "n8n-nodes-base.readBinaryFile",
       "typeVersion": 1,
       "position": [
-        -1536,
-        688
+        1424,
+        -416
       ],
-      "id": "4ce1645d-f486-4495-b4dd-80f8ff249aee",
+      "id": "c0d01164-bc75-4038-ab88-74c3b151bf7f",
       "name": "Read Clip Video File"
     },
     {
@@ -598,10 +664,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2160,
-        912
+        800,
+        -192
       ],
-      "id": "8e51c4f0-30bd-4e6c-8bbf-c17a68b25f2d",
+      "id": "a63d454d-a3f6-49c8-8c86-c86d83ec2195",
       "name": "Transcribe Short Video with WhisperX"
     },
     {
@@ -611,10 +677,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1952,
-        912
+        1008,
+        -192
       ],
-      "id": "8eb9a19b-8b1d-4fea-b991-10dec1219657",
+      "id": "6fce88c9-4082-4f2b-8a31-763227dd12f3",
       "name": "Parse WhisperX Clip Response"
     },
     {
@@ -624,10 +690,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1744,
-        912
+        1216,
+        -192
       ],
-      "id": "9f76c343-0101-44d7-b4ed-0b8c23763798",
+      "id": "a308238f-de53-4dfe-9e60-a3f7e7e3d4f5",
       "name": "Generate Sentence-Aware ASS Subtitles"
     },
     {
@@ -638,10 +704,10 @@
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
       "position": [
-        -1536,
-        912
+        1424,
+        -192
       ],
-      "id": "2a9f332f-e9be-4aa3-bb37-353bec81a0eb",
+      "id": "f5e62c39-22b0-40f0-912a-bf33cb550074",
       "name": "Write ASS File to Scratch"
     },
     {
@@ -651,10 +717,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2160,
-        1152
+        800,
+        48
       ],
-      "id": "a39f8788-a745-4d8b-a9e7-de0cd83586db",
+      "id": "d1c07691-81f5-4da2-b33d-00dfcd9bda51",
       "name": "Build Final ffmpeg Command"
     },
     {
@@ -664,10 +730,10 @@
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        -1952,
-        1152
+        1008,
+        48
       ],
-      "id": "be5e642e-eaa5-42d8-84a8-a72fbae52ea6",
+      "id": "0f37848f-bad7-4800-9082-dd21e864f0da",
       "name": "Apply Subtitles to Video"
     },
     {
@@ -677,10 +743,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1744,
-        1152
+        1216,
+        48
       ],
-      "id": "01957f75-fca0-4ff9-8aa6-2ac4aa8d94fb",
+      "id": "23afbfc6-920a-46cb-ae2a-134aaaaf3372",
       "name": "Verify Clip Created"
     },
     {
@@ -690,10 +756,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1536,
-        1152
+        1424,
+        48
       ],
-      "id": "81c1d3ee-d3c1-4116-a435-8ec2a8231256",
+      "id": "c61e1f27-3b8d-4f77-a25a-b40efe9195ff",
       "name": "Aggregate Clip Results"
     },
     {
@@ -703,10 +769,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1328,
-        1152
+        800,
+        256
       ],
-      "id": "99e3bed4-c05b-471f-85c0-7e9bcb723f91",
+      "id": "33a13972-8928-4a24-ba86-e4982ce6f434",
       "name": "Format Success Response"
     }
   ],
@@ -748,7 +814,45 @@
       "main": [
         [
           {
+            "node": "Format Immediate Response",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "Wait 3s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Immediate Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Progress: Extracting Clips": {
+      "main": [
+        [
+          {
+            "node": "Merge Temp File Results",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Progress: Adding Subtitles": {
+      "main": [
+        [
+          {
+            "node": "Format Success Response",
             "type": "main",
             "index": 0
           }
@@ -821,25 +925,9 @@
         ]
       ]
     },
-    "Download Audio": {
-      "main": [
-        [
-          {
-            "node": "Respond to Webhook1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Download Video": {
       "main": [
         [
-          {
-            "node": "Respond to Webhook1",
-            "type": "main",
-            "index": 0
-          },
           {
             "node": "Write Video to Temp",
             "type": "main",
@@ -903,9 +991,9 @@
       "main": [
         [
           {
-            "node": "Merge Temp File Results",
+            "node": "Progress: Extracting Clips",
             "type": "main",
-            "index": 2
+            "index": 0
           }
         ]
       ]
@@ -937,17 +1025,6 @@
         [
           {
             "node": "Extract Clips Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Format No Clips Response": {
-      "main": [
-        [
-          {
-            "node": "Respond to Webhook1",
             "type": "main",
             "index": 0
           }
@@ -1205,7 +1282,7 @@
       "main": [
         [
           {
-            "node": "Format Success Response",
+            "node": "Progress: Adding Subtitles",
             "type": "main",
             "index": 0
           }
@@ -1216,7 +1293,7 @@
       "main": [
         [
           {
-            "node": "Respond to Webhook1",
+            "node": "Progress: Completed",
             "type": "main",
             "index": 0
           }

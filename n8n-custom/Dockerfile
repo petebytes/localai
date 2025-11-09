@@ -2,7 +2,8 @@
 # Based on official n8n image with added multimedia tools
 
 # Use official n8n image as base
-FROM n8nio/n8n:latest
+# Specifying :latest explicitly for clarity and version tracking
+FROM docker.n8n.io/n8nio/n8n:latest
 
 # Switch to root to install packages
 USER root

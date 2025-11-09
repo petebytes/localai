@@ -121,7 +121,7 @@ Check that:
 You can test with different YouTube URLs and segments:
 
 ```bash
-YOUTUBE_URL="https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+YOUTUBE_URL="https://www.youtube.com/watch?v=ao8f3qyMoLM" \
 SEGMENT_START=10 \
 SEGMENT_END=40 \
 ./test-step1-audio-extraction.sh

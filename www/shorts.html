@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Shorts Generator</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.294.0"></script>
+
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .animate-spin-slow {
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .toast-enter {
+            animation: slideInRight 200ms ease-out;
+        }
+
+        .toast-exit {
+            animation: slideOutRight 200ms ease-in;
+        }
+
+        *:focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #475569 #1e293b;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        .upload-progress {
+            transition: width 300ms ease-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen font-sans antialiased">
+    <!-- Fixed Header -->
+    <header class="fixed top-0 left-0 right-0 bg-slate-900 border-b border-slate-700 z-50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="/" class="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg px-2 py-1" aria-label="Back to dashboard">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                    <span class="hidden sm:inline text-sm font-medium">Back</span>
+                </a>
+                <div class="w-px h-6 bg-slate-700"></div>
+                <div class="flex items-center gap-2">
+                    <i data-lucide="scissors" class="w-5 h-5 text-purple-500"></i>
+                    <h1 class="text-lg sm:text-xl font-semibold text-slate-100">YouTube Shorts Generator</h1>
+                </div>
+            </div>
+            <button id="helpToggle" class="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg px-3 py-2" aria-label="Toggle help section" aria-expanded="false">
+                <i data-lucide="help-circle" class="w-5 h-5"></i>
+                <span class="hidden sm:inline text-sm font-medium">Help</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 py-24">
+        <!-- Help Section -->
+        <section id="helpSection" class="mb-6 hidden" role="region" aria-label="Help and instructions">
+            <div class="bg-slate-900 border border-slate-700 rounded-lg p-6 shadow-xl">
+                <div class="flex items-start gap-3 mb-4">
+                    <i data-lucide="info" class="w-5 h-5 text-blue-500 mt-0.5"></i>
+                    <div class="flex-1">
+                        <h2 class="text-lg font-semibold text-slate-100 mb-2">How to Use</h2>
+                        <div class="space-y-3 text-sm text-slate-400">
+                            <p>This tool automatically creates YouTube Shorts from long-form videos using AI:</p>
+                            <ol class="list-decimal list-inside space-y-2 ml-2">
+                                <li><strong class="text-blue-400">Input:</strong> Paste a YouTube URL or upload a video file</li>
+                                <li><strong class="text-emerald-400">Process:</strong> AI analyzes the video and identifies 5-7 high-impact clips</li>
+                                <li><strong class="text-purple-400">Download:</strong> Get professionally formatted shorts with subtitles</li>
+                            </ol>
+                            <div class="mt-4 p-3 bg-slate-800 rounded-lg border border-slate-700">
+                                <p class="font-medium text-slate-300 mb-1">Features:</p>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li>AI-powered clip selection for maximum engagement</li>
+                                    <li>Automatic 9:16 vertical format cropping</li>
+                                    <li>Sentence-aware animated subtitles</li>
+                                    <li>Hook titles and call-to-action overlays</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Card -->
+        <div class="bg-slate-900 rounded-xl shadow-2xl border border-slate-700 overflow-hidden">
+            <div class="p-6 sm:p-8">
+                <!-- Input Section -->
+                <div class="mb-8 pb-8 border-b border-slate-700">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-white font-bold text-sm">
+                            1
+                        </div>
+                        <h2 class="text-lg font-semibold text-slate-100">Video Input</h2>
+                    </div>
+
+                    <!-- YouTube URL Input -->
+                    <div class="mb-6 ml-11">
+                        <label for="youtubeUrl" class="block text-sm font-medium text-slate-300 mb-2">
+                            YouTube URL
+                        </label>
+                        <div class="flex gap-2">
+                            <input
+                                type="url"
+                                id="youtubeUrl"
+                                placeholder="https://www.youtube.com/watch?v=..."
+                                class="flex-1 bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                            />
+                            <button id="processUrlBtn" class="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                <i data-lucide="play-circle" class="w-5 h-5"></i>
+                                <span>Process</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Optional: Segment Times -->
+                    <div class="ml-11 mb-4">
+                        <label class="flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
+                            <input type="checkbox" id="useSegmentTimes" class="rounded bg-slate-800 border-slate-600 text-purple-600 focus:ring-purple-500">
+                            <span>Specify segment times (optional)</span>
+                        </label>
+                    </div>
+
+                    <div id="segmentTimesInputs" class="ml-11 hidden">
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label for="segmentStart" class="block text-xs font-medium text-slate-400 mb-1">
+                                    Start Time (seconds)
+                                </label>
+                                <input
+                                    type="number"
+                                    id="segmentStart"
+                                    placeholder="0"
+                                    min="0"
+                                    class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                />
+                            </div>
+                            <div>
+                                <label for="segmentEnd" class="block text-xs font-medium text-slate-400 mb-1">
+                                    End Time (seconds)
+                                </label>
+                                <input
+                                    type="number"
+                                    id="segmentEnd"
+                                    placeholder="300"
+                                    min="0"
+                                    class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ml-11 text-center text-slate-500 text-sm">
+                        — or —
+                    </div>
+
+                    <!-- Video File Upload (Future) -->
+                    <div class="ml-11 mt-4 p-6 bg-slate-800 border border-slate-700 rounded-lg text-center">
+                        <i data-lucide="upload" class="w-8 h-8 text-slate-500 mx-auto mb-2"></i>
+                        <p class="text-sm text-slate-400">Video file upload coming soon</p>
+                    </div>
+                </div>
+
+                <!-- Progress Section -->
+                <div id="progressContainer" class="mb-8 pb-8 border-b border-slate-700 hidden">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm">
+                            2
+                        </div>
+                        <h2 class="text-lg font-semibold text-slate-100">Processing</h2>
+                    </div>
+
+                    <div class="ml-11 p-6 bg-slate-800 rounded-lg border border-slate-700">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="activity" class="w-5 h-5 text-blue-500"></i>
+                                <strong class="text-slate-200 text-sm sm:text-base">Processing Video</strong>
+                            </div>
+                        </div>
+
+                        <!-- Progress Stages -->
+                        <div id="progressStages" class="space-y-3">
+                            <div class="progress-stage" data-stage="downloading">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="download" class="w-4 h-4 text-slate-500"></i>
+                                    <span class="text-sm text-slate-400">Downloading video</span>
+                                    <i class="stage-spinner hidden" data-lucide="loader-2"></i>
+                                    <i class="stage-check hidden" data-lucide="check" style="color: #10b981;"></i>
+                                </div>
+                            </div>
+                            <div class="progress-stage" data-stage="transcribing">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="mic" class="w-4 h-4 text-slate-500"></i>
+                                    <span class="text-sm text-slate-400">Transcribing audio</span>
+                                    <i class="stage-spinner hidden" data-lucide="loader-2"></i>
+                                    <i class="stage-check hidden" data-lucide="check" style="color: #10b981;"></i>
+                                </div>
+                            </div>
+                            <div class="progress-stage" data-stage="analyzing">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="brain" class="w-4 h-4 text-slate-500"></i>
+                                    <span class="text-sm text-slate-400">AI analyzing content</span>
+                                    <i class="stage-spinner hidden" data-lucide="loader-2"></i>
+                                    <i class="stage-check hidden" data-lucide="check" style="color: #10b981;"></i>
+                                </div>
+                            </div>
+                            <div class="progress-stage" data-stage="extracting">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="scissors" class="w-4 h-4 text-slate-500"></i>
+                                    <span class="text-sm text-slate-400">Extracting clips</span>
+                                    <i class="stage-spinner hidden" data-lucide="loader-2"></i>
+                                    <i class="stage-check hidden" data-lucide="check" style="color: #10b981;"></i>
+                                </div>
+                            </div>
+                            <div class="progress-stage" data-stage="subtitling">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="type" class="w-4 h-4 text-slate-500"></i>
+                                    <span class="text-sm text-slate-400">Adding subtitles</span>
+                                    <i class="stage-spinner hidden" data-lucide="loader-2"></i>
+                                    <i class="stage-check hidden" data-lucide="check" style="color: #10b981;"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="progressMessage" class="mt-4 p-3 bg-slate-900 rounded text-sm text-slate-300"></div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="resultsContainer" class="hidden">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-600 text-white font-bold text-sm">
+                            3
+                        </div>
+                        <h2 class="text-lg font-semibold text-slate-100">Results</h2>
+                    </div>
+
+                    <div class="ml-11 p-6 bg-emerald-950/30 border border-emerald-700/50 rounded-lg">
+                        <div class="flex items-center gap-2 mb-4">
+                            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500"></i>
+                            <strong class="text-emerald-400 text-sm">Processing Complete!</strong>
+                        </div>
+
+                        <div id="clipsStats" class="mb-4 text-sm text-slate-300"></div>
+
+                        <div id="clipsList" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2 max-w-sm" role="status" aria-live="polite"></div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // DOM Elements
+        const helpToggle = document.getElementById('helpToggle');
+        const helpSection = document.getElementById('helpSection');
+        const youtubeUrl = document.getElementById('youtubeUrl');
+        const processUrlBtn = document.getElementById('processUrlBtn');
+        const useSegmentTimes = document.getElementById('useSegmentTimes');
+        const segmentTimesInputs = document.getElementById('segmentTimesInputs');
+        const segmentStart = document.getElementById('segmentStart');
+        const segmentEnd = document.getElementById('segmentEnd');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressMessage = document.getElementById('progressMessage');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const clipsStats = document.getElementById('clipsStats');
+        const clipsList = document.getElementById('clipsList');
+
+        // Toast Notification System
+        class ToastManager {
+            constructor() {
+                this.container = document.getElementById('toastContainer');
+                this.toasts = new Map();
+            }
+
+            show(message, type = 'info', duration = 5000) {
+                const id = Date.now() + Math.random();
+                const toast = this.createToast(message, type, id);
+
+                this.container.appendChild(toast);
+                this.toasts.set(id, toast);
+
+                requestAnimationFrame(() => {
+                    toast.classList.add('toast-enter');
+                });
+
+                if (duration > 0) {
+                    setTimeout(() => this.dismiss(id), duration);
+                }
+
+                return id;
+            }
+
+            createToast(message, type, id) {
+                const toast = document.createElement('div');
+                toast.className = 'bg-slate-800 border rounded-lg shadow-xl p-4 min-w-[300px] max-w-sm';
+                toast.setAttribute('role', 'alert');
+                toast.setAttribute('aria-live', 'assertive');
+
+                const config = {
+                    success: {
+                        icon: 'check-circle',
+                        color: 'text-emerald-500',
+                        borderColor: 'border-emerald-700'
+                    },
+                    error: {
+                        icon: 'x-circle',
+                        color: 'text-red-500',
+                        borderColor: 'border-red-700'
+                    },
+                    info: {
+                        icon: 'info',
+                        color: 'text-blue-500',
+                        borderColor: 'border-blue-700'
+                    }
+                };
+
+                const { icon, color, borderColor } = config[type] || config.info;
+                toast.classList.add(borderColor);
+
+                toast.innerHTML = `
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="${icon}" class="w-5 h-5 ${color} flex-shrink-0 mt-0.5"></i>
+                        <p class="text-sm text-slate-200 flex-1">${message}</p>
+                        <button class="text-slate-400 hover:text-slate-200 transition-colors duration-200 flex-shrink-0" aria-label="Dismiss notification">
+                            <i data-lucide="x-circle" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+
+                lucide.createIcons({ nameAttr: 'data-lucide' });
+
+                const dismissBtn = toast.querySelector('button');
+                dismissBtn.addEventListener('click', () => this.dismiss(id));
+
+                return toast;
+            }
+
+            dismiss(id) {
+                const toast = this.toasts.get(id);
+                if (!toast) return;
+
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
+
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                    this.toasts.delete(id);
+                }, 200);
+            }
+        }
+
+        const toastManager = new ToastManager();
+
+        // Help Toggle
+        helpToggle.addEventListener('click', () => {
+            const isExpanded = helpSection.classList.toggle('hidden');
+            helpToggle.setAttribute('aria-expanded', !isExpanded);
+        });
+
+        // Segment Times Toggle
+        useSegmentTimes.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                segmentTimesInputs.classList.remove('hidden');
+            } else {
+                segmentTimesInputs.classList.add('hidden');
+            }
+        });
+
+        // Progress Stage Management
+        function updateProgressStage(stage, status) {
+            const stageElement = document.querySelector(`[data-stage="${stage}"]`);
+            if (!stageElement) return;
+
+            const spinner = stageElement.querySelector('.stage-spinner');
+            const check = stageElement.querySelector('.stage-check');
+
+            if (status === 'active') {
+                spinner.classList.remove('hidden');
+                spinner.classList.add('animate-spin-slow');
+                check.classList.add('hidden');
+            } else if (status === 'complete') {
+                spinner.classList.add('hidden');
+                check.classList.remove('hidden');
+            }
+
+            lucide.createIcons();
+        }
+
+        // Validate YouTube URL
+        function isValidYouTubeUrl(url) {
+            const patterns = [
+                /^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+/,
+                /^https?:\/\/youtu\.be\/[\w-]+/
+            ];
+            return patterns.some(pattern => pattern.test(url));
+        }
+
+        // Poll yttools for status updates (includes n8n progress)
+        async function pollYtToolsStatus(taskId) {
+            const maxAttempts = 240; // 240 * 3 seconds = 12 minutes max
+            let attempts = 0;
+
+            while (attempts < maxAttempts) {
+                attempts++;
+
+                try {
+                    const statusResponse = await fetch(`https://yttools.lan/api/status/${taskId}`);
+
+                    if (!statusResponse.ok) {
+                        throw new Error(`Status check failed: ${statusResponse.status}`);
+                    }
+
+                    const status = await statusResponse.json();
+
+                    // Update progress message
+                    if (status.message) {
+                        progressMessage.textContent = status.message;
+                    }
+
+                    // Update progress stages based on yttools status
+                    if (status.status === 'processing') {
+                        updateProgressStage('downloading', 'complete');
+                        updateProgressStage('transcribing', 'active');
+                    } else if (status.status === 'completed') {
+                        // Check if we have n8n stage information
+                        const n8nStage = status.n8n_stage;
+
+                        if (n8nStage === 'extracting') {
+                            // n8n is extracting clips
+                            updateProgressStage('downloading', 'complete');
+                            updateProgressStage('transcribing', 'complete');
+                            updateProgressStage('analyzing', 'complete');
+                            updateProgressStage('extracting', 'active');
+                            progressMessage.textContent = status.message || 'Extracting clips...';
+                        } else if (n8nStage === 'subtitling') {
+                            // n8n is adding subtitles
+                            updateProgressStage('downloading', 'complete');
+                            updateProgressStage('transcribing', 'complete');
+                            updateProgressStage('analyzing', 'complete');
+                            updateProgressStage('extracting', 'complete');
+                            updateProgressStage('subtitling', 'active');
+                            progressMessage.textContent = status.message || 'Adding subtitles...';
+                        } else if (n8nStage === 'completed' && status.clips_result) {
+                            // Processing fully complete
+                            updateProgressStage('downloading', 'complete');
+                            updateProgressStage('transcribing', 'complete');
+                            updateProgressStage('analyzing', 'complete');
+                            updateProgressStage('extracting', 'complete');
+                            updateProgressStage('subtitling', 'complete');
+
+                            // Show results
+                            const result = status.clips_result;
+                            progressMessage.textContent = `Successfully created ${result.clips_extracted || 0} shorts!`;
+                            showResults(result);
+                            toastManager.show('Shorts created successfully!', 'success');
+                            return;
+                        } else {
+                            // yttools completed but n8n hasn't started yet
+                            updateProgressStage('downloading', 'complete');
+                            updateProgressStage('transcribing', 'complete');
+                            updateProgressStage('analyzing', 'active');
+                            progressMessage.textContent = status.message || 'AI analyzing content and identifying clips...';
+                        }
+                    } else if (status.status === 'failed') {
+                        throw new Error(status.error || 'Processing failed');
+                    }
+
+                    // Wait 3 seconds before next poll
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+
+                } catch (error) {
+                    console.error('Polling error:', error);
+                    throw error;
+                }
+            }
+
+            throw new Error('Processing timeout - exceeded maximum wait time');
+        }
+
+        // Process YouTube URL
+        async function processYouTubeUrl() {
+            const url = youtubeUrl.value.trim();
+
+            if (!url) {
+                toastManager.show('Please enter a YouTube URL', 'error');
+                return;
+            }
+
+            if (!isValidYouTubeUrl(url)) {
+                toastManager.show('Please enter a valid YouTube URL', 'error');
+                return;
+            }
+
+            // Prepare request body
+            const body = {
+                youtube_url: url
+            };
+
+            if (useSegmentTimes.checked) {
+                const start = parseInt(segmentStart.value);
+                const end = parseInt(segmentEnd.value);
+
+                if (!isNaN(start)) body.segment_start = start;
+                if (!isNaN(end)) body.segment_end = end;
+
+                if (body.segment_start && body.segment_end && body.segment_end <= body.segment_start) {
+                    toastManager.show('End time must be greater than start time', 'error');
+                    return;
+                }
+            }
+
+            // Disable button and show progress
+            processUrlBtn.disabled = true;
+            const btnIcon = processUrlBtn.querySelector('[data-lucide]');
+            btnIcon.setAttribute('data-lucide', 'loader-2');
+            lucide.createIcons();
+            btnIcon.classList.add('animate-spin-slow');
+
+            progressContainer.classList.remove('hidden');
+            resultsContainer.classList.add('hidden');
+            progressMessage.textContent = 'Starting processing...';
+
+            // Simulate progress stages (in real implementation, you'd poll the n8n workflow)
+            updateProgressStage('downloading', 'active');
+
+            try {
+                const response = await fetch('/api/webhook/shorts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                let result = await response.json();
+
+                // Handle array response from n8n (unwrap if needed)
+                if (Array.isArray(result) && result.length > 0) {
+                    result = result[0];
+                }
+
+                // Check if we got an immediate processing response with task_id
+                if (result.status === 'processing' && result.task_id) {
+                    progressMessage.textContent = result.message || 'Processing video...';
+
+                    // Start polling yttools for status
+                    await pollYtToolsStatus(result.task_id);
+                } else if (result.status === 'success' && result.clips_found) {
+                    // Legacy: Handle direct success response (shouldn't happen with new flow)
+                    updateProgressStage('downloading', 'complete');
+                    updateProgressStage('transcribing', 'complete');
+                    updateProgressStage('analyzing', 'complete');
+                    updateProgressStage('extracting', 'complete');
+                    updateProgressStage('subtitling', 'complete');
+
+                    progressMessage.textContent = `Successfully created ${result.clips_extracted} shorts!`;
+                    showResults(result);
+                    toastManager.show('Shorts created successfully!', 'success');
+                } else if (result.status === 'no_clips_found') {
+                    progressMessage.textContent = 'No suitable clips found in this video.';
+                    toastManager.show('No suitable clips found', 'info');
+                } else {
+                    throw new Error(result.message || 'Unknown error occurred');
+                }
+            } catch (error) {
+                progressMessage.textContent = `Error: ${error.message}`;
+                toastManager.show(`Processing failed: ${error.message}`, 'error');
+            } finally {
+                processUrlBtn.disabled = false;
+                btnIcon.setAttribute('data-lucide', 'play-circle');
+                btnIcon.classList.remove('animate-spin-slow');
+                lucide.createIcons();
+            }
+        }
+
+        // Show Results
+        function showResults(result) {
+            resultsContainer.classList.remove('hidden');
+
+            clipsStats.innerHTML = `
+                <div class="flex items-center gap-4">
+                    <div>
+                        <span class="text-slate-400">Clips Created:</span>
+                        <span class="font-bold text-emerald-400">${result.clips_extracted}</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">Total Attempted:</span>
+                        <span class="font-bold">${result.total_clips_attempted}</span>
+                    </div>
+                </div>
+            `;
+
+            clipsList.innerHTML = '';
+
+            if (result.extracted_shorts && result.extracted_shorts.length > 0) {
+                result.extracted_shorts.forEach((clip, index) => {
+                    const clipCard = document.createElement('div');
+                    clipCard.className = 'bg-slate-900 border border-slate-700 rounded-lg p-4';
+
+                    clipCard.innerHTML = `
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex items-start gap-3 flex-1">
+                                <div class="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-white font-bold text-sm flex-shrink-0">
+                                    ${index + 1}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h4 class="text-sm font-medium text-slate-200 mb-1">${escapeHtml(clip.title)}</h4>
+                                    <p class="text-xs text-slate-400">Duration: ${clip.duration.toFixed(1)}s</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <a href="${clip.path_final}" download class="flex items-center gap-1.5 text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded transition-colors duration-200">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                <span>Download with Subtitles</span>
+                            </a>
+                            <a href="${clip.path_nosubs}" download class="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-100 px-3 py-1.5 rounded transition-colors duration-200 border border-slate-600">
+                                <i data-lucide="film" class="w-3.5 h-3.5"></i>
+                                <span>Download without Subtitles</span>
+                            </a>
+                        </div>
+                    `;
+
+                    clipsList.appendChild(clipCard);
+                });
+
+                lucide.createIcons();
+            }
+        }
+
+        // HTML escape helper
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Event Listeners
+        processUrlBtn.addEventListener('click', processYouTubeUrl);
+
+        youtubeUrl.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                processYouTubeUrl();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -69,6 +69,8 @@ x-n8n: &service-n8n
     - N8N_PERSONALIZATION_ENABLED=false
     - N8N_ENCRYPTION_KEY
     - N8N_USER_MANAGEMENT_JWT_SECRET
+    - GENERIC_TIMEZONE=America/Phoenix
+    - TZ=America/Phoenix
 
 
 services:
@@ -269,12 +271,11 @@ services:
     expose:
       - 5678
     volumes:
-      - n8n_storage:/home/node/.n8n
+      - /home/ghar/data/n8n:/home/node/.n8n  # Bind mount for persistent data (survives volume removal)
       - ./n8n/backup:/backup
       - ./shared:/data/shared
       - /mnt/nas:/nas
       - n8n-certs:/opt/custom-certificates:ro # Mount the prepared named volume
-      - ./n8n/scripts:/scripts:ro # Mount Python scripts for subtitle generation
     environment:
       - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
       - NODE_EXTRA_CA_CERTS=/opt/custom-certificates/local-cert.pem

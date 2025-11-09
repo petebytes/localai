@@ -487,7 +487,7 @@ The workflow consists of 6 main stages:
 curl -X POST http://n8n-host/webhook/ca6bda83-afc4-4845-9b0f-834adfbe7b95 \
   -H "Content-Type: application/json" \
   -d '{
-    "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    "youtube_url": "https://www.youtube.com/watch?v=ao8f3qyMoLM"
   }'
 ```
 
