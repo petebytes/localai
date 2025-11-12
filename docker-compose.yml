@@ -237,6 +237,7 @@ services:
     volumes:
       - ./shared:/app/shared
       - ./ComfyUI/models:/workspace/ComfyUI/models
+      - ./ComfyUI/output:/workspace/ComfyUI/output
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
       # Shared Wan models from wan2gp (read-only to avoid conflicts)
