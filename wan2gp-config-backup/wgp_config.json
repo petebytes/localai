@@ -1,0 +1,59 @@
+{
+    "attention_mode": "auto",
+    "transformer_types": [],
+    "text_encoder_quantization": "int8",
+    "save_path": "outputs",
+    "image_save_path": "outputs",
+    "compile": "",
+    "profile": 1,
+    "vae_config": 0,
+    "vae_precision": "16",
+    "mixed_precision": "0",
+    "metadata_type": "metadata",
+    "transformer_quantization": "int8",
+    "transformer_dtype_policy": "",
+    "boost": 2,
+    "clear_file_list": 5,
+    "preload_model_policy": [],
+    "UI_theme": "default",
+    "fit_canvas": 0,
+    "enhancer_enabled": 0,
+    "enhancer_mode": 0,
+    "mmaudio_enabled": 0,
+    "preload_in_VRAM": 0,
+    "depth_anything_v2_variant": "vitl",
+    "notification_sound_enabled": 0,
+    "notification_sound_volume": 50,
+    "max_frames_multiplier": 1,
+    "display_stats": 1,
+    "video_output_codec": "libx264_8",
+    "image_output_codec": "jpeg_95",
+    "audio_output_codec": "aac_128",
+    "model_hierarchy_type": 1,
+    "checkpoints_paths": [
+        "ckpts",
+        "."
+    ],
+    "queue_color_scheme": "pastel",
+    "embed_source_images": false,
+    "video_container": "mp4",
+    "last_model_type": "ovi",
+    "last_model_per_family": {
+        "wan": "infinitetalk",
+        "wan2_2": "ovi"
+    },
+    "last_model_per_type": {
+        "flf2v_720p": "flf2v_720p",
+        "animate": "animate",
+        "ovi": "ovi",
+        "infinitetalk": "infinitetalk",
+        "t2v_2_2": "t2v_2_2"
+    },
+    "last_advanced_choice": true,
+    "last_resolution_choice": "480x832",
+    "last_resolution_per_group": {
+        "720p": "1280x720",
+        "480p": "480x832",
+        "1080p": "1920x1088"
+    }
+}

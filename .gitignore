@@ -17,8 +17,17 @@ ovi/
 wan2gp/
 yttools/
 emu3/
+MoCha/
 
 # Secret rotation backups (contains sensitive data)
 backups/secrets/
 backups/service-state-*.json
 .mcp.json
+
+# Node.js build artifacts and dependencies
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+**/pnpm-lock.yaml
+**/.pnpm-debug.log
+n8n-data/

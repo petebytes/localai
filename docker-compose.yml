@@ -236,7 +236,7 @@ services:
       - 8188
     volumes:
       - ./shared:/app/shared
-      - comfyui-models:/workspace/ComfyUI/models
+      - ./ComfyUI/models:/workspace/ComfyUI/models
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
       # Shared Wan models from wan2gp (read-only to avoid conflicts)
@@ -254,6 +254,32 @@ services:
               count: 1
               capabilities: [gpu]
 
+  shorts-generator:
+    build:
+      context: ./custom_code/shorts-generator
+      dockerfile: Dockerfile
+    container_name: shorts-generator
+    restart: unless-stopped
+    expose:
+      - 7860  # Gradio UI
+      - 8000  # FastAPI
+    volumes:
+      - ./ComfyUI/output:/workspace/ComfyUI/output:ro
+      - ./custom_code/shorts-generator/downloads:/app/downloads
+    environment:
+      - N8N_API_URL=http://n8n:5678
+      - N8N_WEBHOOK_PATH=/webhook/shorts-generate
+      - N8N_API_KEY=${N8N_API_KEY}
+      - COMFYUI_OUTPUT_PATH=/workspace/ComfyUI/output
+      - API_BASE_URL=http://localhost:8000
+    depends_on:
+      - n8n
+      - comfyui
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/api/health').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   n8n-cert-init:
     image: alpine:latest
@@ -271,11 +297,12 @@ services:
     expose:
       - 5678
     volumes:
-      - /home/ghar/data/n8n:/home/node/.n8n  # Bind mount for persistent data (survives volume removal)
+      - ./n8n-data:/home/node/.n8n  # Bind mount n8n data to custom_code folder
       - ./n8n/backup:/backup
       - ./shared:/data/shared
       - /mnt/nas:/nas
       - n8n-certs:/opt/custom-certificates:ro # Mount the prepared named volume
+      - ./custom_code:/custom_code:ro # Mount custom_code directory for auto-installing custom nodes
     environment:
       - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
       - NODE_EXTRA_CA_CERTS=/opt/custom-certificates/local-cert.pem
@@ -529,6 +556,8 @@ services:
       - ./ovi/example_prompts:/workspace/example_prompts:ro
       # Mount config for runtime modifications
       - ./ovi/ovi/configs:/workspace/ovi/configs
+      # Mount modules for live code updates (development mode)
+      - ./ovi/ovi/modules:/workspace/ovi/modules
       # Mount gradio_app.py for live code updates (development mode)
       - ./ovi/gradio_app.py:/workspace/gradio_app.py
     environment:
@@ -553,11 +582,12 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    # RTX 5090 32GB VRAM Mode - Use CPU offload to fit in 32GB VRAM
+    # RTX 5090 32GB VRAM Mode - Use CPU offload + qint8 for Flash Attention fallback compatibility
     # Alternative configs:
     #   Full speed (80GB VRAM): ["python3", "gradio_app.py", "--server_port", "7860"]
-    #   FP8 mode (24GB VRAM): ["python3", "gradio_app.py", "--cpu_offload", "--fp8", "--server_port", "7860"]
-    command: ["python3", "gradio_app.py", "--cpu_offload", "--server_port", "7860"]
+    #   Standard 32GB mode: ["python3", "gradio_app.py", "--cpu_offload", "--server_port", "7860"]
+    #   FP8 mode (720x720_5s only): ["python3", "gradio_app.py", "--cpu_offload", "--fp8", "--server_port", "7860"]
+    command: ["python3", "gradio_app.py", "--cpu_offload", "--qint8", "--server_port", "7860"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7860/"]
       interval: 30s
@@ -587,8 +617,7 @@ services:
       - wan2gp-outputs:/workspace/outputs
       # Settings persistence - user preferences and queue
       - wan2gp-settings:/workspace/settings
-      # Config persistence - wgp_config.json, plugins.json
-      - wan2gp-config:/workspace-config
+      # Config files (wgp_config.json, plugins.json) persist naturally in container
       # LoRA storage - custom model adaptations
       - wan2gp-loras:/workspace/loras
       - wan2gp-loras:/workspace/loras_i2v
@@ -634,6 +663,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 180s  # Give extra time for initial model downloads
+
 
   # InfiniteTalk - Audio-Driven Video Generation for Sparse-Frame Video Dubbing
   # Supports unlimited-length talking video with video-to-video and image-to-video modes

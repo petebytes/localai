@@ -326,6 +326,17 @@
         const clipsStats = document.getElementById('clipsStats');
         const clipsList = document.getElementById('clipsList');
 
+        // Stage Timeout Configuration
+        const STAGE_TIMEOUTS = {
+            downloading: 120000,   // 2 minutes
+            transcribing: 180000,  // 3 minutes
+            analyzing: 60000,      // 1 minute
+            extracting: 300000,    // 5 minutes
+            subtitling: 240000     // 4 minutes
+        };
+        let currentStage = 'downloading';
+        let stageStartTime = Date.now();
+
         // Toast Notification System
         class ToastManager {
             constructor() {
@@ -441,9 +452,17 @@
                 spinner.classList.remove('hidden');
                 spinner.classList.add('animate-spin-slow');
                 check.classList.add('hidden');
+
+                // Track current stage and reset timer
+                currentStage = stage;
+                stageStartTime = Date.now();
+                console.log(`[Progress] Stage "${stage}" started at ${new Date().toISOString()}`);
             } else if (status === 'complete') {
                 spinner.classList.add('hidden');
                 check.classList.remove('hidden');
+
+                const elapsed = Date.now() - stageStartTime;
+                console.log(`[Progress] Stage "${stage}" completed in ${(elapsed/1000).toFixed(1)}s`);
             }
 
             lucide.createIcons();
@@ -466,6 +485,12 @@
             while (attempts < maxAttempts) {
                 attempts++;
 
+                // Check if current stage has timed out
+                const elapsed = Date.now() - stageStartTime;
+                if (STAGE_TIMEOUTS[currentStage] && elapsed > STAGE_TIMEOUTS[currentStage]) {
+                    throw new Error(`Stage "${currentStage}" timed out after ${(elapsed/1000).toFixed(0)}s (limit: ${(STAGE_TIMEOUTS[currentStage]/1000).toFixed(0)}s)`);
+                }
+
                 try {
                     const statusResponse = await fetch(`https://yttools.lan/api/status/${taskId}`);
 
@@ -485,6 +510,12 @@
                         updateProgressStage('downloading', 'complete');
                         updateProgressStage('transcribing', 'active');
                     } else if (status.status === 'completed') {
+                        // Ensure downloading is always marked complete when yttools is done
+                        // This catches the race condition where we skip the 'processing' state
+                        if (currentStage === 'downloading') {
+                            updateProgressStage('downloading', 'complete');
+                        }
+
                         // Check if we have n8n stage information
                         const n8nStage = status.n8n_stage;
 
@@ -587,7 +618,7 @@
             updateProgressStage('downloading', 'active');
 
             try {
-                const response = await fetch('/api/webhook/shorts', {
+                const response = await fetch('https://shorts.lan/api/webhook/shorts', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -630,13 +661,20 @@
                     throw new Error(result.message || 'Unknown error occurred');
                 }
             } catch (error) {
+                console.error('[Processing] Error occurred:', error);
                 progressMessage.textContent = `Error: ${error.message}`;
                 toastManager.show(`Processing failed: ${error.message}`, 'error');
             } finally {
+                // Always re-enable button and reset spinner, even on error
                 processUrlBtn.disabled = false;
                 btnIcon.setAttribute('data-lucide', 'play-circle');
                 btnIcon.classList.remove('animate-spin-slow');
                 lucide.createIcons();
+
+                // Reset stage tracking for next run
+                currentStage = 'downloading';
+                stageStartTime = Date.now();
+                console.log('[Processing] Cleanup complete, ready for next request');
             }
         }
 

@@ -3,7 +3,7 @@
 
 # Use official n8n image as base
 # Specifying :latest explicitly for clarity and version tracking
-FROM docker.n8n.io/n8nio/n8n:latest
+FROM n8nio/n8n:latest
 
 # Switch to root to install packages
 USER root
@@ -24,7 +24,13 @@ RUN apk add --no-cache \
     py3-pip \
     && fc-cache -fv
 
+# Copy custom node installation script and entrypoint wrapper
+COPY install-custom-nodes.sh /usr/local/bin/install-custom-nodes.sh
+COPY docker-entrypoint.sh /docker-entrypoint-custom.sh
+RUN chmod +x /usr/local/bin/install-custom-nodes.sh && \
+    chmod +x /docker-entrypoint-custom.sh
+
 # Switch back to node user (UID 1000) for security
 USER node
 
-# No need to change CMD or ENTRYPOINT - inherited from base image
+ENTRYPOINT ["/docker-entrypoint-custom.sh"]

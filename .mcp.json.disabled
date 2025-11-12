@@ -1,0 +1,60 @@
+{
+  "mcpServers": {
+    "n8n-local-mcp": {
+      "type": "stdio",
+      "command": "docker-compose",
+      "args": [
+        "-f",
+        "/home/ghar/code/mcp_servers/n8n-mcp/docker-compose.yml",
+        "run",
+        "--rm",
+        "-T",
+        "n8n-mcp-local"
+      ],
+      "env": {
+        "N8N_BASE_URL": "n8n",
+        "N8N_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiYTQ3OTE1YS1mNGE4LTQzYTEtOTJhNi1hZjVjZGRhMjY1ZWQiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYyMDI2NDU1fQ.mkF3brVUqRgogGogGX2uFt8qmRvubWhFBnR-eD30U1w"
+      }
+    },
+    "selfhosted-supabase": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/home/ghar/code/mcp_servers/selfhosted-supabase-mcp/dist/index.js",
+        "--url",
+        "https://supabase.lan:54321",
+        "--anon-key",
+        "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz",
+        "--service-key",
+        "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH",
+        "--db-url",
+        "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+        "--jwt-secret",
+        "super-secret-jwt-token-with-at-least-32-characters-long",
+        "--tools-config",
+        "/home/ghar/code/mcp_servers/selfhosted-supabase-mcp/safe-tools.json"
+      ]
+    }
+  },
+  "playwright": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "@playwright/mcp@latest"
+    ],
+    "env": {}
+  },
+  "semgrep-mcp": {
+    "type": "stdio",
+    "command": "docker-compose",
+    "args": [
+      "-f",
+      "/Users/ghar/docker-custom/mcp_servers/semgrep-mcp/docker-compose.yml",
+      "run",
+      "--rm",
+      "-T",
+      "semgrep-mcp"
+    ],
+    "env": {}
+  }
+}

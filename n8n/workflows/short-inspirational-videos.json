@@ -1,0 +1,304 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "getSystemStats"
+      },
+      "id": "b0b9012a-a86f-4a60-b206-2eba6e92a026",
+      "name": "ComfyUI: Get Stats After",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        688,
+        176
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflow": "={\n  \"3\": {\n    \"inputs\": {\n      \"seed\": 42,\n      \"steps\": 10,\n      \"cfg\": 5,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1,\n      \"model\": [\"70\", 0],\n      \"positive\": [\"16\", 0],\n      \"negative\": [\"40\", 0],\n      \"latent_image\": [\"53\", 0]\n    },\n    \"class_type\": \"KSampler\"\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\"3\", 0],\n      \"vae\": [\"55\", 0]\n    },\n    \"class_type\": \"VAEDecode\"\n  },\n  \"9\": {\n    \"inputs\": {\n      \"filename_prefix\": \"hidream_test\",\n      \"images\": [\"8\", 0]\n    },\n    \"class_type\": \"SaveImage\"\n  },\n  \"16\": {\n    \"inputs\": {\n      \"text\": \"{{ $json.output }}\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"40\": {\n    \"inputs\": {\n      \"text\": \"blurry, low quality, distorted, bad ugly jpeg artifacts\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"53\": {\n    \"inputs\": {\n      \"width\": 576,\n      \"height\": 1024,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptySD3LatentImage\"\n  },\n  \"54\": {\n    \"inputs\": {\n      \"clip_name1\": \"clip_l_hidream.safetensors\",\n      \"clip_name2\": \"clip_g_hidream.safetensors\",\n      \"clip_name3\": \"t5xxl_fp8_e4m3fn_scaled.safetensors\",\n      \"clip_name4\": \"llama_3.1_8b_instruct_fp8_scaled.safetensors\"\n    },\n    \"class_type\": \"QuadrupleCLIPLoader\"\n  },\n  \"55\": {\n    \"inputs\": {\n      \"vae_name\": \"ae.safetensors\"\n    },\n    \"class_type\": \"VAELoader\"\n  },\n  \"70\": {\n    \"inputs\": {\n      \"shift\": 3.0,\n      \"model\": [\"76\", 0]\n    },\n    \"class_type\": \"ModelSamplingSD3\"\n  },\n  \"76\": {\n    \"inputs\": {\n      \"unet_name\": \"hidream_i1_full_fp8.safetensors\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\"\n  }\n}",
+        "jpegQuality": 90,
+        "timeout": 15,
+        "autoFreeVram": true
+      },
+      "id": "4b6252b5-de2e-41eb-9721-906c52b1bdcf",
+      "name": "ComfyUI: Generate Image",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        480,
+        176
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getSystemStats"
+      },
+      "id": "b819dbf0-4f53-4fff-8387-a0a07e57d3f3",
+      "name": "ComfyUI: Get Stats Before",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        128,
+        -48
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "shorts-generate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "9b14f0de-04c6-4484-9262-4de74e0eacdf",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        -48
+      ],
+      "webhookId": "shorts-generate"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"executionId\": $execution.id } }}",
+        "options": {}
+      },
+      "id": "0a0c1019-7965-4698-b79c-cda472732fe0",
+      "name": "Respond with Execution ID",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -48,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "freeVram"
+      },
+      "id": "bc57e561-cd36-4361-9d93-79239005a4df",
+      "name": "ComfyUI: Free VRAM",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -48
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -128,
+        352
+      ],
+      "id": "608f5d77-1ea3-4ec3-ac3c-20eede5d1ba9",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "9ITdZP15p3HH1JkB",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Generate a quote",
+        "options": {
+          "systemMessage": "You are a compassionate trauma-informed writer inspired by Peggy Oliveira, MSW — focusing on healing, self-trust, boundaries, emotional regulation, and recovery from shame. You generate original, reflective, and emotionally grounded inspirational quotes (not copied or cliché).\n\nTone: Gentle, validating, and empowering. Avoid toxic positivity. Each quote should sound like it could comfort someone healing from trauma or self-doubt.\nStyle guidelines:\nWrite in plain, accessible language.\nKeep each quote 1 sentence long.\nAvoid \"you should\" or \"just do it\" advice.\nUse metaphors of growth, safety, and light when natural.\nInclude variety: self-compassion, boundaries, grief, rest, resilience, embodiment, inner child work.\nEach quote should stand alone and feel sincere, not generic.\n\n** IMPORTANT ** generate a single sentence"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -112,
+        176
+      ],
+      "id": "2b18dfef-bb58-409b-b847-e953ce992844",
+      "name": "Quote writer"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Generate an image prompt for this quote {{ $json.output }}",
+        "options": {
+          "systemMessage": "You are an artistic director tasked with visualizing reflective, and emotionally grounded inspirational quotes. When provided with a prompt you create a description of what the image representing or supporting the quote should look like. The image being generated must be photorealistic will be used in 9:16 format.\n\n** IMPORTANT ** Generate a single paragraph."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        176,
+        176
+      ],
+      "id": "f1c649f5-e52b-4005-a9eb-1852a7cb2c0f",
+      "name": "Quote Image Prompt Generator"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        160,
+        368
+      ],
+      "id": "547aaabd-11cf-49a2-89f0-8bf6920b74a9",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "9ITdZP15p3HH1JkB",
+          "name": "Anthropic account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "ComfyUI: Generate Image": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Get Stats After",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Get Stats Before": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Free VRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Respond with Execution ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond with Execution ID": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Get Stats Before",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Free VRAM": {
+      "main": [
+        [
+          {
+            "node": "Quote writer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Quote writer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quote writer": {
+      "main": [
+        [
+          {
+            "node": "Quote Image Prompt Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quote Image Prompt Generator": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Quote Image Prompt Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "99ff97a0c56026a2c1b3a849547491eb857e68a0b770f2b7c6688eea83f57eda"
+  }
+}
