@@ -31,3 +31,9 @@ backups/service-state-*.json
 **/pnpm-lock.yaml
 **/.pnpm-debug.log
 n8n-data/
+
+# Python artifacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/downloads/
