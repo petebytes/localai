@@ -170,6 +170,9 @@ class N8nClient:
         quote = None
         image_prompt = None
         image_url = None
+        video_prompt = None
+        video_url = None
+        video_path = None
 
         if status == ExecutionStatus.SUCCESS:
             run_data = exec_data.get("resultData", {}).get("runData", {})
@@ -181,12 +184,17 @@ class N8nClient:
                 if quote_output:
                     quote = quote_output[0].get("json", {}).get("output")
 
-            # Extract image prompt from "Quote Image Prompt Generator" node
-            prompt_node = run_data.get("Quote Image Prompt Generator", [])
-            if prompt_node and len(prompt_node) > 0:
-                prompt_output = prompt_node[0].get("data", {}).get("main", [[]])[0]
-                if prompt_output:
-                    image_prompt = prompt_output[0].get("json", {}).get("output")
+            # Extract prompts from "Parse Prompts" node (contains both image and video prompts)
+            parse_node = run_data.get("Parse Prompts", [])
+            if parse_node and len(parse_node) > 0:
+                parse_output = parse_node[0].get("data", {}).get("main", [[]])[0]
+                if parse_output:
+                    parse_data = parse_output[0].get("json", {})
+                    image_prompt = parse_data.get("image_prompt")
+                    video_prompt = parse_data.get("video_prompt")
+                    # Use original_quote if quote wasn't extracted from Quote writer
+                    if not quote:
+                        quote = parse_data.get("original_quote")
 
             # Extract image filename from "ComfyUI: Generate Image" node
             image_node = run_data.get("ComfyUI: Generate Image", [])
@@ -204,12 +212,29 @@ class N8nClient:
                     if filename:
                         image_url = f"/download/{filename}"
 
+            # Extract video data from "Ovi: Generate Video" node
+            video_node = run_data.get("Ovi: Generate Video", [])
+            if video_node and len(video_node) > 0:
+                video_output = video_node[0].get("data", {}).get("main", [[]])[0]
+                if video_output:
+                    video_data = video_output[0].get("json", {})
+                    video_path = video_data.get("video_path")
+                    if video_path:
+                        # Extract filename from path for download URL
+                        import os
+
+                        video_filename = os.path.basename(video_path)
+                        video_url = f"/download/{video_filename}"
+
         return GenerateResponse(
             execution_id=execution_id,
             status=status,
             quote=quote,
             image_prompt=image_prompt,
             image_url=image_url,
+            video_prompt=video_prompt,
+            video_url=video_url,
+            video_path=video_path,
             error=error,
         )
 

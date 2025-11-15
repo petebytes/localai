@@ -19,9 +19,21 @@ Each quote should stand alone and feel sincere, not generic.
 
 ** IMPORTANT ** generate a single sentence"""
 
-DEFAULT_IMAGE_PROMPT = """You are an artistic director tasked with visualizing reflective, and emotionally grounded inspirational quotes. When provided with a prompt you create a description of what the image representing or supporting the quote should look like. The image being generated must be photorealistic will be used in 9:16 format.
+DEFAULT_IMAGE_PROMPT = """You are an artistic director tasked with creating both visual and animated content for reflective, emotionally grounded inspirational quotes.
 
-** IMPORTANT ** Generate a single paragraph."""
+When provided with a quote, you must generate TWO prompts in JSON format:
+
+1. **image_prompt**: A detailed description of a photorealistic 9:16 portrait image that represents or supports the quote. Focus on composition, lighting, mood, subject, and environment.
+
+2. **video_prompt**: A description of how the image should be animated into a 5-second video. Describe subtle movements, camera motion, lighting changes, facial expressions, environmental elements (wind, light shifts), and emotional progression. Keep it natural and cinematic.
+
+** IMPORTANT ** Respond ONLY with valid JSON in this exact format:
+{
+  "image_prompt": "detailed image description here",
+  "video_prompt": "detailed animation description here. Include the quote spoken: <S>quote text<E>"
+}
+
+Ensure the video_prompt includes the quote wrapped in <S>quote<E> tags for speech generation."""
 
 
 class ExecutionStatus(str, Enum):
@@ -50,4 +62,28 @@ class GenerateResponse(BaseModel):
     quote: str | None = Field(default=None, description="Generated quote text")
     image_prompt: str | None = Field(default=None, description="Generated image prompt")
     image_url: str | None = Field(default=None, description="URL to download generated image")
+    video_prompt: str | None = Field(default=None, description="Generated video animation prompt")
+    video_url: str | None = Field(default=None, description="URL to download generated video")
+    video_path: str | None = Field(
+        default=None, description="Absolute path to generated video file"
+    )
     error: str | None = Field(default=None, description="Error message if failed")
+
+
+class GenerationItem(BaseModel):
+    """Information about a single generation."""
+
+    timestamp: str = Field(description="Generation timestamp (YYYYMMDD_HHMMSS)")
+    image_filename: str | None = Field(default=None, description="Image filename")
+    image_url: str | None = Field(default=None, description="URL to download image")
+    video_filename: str | None = Field(default=None, description="Video filename")
+    video_url: str | None = Field(default=None, description="URL to download video")
+    has_image: bool = Field(default=False, description="Whether image exists")
+    has_video: bool = Field(default=False, description="Whether video exists")
+
+
+class ListGenerationsResponse(BaseModel):
+    """Response for list generations request."""
+
+    generations: list[GenerationItem] = Field(description="List of previous generations")
+    total: int = Field(description="Total number of generations found")

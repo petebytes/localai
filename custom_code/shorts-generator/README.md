@@ -1,41 +1,62 @@
 # Inspirational Shorts Generator
 
-Gradio web interface for generating inspirational quote images using n8n workflow orchestration.
+Gradio web interface for generating inspirational quote videos using n8n workflow orchestration with ComfyUI and Ovi 11B.
 
 ## Features
 
-- **Customizable Prompts**: Adjust quote generation and image prompt styles through the UI
-- **TDD Implementation**: Comprehensive test suite with 25 passing tests
+- **End-to-End Video Generation**: Quote → Image → Video with synchronized audio
+- **AI-Powered Pipeline**: Claude Sonnet 4.5 + ComfyUI (HiDream) + Ovi 11B
+- **TDD Implementation**: Comprehensive test suite with passing tests
 - **n8n Integration**: Triggers existing n8n workflow with custom parameters
 - **Real-time Status**: Polls execution status with streaming updates
 - **Docker Ready**: Containerized with health checks
+- **Multi-Modal Output**: Generates both static images and animated videos
 
 ## Architecture
 
 ```
 ┌──────────────┐
-│  Gradio UI   │  ← User customizes prompts and clicks "Generate"
+│  Gradio UI   │  ← User clicks "Generate"
 │  (Port 7860) │
 └──────┬───────┘
        │
        v
 ┌──────────────┐
-│  FastAPI     │  ← Triggers n8n workflow with custom prompts
+│  FastAPI     │  ← Triggers n8n workflow
 │  (Port 8000) │
 └──────┬───────┘
        │
        v
-┌──────────────┐     ┌─────────────┐     ┌──────────────┐
-│     n8n      │────>│   Claude    │────>│   ComfyUI    │
-│   Workflow   │     │  Sonnet 4.5 │     │  + HiDream   │
-└──────────────┘     └─────────────┘     └──────────────┘
-       │
-       │ Returns quote, image prompt, and generated image
-       v
 ┌──────────────┐
-│  Downloads/  │  ← Image saved locally
-└──────────────┘
+│     n8n      │  ← Orchestrates AI pipeline
+│   Workflow   │
+└──┬───┬───┬───┘
+   │   │   │
+   │   │   └─────────────────┐
+   │   │                     │
+   v   v                     v
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│   Claude     │  │   ComfyUI    │  │   Ovi 11B    │
+│ Sonnet 4.5   │  │  + HiDream   │  │  Video+Audio │
+└──────────────┘  └──────────────┘  └──────────────┘
+   │                     │                  │
+   │ Quote               │ Image            │ Video (10s)
+   │ + Prompts           │ (9:16)           │ + Audio
+   │                     │                  │
+   └─────────────────────┴──────────────────┘
+                         │
+                         v
+                  ┌──────────────┐
+                  │  Downloads/  │  ← Image + Video saved locally
+                  └──────────────┘
 ```
+
+**Pipeline Steps:**
+1. **Quote Generation** (Claude): Generates compassionate, trauma-informed quote
+2. **Prompt Generation** (Claude): Creates image and video animation descriptions
+3. **Image Generation** (ComfyUI + HiDream): Renders 9:16 portrait image
+4. **Video Generation** (Ovi 11B): Animates image with synchronized speech and audio
+5. **Delivery**: Downloads image and video to user
 
 ## TDD Workflow
 
@@ -62,19 +83,20 @@ Following strict TDD principles (Red-Green-Refactor):
 Add to `.env` or docker-compose.yml:
 
 ```bash
-# Required: n8n workflow ID (get from n8n UI)
-SHORTS_WORKFLOW_ID=your_workflow_id_here
-
-# Optional: Override defaults
+# n8n Configuration
 N8N_API_URL=http://n8n:5678
-COMFYUI_OUTPUT_PATH=/workspace/ComfyUI/output
+N8N_WEBHOOK_PATH=/webhook/shorts-generate
+N8N_API_KEY=your_api_key_here
+
+# Output paths
+COMFYUI_OUTPUT_PATH=/workspace/ComfyUI/output  # Images
+OVI_OUTPUT_PATH=/output  # Videos
+
+# API configuration
+API_BASE_URL=http://localhost:8000
 ```
 
-**To get your workflow ID:**
-1. Open n8n UI at https://n8n.lan
-2. Open the "short-inspirational-videos" workflow
-3. Click Settings → Copy workflow ID
-4. Add to `.env`: `SHORTS_WORKFLOW_ID=<paste-id-here>`
+**Note:** The workflow is triggered via webhook, no workflow ID needed.
 
 ### Docker Deployment
 
@@ -113,30 +135,46 @@ uv run python app.py
 ## Usage
 
 1. Navigate to https://inspirational-shorts.lan
-2. (Optional) Customize the system prompts:
-   - **Quote Generation Prompt**: Adjust tone, style, topics
-   - **Image Prompt Generation**: Adjust visual style, aesthetics
-3. Click "Generate Quote & Image"
-4. Wait 30-60 seconds for generation
-5. View results and download image
+2. Click "Generate Quote, Image & Video"
+3. Wait 3-5 minutes for generation:
+   - Quote generation: ~5 seconds
+   - Image generation: ~30-60 seconds
+   - Video generation: ~2-4 minutes (10-second video)
+4. View results:
+   - **Quote**: Displayed in text box
+   - **Image**: 9:16 portrait (downloadable)
+   - **Video**: 10-second clip with synchronized audio (downloadable)
 
-## n8n Workflow Changes
+## n8n Workflow
 
-The workflow has been updated to accept custom prompts via webhook:
+The workflow orchestrates a complete video generation pipeline:
 
-**Changed:** Manual Trigger → Webhook Trigger
-**Accepts:** POST to `/webhook/shorts-generate` with JSON:
+**Trigger:** Webhook at `/webhook/shorts-generate`
+
+**Accepts:** POST with JSON:
 ```json
 {
-  "quote_system_prompt": "Your custom quote instructions...",
-  "image_system_prompt": "Your custom image instructions..."
+  "quote_system_prompt": "Quote generation instructions...",
+  "image_system_prompt": "Image + video prompt generation instructions..."
 }
 ```
+
+**Pipeline Steps:**
+1. **Quote Writer** (Claude Sonnet 4.5): Generates inspirational quote
+2. **Image & Video Prompt Generator** (Claude Sonnet 4.5): Creates JSON with:
+   - `image_prompt`: Description for static image
+   - `video_prompt`: Description for animation + speech tags
+3. **Parse Prompts**: Extracts prompts from JSON response
+4. **ComfyUI Generate Image**: Creates 9:16 portrait using HiDream model
+5. **VRAM Management**: Frees GPU memory and waits for availability
+6. **Ovi Generate Video**: Animates image with synchronized audio
 
 **Returns:** Execution data with:
 - Generated quote text
 - Image prompt description
-- ComfyUI output filename
+- Video prompt description
+- ComfyUI output filename (image)
+- Ovi output path (video with audio)
 
 ## Testing
 
