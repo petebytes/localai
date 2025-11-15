@@ -4,14 +4,23 @@
 # Build base images first: ./scripts/build-cuda-base.sh all-versions
 
 ARG CUDA_VERSION=12.8
-FROM cuda-base:runtime-${CUDA_VERSION}
+FROM nvidia/cuda:${CUDA_VERSION}.0-cudnn-runtime-ubuntu22.04
 
 LABEL maintainer="Local AI Packaged"
 LABEL description="VibeVoice TTS API with voice cloning and multi-speaker support"
 LABEL service.type="text-to-speech"
 
-# Metadata - base image provides CUDA + PyTorch
-# Base includes: python3.10, pip, ffmpeg, git, numpy, requests
+# Install Python 3.10, pip, ffmpeg, and other dependencies
+RUN apt-get update -y && \
+    apt-get install -y \
+    python3.10 python3.10-dev python3-pip \
+    ffmpeg git wget curl \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install PyTorch 2.8.0 with CUDA 12.8 support
+RUN --mount=type=cache,id=pip-cache-shared,target=/root/.cache/pip,sharing=shared \
+    pip3 install --index-url https://download.pytorch.org/whl/cu128 \
+    'torch==2.8.0+cu128' 'torchvision==0.23.0+cu128' 'torchaudio==2.8.0+cu128'
 
 # Set cache environment variables for persistent model storage
 ENV HF_HOME=/data/.huggingface

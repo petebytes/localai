@@ -20,16 +20,25 @@
 # Build base images first: ./scripts/build-cuda-base.sh all-versions
 
 ARG CUDA_VERSION=12.8
-# Use WhisperX-specific base with PyTorch 2.8.0 + torchaudio 2.8.0 (fixes AudioMetaData issue)
-# See Dockerfile.base-whisperx for details on this compatibility fix
-FROM cuda-base:whisperx-${CUDA_VERSION}
+# Use official NVIDIA CUDA runtime with cuDNN
+FROM nvidia/cuda:${CUDA_VERSION}.0-cudnn-runtime-ubuntu22.04
 
 LABEL maintainer="Local AI Packaged"
 LABEL description="WhisperX transcription service - flexible CUDA testing"
 LABEL service.type="transcription"
 
-# Metadata - base image provides CUDA + PyTorch
-# Base includes: python3.10, pip, ffmpeg, git, numpy, requests
+# Install Python 3.10, pip, ffmpeg, and other dependencies
+RUN apt-get update -y && \
+    apt-get install -y \
+    python3.10 python3.10-dev python3-pip \
+    ffmpeg git wget curl \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install PyTorch 2.8.0 with CUDA 12.8 support
+# torchaudio 2.8.0 required for WhisperX compatibility (2.9+ breaks AudioMetaData)
+RUN --mount=type=cache,id=pip-cache-shared,target=/root/.cache/pip,sharing=shared \
+    pip3 install --index-url https://download.pytorch.org/whl/cu128 \
+    'torch==2.8.0+cu128' 'torchvision==0.23.0+cu128' 'torchaudio==2.8.0+cu128'
 
 # Set cache environment variables for persistent model storage
 ENV HF_HOME=/data/.huggingface

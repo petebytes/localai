@@ -7,14 +7,11 @@
 # Build base images first: ./scripts/build-cuda-base.sh all-versions
 
 ARG CUDA_VERSION=12.8
-FROM cuda-base:runtime-${CUDA_VERSION}
+FROM nvidia/cuda:${CUDA_VERSION}.0-cudnn-devel-ubuntu22.04
 
 LABEL maintainer="Local AI Packaged"
 LABEL description="InfiniteTalk API Server - REST API for automated video generation"
 LABEL service.type="video-generation-api"
-
-# Metadata - base image provides CUDA 12.8 + PyTorch 2.9.0 + common deps
-# Base includes: python3.10, pip, ffmpeg, git, numpy, requests, PyTorch
 
 # Set cache environment variables for persistent model storage
 ENV HF_HOME=/data/.huggingface
@@ -24,12 +21,11 @@ ENV TORCH_HOME=/data/.torch
 # Set working directory for API server
 WORKDIR /app
 
-# Install build tools, CUDA development libraries, Python headers, and uv package manager
+# Install Python 3.10, build tools, and uv package manager
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    cuda-cudart-dev-12-8 \
-    python3.10-dev \
+    python3.10 python3.10-dev python3-pip \
+    ffmpeg git wget \
+    gcc g++ \
     curl \
     && rm -rf /var/lib/apt/lists/* \
     && curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -42,6 +38,11 @@ RUN uv venv -p 3.10 /opt/venv
 
 # Activate venv by adding to PATH
 ENV PATH="/opt/venv/bin:${PATH}"
+
+# Install PyTorch 2.8.0 with CUDA 12.8 support first
+RUN --mount=type=cache,id=pip-cache-shared,target=/root/.cache/pip,sharing=shared \
+    pip3 install --index-url https://download.pytorch.org/whl/cu128 \
+    'torch==2.8.0+cu128' 'torchvision==0.23.0+cu128' 'torchaudio==2.8.0+cu128'
 
 # Copy requirements first for better caching
 COPY requirements.txt .
