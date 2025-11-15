@@ -39,21 +39,31 @@
     "video_container": "mp4",
     "last_model_type": "ovi",
     "last_model_per_family": {
-        "wan": "infinitetalk",
-        "wan2_2": "ovi"
+        "wan": "mocha",
+        "wan2_2": "ovi",
+        "ltxv": "ltxv_13B",
+        "hunyuan": "hunyuan"
     },
     "last_model_per_type": {
         "flf2v_720p": "flf2v_720p",
         "animate": "animate",
         "ovi": "ovi",
         "infinitetalk": "infinitetalk",
-        "t2v_2_2": "t2v_2_2"
+        "t2v_2_2": "t2v_2_2",
+        "t2v": "t2v",
+        "alpha": "alpha",
+        "fantasy": "fantasy",
+        "lynx": "lynx",
+        "mocha": "mocha",
+        "ltxv_13B": "ltxv_13B",
+        "hunyuan_avatar": "hunyuan_avatar",
+        "hunyuan": "hunyuan"
     },
     "last_advanced_choice": true,
-    "last_resolution_choice": "480x832",
+    "last_resolution_choice": "832x480",
     "last_resolution_per_group": {
         "720p": "1280x720",
-        "480p": "480x832",
-        "1080p": "1920x1088"
+        "480p": "832x480",
+        "1080p": "1088x1920"
     }
 }
