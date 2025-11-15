@@ -13,6 +13,7 @@ from models import (
     ExecutionStatus,
     GenerateRequest,
     GenerateResponse,
+    ImageApprovalRequest,
     QuoteApprovalRequest,
 )
 
@@ -161,8 +162,36 @@ class N8nClient:
         finished = data.get("finished", exec_data.get("finished", False))
 
         # Map n8n status to our ExecutionStatus enum
+        # Check if we're waiting for quote or image approval based on which Wait node is active
         if status_str == "waiting":
-            status = ExecutionStatus.WAITING_FOR_APPROVAL
+            # Since lastNodeExecuted isn't available, check which Wait node has been executed
+            # by looking at the runData to see which nodes have run
+            run_data = exec_data.get("resultData", {}).get("runData", {})
+
+            # Check if image-related nodes have executed
+            has_image_generation = "ComfyUI: Generate Image" in run_data
+            has_image_capture = "Capture Image Resume URL" in run_data
+            has_wait_image = "Wait for Image Approval" in run_data
+
+            print("🔍 DEBUG: Waiting status - checking node execution", file=sys.stderr)
+            print(
+                f"🔍 DEBUG: Has 'ComfyUI: Generate Image': {has_image_generation}",
+                file=sys.stderr,
+            )
+            print(
+                f"🔍 DEBUG: Has 'Capture Image Resume URL': {has_image_capture}",
+                file=sys.stderr,
+            )
+            print(f"🔍 DEBUG: Has 'Wait for Image Approval': {has_wait_image}", file=sys.stderr)
+            print(f"🔍 DEBUG: Run data keys: {list(run_data.keys())}", file=sys.stderr)
+
+            # If image-related nodes have executed, we're at image approval stage
+            if has_image_generation or has_image_capture:
+                status = ExecutionStatus.WAITING_FOR_IMAGE_APPROVAL
+                print("🔍 DEBUG: Detected IMAGE approval stage", file=sys.stderr)
+            else:
+                status = ExecutionStatus.WAITING_FOR_APPROVAL
+                print("🔍 DEBUG: Detected QUOTE approval stage", file=sys.stderr)
         elif status_str == "error":
             status = ExecutionStatus.ERROR
         elif status_str == "success" and finished:
@@ -182,6 +211,7 @@ class N8nClient:
         # Extract results if successful or waiting for approval
         quote = None
         image_prompt = None
+        image_filename = None
         image_url = None
         video_prompt = None
         video_url = None
@@ -197,7 +227,9 @@ class N8nClient:
             # Construct resume URL from execution ID
             # The Wait node creates a webhook at /webhook-waiting/{execution_id}
             # We need to use the external URL, not the internal n8n:5678 URL
-            base_url = self.base_url.replace("http://n8n:5678", os.getenv("N8N_EXTERNAL_URL", "https://n8n.lan"))
+            base_url = self.base_url.replace(
+                "http://n8n:5678", os.getenv("N8N_EXTERNAL_URL", "https://n8n.lan")
+            )
             resume_url = f"{base_url}/webhook-waiting/{execution_id}"
 
             # Extract quote from "Quote writer" or "Format Custom Quote" node
@@ -207,6 +239,48 @@ class N8nClient:
                 if quote_output:
                     quote_data = quote_output[0].get("json", {})
                     quote = quote_data.get("output")
+
+        elif status == ExecutionStatus.WAITING_FOR_IMAGE_APPROVAL:
+            # Waiting for image approval - extract image data
+            run_data = exec_data.get("resultData", {}).get("runData", {})
+
+            # Construct resume URL from execution ID
+            base_url = self.base_url.replace(
+                "http://n8n:5678", os.getenv("N8N_EXTERNAL_URL", "https://n8n.lan")
+            )
+            resume_url = f"{base_url}/webhook-waiting/{execution_id}"
+
+            # Extract quote from previous nodes
+            quote_node = run_data.get("Quote writer", []) or run_data.get("Format Custom Quote", [])
+            if quote_node and len(quote_node) > 0:
+                quote_output = quote_node[0].get("data", {}).get("main", [[]])[0]
+                if quote_output:
+                    quote_data = quote_output[0].get("json", {})
+                    quote = quote_data.get("output")
+
+            # Extract image prompt from Parse Prompts node
+            parse_node = run_data.get("Parse Prompts", [])
+            if parse_node and len(parse_node) > 0:
+                parse_output = parse_node[0].get("data", {}).get("main", [[]])[0]
+                if parse_output:
+                    parse_data = parse_output[0].get("json", {})
+                    image_prompt = parse_data.get("image_prompt")
+
+            # Extract image filename from ComfyUI: Generate Image node
+            image_node = run_data.get("ComfyUI: Generate Image", [])
+            if image_node and len(image_node) > 0:
+                image_output = image_node[0].get("data", {}).get("main", [[]])[0]
+                if image_output:
+                    json_data = image_output[0].get("json", {})
+                    # Try images array first (old format), then filename directly (new format)
+                    images = json_data.get("images", [])
+                    if images and images[0].get("filename"):
+                        image_filename = images[0].get("filename")
+                    else:
+                        image_filename = json_data.get("filename")
+
+                    if image_filename:
+                        image_url = f"/download/{image_filename}"
 
         if status == ExecutionStatus.SUCCESS:
             run_data = exec_data.get("data", {}).get("resultData", {}).get("runData", {})
@@ -263,6 +337,7 @@ class N8nClient:
             status=status,
             quote=quote,
             image_prompt=image_prompt,
+            image_filename=image_filename,
             image_url=image_url,
             video_prompt=video_prompt,
             video_url=video_url,
@@ -294,7 +369,10 @@ class N8nClient:
             url = request.resume_url
             # Validate URL exists and is not the string "None"
             if not url or url == "None" or not url.startswith(("http://", "https://")):
-                raise N8nError("Valid resume URL with http:// or https:// protocol is required for quote approval")
+                raise N8nError(
+                    "Valid resume URL with http:// or https:// protocol is required "
+                    "for quote approval"
+                )
 
             # Prepare payload based on action
             payload: dict[str, Any] = {"action": request.action.value}
@@ -312,6 +390,52 @@ class N8nClient:
 
             if response.status_code not in (200, 201, 204):
                 raise N8nError(f"Failed to approve quote: {response.status_code} {response.text}")
+
+            return {"success": True}
+
+    async def approve_image_with_url(self, request: ImageApprovalRequest) -> dict[str, bool]:
+        """Resume workflow execution with image approval decision using the actual webhook URL.
+
+        Args:
+            request: Image approval request with action, optional edited image prompt,
+                and resume_url
+
+        Returns:
+            Dict with success status
+
+        Raises:
+            N8nError: If approval fails
+        """
+        import httpx
+
+        # Check environment variable for SSL verification setting
+        verify_ssl = os.getenv("N8N_VERIFY_SSL", "false").lower() == "true"
+
+        async with httpx.AsyncClient(verify=verify_ssl, timeout=30.0) as client:
+            url = request.resume_url
+            # Validate URL exists and is not the string "None"
+            if not url or url == "None" or not url.startswith(("http://", "https://")):
+                raise N8nError(
+                    "Valid resume URL with http:// or https:// protocol is required "
+                    "for image approval"
+                )
+
+            # Prepare payload based on action
+            payload: dict[str, Any] = {"action": request.action.value}
+
+            if request.action == ApprovalAction.EDIT and request.edited_image_prompt:
+                payload["edited_image_prompt"] = request.edited_image_prompt
+                payload["approved"] = True  # EDIT action also means approved
+            elif request.action == ApprovalAction.APPROVE:
+                # The workflow will use the original image
+                payload["approved"] = True
+            elif request.action == ApprovalAction.REJECT:
+                payload["approved"] = False
+
+            response = await client.post(url, json=payload)
+
+            if response.status_code not in (200, 201, 204):
+                raise N8nError(f"Failed to approve image: {response.status_code} {response.text}")
 
             return {"success": True}
 

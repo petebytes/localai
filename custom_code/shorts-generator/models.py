@@ -42,6 +42,7 @@ class ExecutionStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
     WAITING_FOR_APPROVAL = "waiting_for_approval"
+    WAITING_FOR_IMAGE_APPROVAL = "waiting_for_image_approval"
     SUCCESS = "success"
     ERROR = "error"
 
@@ -65,6 +66,7 @@ class GenerateResponse(BaseModel):
     status: ExecutionStatus = Field(description="Current execution status")
     quote: str | None = Field(default=None, description="Generated quote text")
     image_prompt: str | None = Field(default=None, description="Generated image prompt")
+    image_filename: str | None = Field(default=None, description="Generated image filename")
     image_url: str | None = Field(default=None, description="URL to download generated image")
     video_prompt: str | None = Field(default=None, description="Generated video animation prompt")
     video_url: str | None = Field(default=None, description="URL to download generated video")
@@ -128,6 +130,35 @@ class QuoteApprovalRequest(BaseModel):
 
 class QuoteApprovalResponse(BaseModel):
     """Response for quote approval request."""
+
+    success: bool = Field(description="Whether the approval was processed successfully")
+    message: str = Field(description="Status message")
+
+
+class ImageApprovalRequest(BaseModel):
+    """Request to approve, edit, or reject a generated image."""
+
+    execution_id: str = Field(description="n8n workflow execution ID")
+    action: ApprovalAction = Field(description="Approval action")
+    edited_image_prompt: str | None = Field(
+        default=None, description="Edited image prompt (required if action is 'edit')"
+    )
+    resume_url: str | None = Field(
+        default=None, description="Resume webhook URL from n8n (required for approval)"
+    )
+
+    @model_validator(mode="after")
+    def validate_edited_prompt(self) -> "ImageApprovalRequest":
+        """Validate that edited_image_prompt is provided when action is 'edit'."""
+        if self.action == ApprovalAction.EDIT and not self.edited_image_prompt:
+            raise ValueError("edited_image_prompt is required when action is 'edit'")
+        if not self.resume_url:
+            raise ValueError("resume_url is required for approval")
+        return self
+
+
+class ImageApprovalResponse(BaseModel):
+    """Response for image approval request."""
 
     success: bool = Field(description="Whether the approval was processed successfully")
     message: str = Field(description="Status message")

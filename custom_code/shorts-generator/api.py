@@ -10,6 +10,8 @@ from models import (
     GenerateRequest,
     GenerateResponse,
     GenerationItem,
+    ImageApprovalRequest,
+    ImageApprovalResponse,
     ListGenerationsResponse,
     QuoteApprovalRequest,
     QuoteApprovalResponse,
@@ -264,5 +266,41 @@ async def approve_quote(
         message = action_msg.get(request.action.value, "Action processed")
 
         return QuoteApprovalResponse(success=True, message=message)
+    except N8nError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/approve-image", response_model=ImageApprovalResponse)
+async def approve_image(
+    request: ImageApprovalRequest,
+    client: N8nClient = Depends(get_n8n_client),
+) -> ImageApprovalResponse:
+    """Approve, edit, or reject a generated image.
+
+    This resumes the n8n workflow execution that is waiting for image approval.
+
+    Args:
+        request: Approval request with execution ID, action, and resume_url from n8n
+        client: n8n client dependency
+
+    Returns:
+        Response indicating success or failure
+
+    Raises:
+        HTTPException: If approval fails
+    """
+    try:
+        # Use the resume_url provided by n8n (passed from frontend)
+        await client.approve_image_with_url(request)
+        await client.close()
+
+        action_msg = {
+            "approve": "Image approved",
+            "edit": "Image regenerated with new prompt",
+            "reject": "Image rejected",
+        }
+        message = action_msg.get(request.action.value, "Action processed")
+
+        return ImageApprovalResponse(success=True, message=message)
     except N8nError as e:
         raise HTTPException(status_code=500, detail=str(e))

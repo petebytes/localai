@@ -204,7 +204,9 @@ async def test_get_execution_status_success(
                                             {
                                                 "json": {
                                                     "image_prompt": "A winding forest path",
-                                                    "video_prompt": "Camera slowly pans through the forest path",
+                                                    "video_prompt": (
+                                                        "Camera slowly pans through the forest path"
+                                                    ),
                                                     "original_quote": "Healing is not linear",
                                                 }
                                             }

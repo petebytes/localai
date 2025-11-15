@@ -109,6 +109,40 @@ async def approve_quote(
             return False, f"Error: {str(e)}"
 
 
+async def approve_image(
+    execution_id: str, action: str, resume_url: str, edited_image_prompt: str | None = None
+) -> tuple[bool, str]:
+    """Send image approval decision to API.
+
+    Args:
+        execution_id: Execution ID to approve
+        action: Approval action (approve/edit/reject)
+        resume_url: Resume webhook URL from n8n
+        edited_image_prompt: Optional edited image prompt
+
+    Returns:
+        Tuple of (success, message)
+    """
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            payload = {"execution_id": execution_id, "action": action, "resume_url": resume_url}
+            if edited_image_prompt and action == "edit":
+                payload["edited_image_prompt"] = edited_image_prompt.strip()
+
+            print(f"📤 Sending image approval to API: {payload}", file=sys.stderr)
+            response = await client.post(
+                f"{API_BASE_URL}/api/approve-image",
+                json=payload,
+            )
+            print(f"📥 API response: status={response.status_code}", file=sys.stderr)
+            response.raise_for_status()
+            data = response.json()
+            return data["success"], data["message"]
+        except Exception as e:
+            print(f"❌ Image approval error: {e}", file=sys.stderr)
+            return False, f"Error: {str(e)}"
+
+
 async def poll_status(execution_id: str) -> dict[str, str]:
     """Poll execution status via API.
 
@@ -183,7 +217,7 @@ def load_previous_generation(
 
 def generate_and_poll(
     custom_quote: str | None = None,
-) -> Generator[tuple[str, str, str | None, str | None, str, str, bool], None, None]:
+) -> Generator[tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None]:
     """Generate and poll for results with streaming updates.
 
     Args:
@@ -191,16 +225,26 @@ def generate_and_poll(
 
     Yields:
         Tuples of (status, quote, image_path, video_path, execution_id,
-            resume_url, waiting_for_approval)
+            resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
     # Trigger generation
     execution_id, status_msg = asyncio.run(trigger_generation(custom_quote))
 
     if not execution_id:
-        yield ("Error", status_msg, None, None, "", "", False)
+        yield ("Error", status_msg, None, None, "", "", False, False, "")
         return
 
-    yield (f"Started (ID: {execution_id})", "Generating...", None, None, execution_id, "", False)
+    yield (
+        f"Started (ID: {execution_id})",
+        "Generating...",
+        None,
+        None,
+        execution_id,
+        "",
+        False,
+        False,
+        "",
+    )
 
     # Poll for completion
     max_attempts = 300  # 5 minutes with 1s intervals (videos take longer)
@@ -212,7 +256,7 @@ def generate_and_poll(
 
         if status == "error":
             error_msg = data.get("error", "Unknown error")
-            yield (f"Error: {error_msg}", "", None, None, execution_id, "", False)
+            yield (f"Error: {error_msg}", "", None, None, execution_id, "", False, False, "")
             return
 
         if status == "waiting_for_approval":
@@ -229,9 +273,40 @@ def generate_and_poll(
                 None,
                 execution_id,
                 resume_url,
-                True,  # Signal that we need approval
+                True,  # Signal that we need quote approval
+                False,  # Not waiting for image approval
+                "",  # No image prompt yet
             )
             print("✅ Yielded approval state: waiting=True", file=sys.stderr)
+            return  # Stop polling, wait for user action
+
+        if status == "waiting_for_image_approval":
+            quote = str(data.get("quote", ""))
+            image_prompt = str(data.get("image_prompt", ""))
+            image_url = str(data.get("image_url", ""))
+            resume_url_value = data.get("resume_url") or data.get("resumeUrl")
+            resume_url = resume_url_value if resume_url_value is not None else ""
+
+            # Download the generated image for preview
+            image_path = None
+            if image_url:
+                filename = image_url.split("/")[-1]
+                image_path = download_file_from_api(filename, timeout=30.0)
+
+            print(f"🖼️ WAITING FOR IMAGE APPROVAL! Image: {image_path}", file=sys.stderr)
+            print(f"📍 Resume URL extracted: {resume_url}", file=sys.stderr)
+            yield (
+                "Waiting for image approval",
+                quote,
+                image_path,
+                None,
+                execution_id,
+                resume_url,
+                False,  # Not waiting for quote approval
+                True,  # Signal that we need image approval
+                image_prompt,  # Provide image prompt for editing
+            )
+            print("✅ Yielded image approval state: waiting_for_image=True", file=sys.stderr)
             return  # Stop polling, wait for user action
 
         if status == "success":
@@ -240,13 +315,13 @@ def generate_and_poll(
             video_url = str(data.get("video_url", ""))
 
             # Download image
-            image_path: str | None = None
+            image_path = None
             if image_url:
                 filename = image_url.split("/")[-1]
                 image_path = download_file_from_api(filename, timeout=30.0)
 
             # Download video
-            video_path: str | None = None
+            video_path = None
             if video_url:
                 filename = video_url.split("/")[-1]
                 video_path = download_file_from_api(filename, timeout=60.0)
@@ -261,7 +336,7 @@ def generate_and_poll(
             else:
                 status_msg = "Success (but downloads failed)"
 
-            yield (status_msg, quote, image_path, video_path, execution_id, "", False)
+            yield (status_msg, quote, image_path, video_path, execution_id, "", False, False, "")
             return
 
         # Still running - provide more detailed status for long-running operations
@@ -276,17 +351,19 @@ def generate_and_poll(
             execution_id,
             "",
             False,
+            False,
+            "",
         )
 
         time.sleep(1)
         attempt += 1
 
-    yield ("Timeout", "Generation took too long", None, None, execution_id, "", False)
+    yield ("Timeout", "Generation took too long", None, None, execution_id, "", False, False, "")
 
 
 def resume_polling(
     execution_id: str,
-) -> Generator[tuple[str, str, str | None, str | None, str, str, bool], None, None]:
+) -> Generator[tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None]:
     """Resume polling for an existing execution.
 
     Args:
@@ -294,13 +371,23 @@ def resume_polling(
 
     Yields:
         Tuples of (status, quote, image_path, video_path, execution_id,
-            resume_url, waiting_for_approval)
+            resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
     if not execution_id or not execution_id.strip():
-        yield ("Error: Please enter a valid execution ID", "", None, None, "", "", False)
+        yield ("Error: Please enter a valid execution ID", "", None, None, "", "", False, False, "")
         return
 
-    yield (f"Resuming polling for {execution_id}...", "", None, None, execution_id, "", False)
+    yield (
+        f"Resuming polling for {execution_id}...",
+        "",
+        None,
+        None,
+        execution_id,
+        "",
+        False,
+        False,
+        "",
+    )
 
     # Poll for completion (same logic as generate_and_poll but starting from resume)
     max_attempts = 300
@@ -313,7 +400,7 @@ def resume_polling(
 
         if status == "error":
             error_msg = data.get("error", "Unknown error")
-            yield (f"Error: {error_msg}", "", None, None, execution_id, "", False)
+            yield (f"Error: {error_msg}", "", None, None, execution_id, "", False, False, "")
             return
 
         if status == "waiting_for_approval":
@@ -327,6 +414,33 @@ def resume_polling(
                 execution_id,
                 resume_url,
                 True,
+                False,
+                "",
+            )
+            return
+
+        if status == "waiting_for_image_approval":
+            quote = str(data.get("quote", ""))
+            image_prompt = str(data.get("image_prompt", ""))
+            image_url = str(data.get("image_url", ""))
+            resume_url = str(data.get("resume_url", ""))
+
+            # Download the generated image for preview
+            image_path = None
+            if image_url:
+                filename = image_url.split("/")[-1]
+                image_path = download_file_from_api(filename, timeout=30.0)
+
+            yield (
+                "Waiting for image approval",
+                quote,
+                image_path,
+                None,
+                execution_id,
+                resume_url,
+                False,
+                True,
+                image_prompt,
             )
             return
 
@@ -335,12 +449,12 @@ def resume_polling(
             image_url = str(data.get("image_url", ""))
             video_url = str(data.get("video_url", ""))
 
-            image_path: str | None = None
+            image_path = None
             if image_url:
                 filename = image_url.split("/")[-1]
                 image_path = download_file_from_api(filename, timeout=30.0)
 
-            video_path: str | None = None
+            video_path = None
             if video_url:
                 filename = video_url.split("/")[-1]
                 video_path = download_file_from_api(filename, timeout=60.0)
@@ -354,7 +468,7 @@ def resume_polling(
             else:
                 status_msg = "Success (but downloads failed)"
 
-            yield (status_msg, quote, image_path, video_path, execution_id, "", False)
+            yield (status_msg, quote, image_path, video_path, execution_id, "", False, False, "")
             return
 
         # Still running
@@ -369,6 +483,8 @@ def resume_polling(
             execution_id,
             "",
             False,
+            False,
+            "",
         )
 
         attempt += 1
@@ -381,12 +497,14 @@ def resume_polling(
         execution_id,
         "",
         False,
+        False,
+        "",
     )
 
 
 def continue_after_approval(
     execution_id: str, resume_url: str, action: str, edited_quote: str | None = None
-) -> Generator[tuple[str, str, str | None, str | None, str, str, bool], None, None]:
+) -> Generator[tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None]:
     """Continue workflow after quote approval.
 
     Args:
@@ -397,7 +515,7 @@ def continue_after_approval(
 
     Yields:
         Tuples of (status, quote, image_path, video_path, execution_id,
-            resume_url, waiting_for_approval)
+            resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
     print(
         f"🚀 continue_after_approval called: exec_id={execution_id}, action={action}",
@@ -417,14 +535,36 @@ def continue_after_approval(
             execution_id,
             "",
             False,
+            False,
+            "",
         )
         return
 
     if action == "reject":
-        yield ("Workflow cancelled", "Quote rejected by user", None, None, execution_id, "", False)
+        yield (
+            "Workflow cancelled",
+            "Quote rejected by user",
+            None,
+            None,
+            execution_id,
+            "",
+            False,
+            False,
+            "",
+        )
         return
 
-    yield (f"{message}, continuing...", edited_quote or "", None, None, execution_id, "", False)
+    yield (
+        f"{message}, continuing...",
+        edited_quote or "",
+        None,
+        None,
+        execution_id,
+        "",
+        False,
+        False,
+        "",
+    )
 
     # Continue polling for completion
     max_attempts = 300
@@ -437,7 +577,32 @@ def continue_after_approval(
 
         if status == "error":
             error_msg = data.get("error", "Unknown error")
-            yield (f"Error: {error_msg}", "", None, None, execution_id, "", False)
+            yield (f"Error: {error_msg}", "", None, None, execution_id, "", False, False, "")
+            return
+
+        if status == "waiting_for_image_approval":
+            quote = str(data.get("quote", ""))
+            image_prompt = str(data.get("image_prompt", ""))
+            image_url = str(data.get("image_url", ""))
+            resume_url_value = data.get("resume_url", "")
+
+            # Download the generated image for preview
+            image_path = None
+            if image_url:
+                filename = image_url.split("/")[-1]
+                image_path = download_file_from_api(filename, timeout=30.0)
+
+            yield (
+                "Waiting for image approval",
+                quote,
+                image_path,
+                None,
+                execution_id,
+                resume_url_value,
+                False,
+                True,
+                image_prompt,
+            )
             return
 
         if status == "success":
@@ -446,13 +611,13 @@ def continue_after_approval(
             video_url = str(data.get("video_url", ""))
 
             # Download image
-            image_path: str | None = None
+            image_path = None
             if image_url:
                 filename = image_url.split("/")[-1]
                 image_path = download_file_from_api(filename, timeout=30.0)
 
             # Download video
-            video_path: str | None = None
+            video_path = None
             if video_url:
                 filename = video_url.split("/")[-1]
                 video_path = download_file_from_api(filename, timeout=60.0)
@@ -467,7 +632,7 @@ def continue_after_approval(
             else:
                 status_msg = "Success (but downloads failed)"
 
-            yield (status_msg, quote, image_path, video_path, execution_id, "", False)
+            yield (status_msg, quote, image_path, video_path, execution_id, "", False, False, "")
             return
 
         # Still running
@@ -482,11 +647,146 @@ def continue_after_approval(
             execution_id,
             "",
             False,
+            False,
+            "",
         )
 
         attempt += 1
 
-    yield ("Timeout", "Generation took too long", None, None, execution_id, "", False)
+    yield ("Timeout", "Generation took too long", None, None, execution_id, "", False, False, "")
+
+
+def continue_after_image_approval(
+    execution_id: str, resume_url: str, action: str, edited_image_prompt: str | None = None
+) -> Generator[tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None]:
+    """Continue workflow after image approval.
+
+    Args:
+        execution_id: Execution ID to continue
+        resume_url: Resume webhook URL from n8n
+        action: Approval action (approve/edit/reject)
+        edited_image_prompt: Optional edited image prompt
+
+    Yields:
+        Tuples of (status, quote, image_path, video_path, execution_id,
+            resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
+    """
+    print(
+        f"🚀 continue_after_image_approval called: exec_id={execution_id}, action={action}",
+        file=sys.stderr,
+    )
+
+    # Send approval
+    success, message = asyncio.run(
+        approve_image(execution_id, action, resume_url, edited_image_prompt)
+    )
+    print(f"📡 Image Approval API response: success={success}, message={message}", file=sys.stderr)
+
+    if not success:
+        yield (
+            f"Image approval failed: {message}. Use 'Resume Generation' to retry if needed.",
+            "",
+            None,
+            None,
+            execution_id,
+            "",
+            False,
+            False,
+            "",
+        )
+        return
+
+    if action == "reject":
+        yield (
+            "Workflow cancelled",
+            "Image rejected by user",
+            None,
+            None,
+            execution_id,
+            "",
+            False,
+            False,
+            "",
+        )
+        return
+
+    # If editing, the image will be regenerated, so keep the prompt for display
+    current_prompt = edited_image_prompt if action == "edit" and edited_image_prompt else ""
+    yield (
+        f"{message}, continuing...",
+        "",
+        None,
+        None,
+        execution_id,
+        "",
+        False,
+        False,
+        current_prompt,
+    )
+
+    # Continue polling for completion
+    max_attempts = 300
+    attempt = 0
+
+    while attempt < max_attempts:
+        time.sleep(1)
+        data = asyncio.run(poll_status(execution_id))
+        status = data.get("status", "unknown")
+
+        if status == "error":
+            error_msg = data.get("error", "Unknown error")
+            yield (f"Error: {error_msg}", "", None, None, execution_id, "", False, False, "")
+            return
+
+        if status == "success":
+            quote = str(data.get("quote", ""))
+            image_url = str(data.get("image_url", ""))
+            video_url = str(data.get("video_url", ""))
+
+            # Download image
+            image_path = None
+            if image_url:
+                filename = image_url.split("/")[-1]
+                image_path = download_file_from_api(filename, timeout=30.0)
+
+            # Download video
+            video_path = None
+            if video_url:
+                filename = video_url.split("/")[-1]
+                video_path = download_file_from_api(filename, timeout=60.0)
+
+            # Determine final status message
+            if image_path and video_path:
+                status_msg = "Success! Image and video generated."
+            elif image_path:
+                status_msg = "Success! Image generated (video pending or failed)."
+            elif video_path:
+                status_msg = "Success! Video generated (image failed)."
+            else:
+                status_msg = "Success (but downloads failed)"
+
+            yield (status_msg, quote, image_path, video_path, execution_id, "", False, False, "")
+            return
+
+        # Still running
+        status_str = str(status) if status else "unknown"
+        if attempt > 60:
+            status_str = f"{status_str} (generating video...)"
+        yield (
+            f"{status_str.capitalize()}...",
+            "Processing...",
+            None,
+            None,
+            execution_id,
+            "",
+            False,
+            False,
+            "",
+        )
+
+        attempt += 1
+
+    yield ("Timeout", "Generation took too long", None, None, execution_id, "", False, False, "")
 
 
 def create_ui() -> Any:
@@ -510,6 +810,8 @@ def create_ui() -> Any:
                 execution_id_state = gr.State("")
                 resume_url_state = gr.State("")
                 waiting_for_approval_state = gr.State(False)
+                waiting_for_image_approval_state = gr.State(False)
+                image_prompt_state = gr.State("")
 
                 with gr.Row():
                     with gr.Column():
@@ -580,6 +882,34 @@ def create_ui() -> Any:
                                 )
                                 reject_btn = gr.Button("✗ Reject", variant="stop", scale=1)
 
+                        # Image Approval section (initially hidden)
+                        with gr.Column(visible=False) as image_approval_group:
+                            gr.Markdown(
+                                """
+                                ### Image Approval Required
+                                Please review the generated image on the right and choose an action:
+                                """
+                            )
+
+                            edited_image_prompt_input = gr.Textbox(
+                                label="Edit Image Prompt (Optional)",
+                                placeholder=(
+                                    "Edit the image prompt to regenerate, "
+                                    "or leave as-is to approve..."
+                                ),
+                                lines=5,
+                                interactive=True,
+                            )
+
+                            with gr.Row():
+                                image_approve_btn = gr.Button(
+                                    "✓ Approve Image", variant="primary", scale=1
+                                )
+                                image_regenerate_btn = gr.Button(
+                                    "🔄 Regenerate Image", variant="secondary", scale=1
+                                )
+                                image_reject_btn = gr.Button("✗ Reject", variant="stop", scale=1)
+
                     with gr.Column():
                         image_output = gr.Image(
                             label="Generated Image (9:16)",
@@ -596,7 +926,7 @@ def create_ui() -> Any:
                             show_download_button=True,
                         )
 
-                # Helper function to show/hide approval group and resume accordion based on status
+                # Helper function to show/hide approval groups and resume accordion based on status
                 def update_approval_visibility(
                     status: str,
                     quote: str,
@@ -605,6 +935,8 @@ def create_ui() -> Any:
                     exec_id: str,
                     resume_url: str,
                     waiting: bool,
+                    waiting_image: bool,
+                    image_prompt: str,
                 ) -> tuple[
                     str,
                     str,
@@ -613,6 +945,10 @@ def create_ui() -> Any:
                     str,
                     str,
                     bool,
+                    bool,
+                    str,
+                    gr.Column,
+                    gr.Textbox,
                     gr.Column,
                     gr.Textbox,
                     gr.Accordion,
@@ -622,13 +958,25 @@ def create_ui() -> Any:
                     gr.Button,
                     gr.Button,
                     gr.Button,
+                    gr.Button,
+                    gr.Button,
+                    gr.Button,
                 ]:
                     """Update UI based on approval status and show resume accordion on errors."""
-                    print(f"🎯 update_approval_visibility: waiting={waiting}", file=sys.stderr)
-                    # Update approval group visibility
+                    print(
+                        f"🎯 update_approval_visibility: waiting={waiting}, "
+                        f"waiting_image={waiting_image}",
+                        file=sys.stderr,
+                    )
+                    # Update quote approval group visibility
                     approval_visible = waiting
                     # Pre-fill edited quote input with generated quote
                     edited_quote_value = quote if waiting else ""
+
+                    # Update image approval group visibility
+                    image_approval_visible = waiting_image
+                    # Pre-fill edited image prompt input with generated prompt
+                    edited_image_prompt_value = image_prompt if waiting_image else ""
 
                     # Show resume accordion on timeout or error
                     show_resume = "timeout" in status.lower() or "error" in status.lower()
@@ -642,20 +990,23 @@ def create_ui() -> Any:
                         "timeout",
                         "workflow cancelled",
                         "waiting for approval",
+                        "waiting for image approval",
                     ]
                     is_waiting_approval = waiting
-                    (
-                        "success" in status.lower()
-                        or "error" in status.lower()
-                        or "timeout" in status.lower()
-                        or "cancelled" in status.lower()
+                    is_waiting_image_approval = waiting_image
+
+                    # Generate button: disabled when processing or waiting for any approval
+                    generate_enabled = (
+                        not is_processing
+                        and not is_waiting_approval
+                        and not is_waiting_image_approval
                     )
 
-                    # Generate button: disabled when processing or waiting for approval
-                    generate_enabled = not is_processing and not is_waiting_approval
-
-                    # Approval buttons: enabled only when waiting for approval
+                    # Quote approval buttons: enabled only when waiting for quote approval
                     approval_enabled = is_waiting_approval
+
+                    # Image approval buttons: enabled only when waiting for image approval
+                    image_approval_enabled = is_waiting_image_approval
 
                     # Resume button: enabled when showing resume accordion
                     resume_enabled = show_resume
@@ -668,16 +1019,98 @@ def create_ui() -> Any:
                         exec_id,
                         resume_url,
                         waiting,
+                        waiting_image,
+                        image_prompt,
                         gr.Column(visible=approval_visible),
                         gr.Textbox(value=edited_quote_value),
+                        gr.Column(visible=image_approval_visible),
+                        gr.Textbox(value=edited_image_prompt_value),
                         gr.Accordion(visible=show_resume),
                         gr.Textbox(value=resume_id_value),
                         gr.Button(interactive=generate_enabled),  # generate_btn
                         gr.Button(interactive=approval_enabled),  # approve_btn
                         gr.Button(interactive=approval_enabled),  # edit_approve_btn
                         gr.Button(interactive=approval_enabled),  # reject_btn
+                        gr.Button(interactive=image_approval_enabled),  # image_approve_btn
+                        gr.Button(interactive=image_approval_enabled),  # image_regenerate_btn
+                        gr.Button(interactive=image_approval_enabled),  # image_reject_btn
                         gr.Button(interactive=resume_enabled),  # resume_btn
                     )
+
+                # Helper functions for button handlers
+                def approve_handler(
+                    exec_id: str, resume_url: str
+                ) -> Generator[
+                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                ]:
+                    """Handle approve button click."""
+                    yield from continue_after_approval(exec_id, resume_url, "approve")
+
+                def edit_approve_handler(
+                    exec_id: str, resume_url: str, edited: str
+                ) -> Generator[
+                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                ]:
+                    """Handle edit+approve button click."""
+                    yield from continue_after_approval(exec_id, resume_url, "edit", edited)
+
+                def reject_handler(
+                    exec_id: str, resume_url: str
+                ) -> Generator[
+                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                ]:
+                    """Handle reject button click."""
+                    yield from continue_after_approval(exec_id, resume_url, "reject")
+
+                def image_approve_handler(
+                    exec_id: str, resume_url: str
+                ) -> Generator[
+                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                ]:
+                    """Handle image approve button click."""
+                    yield from continue_after_image_approval(exec_id, resume_url, "approve")
+
+                def image_regenerate_handler(
+                    exec_id: str, resume_url: str, edited_prompt: str
+                ) -> Generator[
+                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                ]:
+                    """Handle image regenerate button click."""
+                    yield from continue_after_image_approval(
+                        exec_id, resume_url, "edit", edited_prompt
+                    )
+
+                def image_reject_handler(
+                    exec_id: str, resume_url: str
+                ) -> Generator[
+                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                ]:
+                    """Handle image reject button click."""
+                    yield from continue_after_image_approval(exec_id, resume_url, "reject")
+
+                def disable_approval_buttons() -> tuple[Any, Any, Any]:
+                    """Immediately disable approval buttons when any is clicked."""
+                    return (
+                        gr.Button(interactive=False),  # approve_btn
+                        gr.Button(interactive=False),  # edit_approve_btn
+                        gr.Button(interactive=False),  # reject_btn
+                    )
+
+                def disable_image_approval_buttons() -> tuple[Any, Any, Any]:
+                    """Immediately disable image approval buttons when any is clicked."""
+                    return (
+                        gr.Button(interactive=False),  # image_approve_btn
+                        gr.Button(interactive=False),  # image_regenerate_btn
+                        gr.Button(interactive=False),  # image_reject_btn
+                    )
+
+                def disable_generate_button() -> Any:
+                    """Immediately disable generate button when clicked."""
+                    return gr.Button(interactive=False)  # generate_btn
+
+                def disable_resume_button() -> Any:
+                    """Immediately disable resume button when clicked."""
+                    return gr.Button(interactive=False)  # resume_btn
 
                 # Wire up generation
                 generate_btn.click(
@@ -695,6 +1128,8 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                     ],
                 ).then(
                     fn=update_approval_visibility,
@@ -706,6 +1141,8 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                     ],
                     outputs=[
                         status_box,
@@ -715,14 +1152,21 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                         approval_group,
                         edited_quote_input,
+                        image_approval_group,
+                        edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
                         generate_btn,
                         approve_btn,
                         edit_approve_btn,
                         reject_btn,
+                        image_approve_btn,
+                        image_regenerate_btn,
+                        image_reject_btn,
                         resume_btn,
                     ],
                 )
@@ -743,6 +1187,8 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                     ],
                 ).then(
                     fn=update_approval_visibility,
@@ -754,6 +1200,8 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                     ],
                     outputs=[
                         status_box,
@@ -763,48 +1211,26 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                         approval_group,
                         edited_quote_input,
+                        image_approval_group,
+                        edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
                         generate_btn,
                         approve_btn,
                         edit_approve_btn,
                         reject_btn,
+                        image_approve_btn,
+                        image_regenerate_btn,
+                        image_reject_btn,
                         resume_btn,
                     ],
                 )
 
-                # Wire up approval buttons
-                # Note: These must be generator functions (not lambdas) to properly stream updates
-                def approve_handler(exec_id: str, resume_url: str):
-                    """Handle approve button click."""
-                    yield from continue_after_approval(exec_id, resume_url, "approve")
-
-                def edit_approve_handler(exec_id: str, resume_url: str, edited: str):
-                    """Handle edit+approve button click."""
-                    yield from continue_after_approval(exec_id, resume_url, "edit", edited)
-
-                def reject_handler(exec_id: str, resume_url: str):
-                    """Handle reject button click."""
-                    yield from continue_after_approval(exec_id, resume_url, "reject")
-
-                def disable_approval_buttons():
-                    """Immediately disable approval buttons when any is clicked."""
-                    return (
-                        gr.Button(interactive=False),  # approve_btn
-                        gr.Button(interactive=False),  # edit_approve_btn
-                        gr.Button(interactive=False),  # reject_btn
-                    )
-
-                def disable_generate_button():
-                    """Immediately disable generate button when clicked."""
-                    return gr.Button(interactive=False)  # generate_btn
-
-                def disable_resume_button():
-                    """Immediately disable resume button when clicked."""
-                    return gr.Button(interactive=False)  # resume_btn
-
+                # Wire up quote approval buttons
                 approve_btn.click(
                     fn=disable_approval_buttons,
                     inputs=[],
@@ -820,6 +1246,8 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                     ],
                 ).then(
                     fn=update_approval_visibility,
@@ -831,6 +1259,8 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                     ],
                     outputs=[
                         status_box,
@@ -840,14 +1270,21 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                         approval_group,
                         edited_quote_input,
+                        image_approval_group,
+                        edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
                         generate_btn,
                         approve_btn,
                         edit_approve_btn,
                         reject_btn,
+                        image_approve_btn,
+                        image_regenerate_btn,
+                        image_reject_btn,
                         resume_btn,
                     ],
                 )
@@ -867,6 +1304,8 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                     ],
                 ).then(
                     fn=update_approval_visibility,
@@ -878,6 +1317,8 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                     ],
                     outputs=[
                         status_box,
@@ -887,14 +1328,21 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                         approval_group,
                         edited_quote_input,
+                        image_approval_group,
+                        edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
                         generate_btn,
                         approve_btn,
                         edit_approve_btn,
                         reject_btn,
+                        image_approve_btn,
+                        image_regenerate_btn,
+                        image_reject_btn,
                         resume_btn,
                     ],
                 )
@@ -914,6 +1362,8 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                     ],
                 ).then(
                     fn=update_approval_visibility,
@@ -925,6 +1375,8 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                     ],
                     outputs=[
                         status_box,
@@ -934,14 +1386,196 @@ def create_ui() -> Any:
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
                         approval_group,
                         edited_quote_input,
+                        image_approval_group,
+                        edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
                         generate_btn,
                         approve_btn,
                         edit_approve_btn,
                         reject_btn,
+                        image_approve_btn,
+                        image_regenerate_btn,
+                        image_reject_btn,
+                        resume_btn,
+                    ],
+                )
+
+                # Wire up image approval buttons
+                image_approve_btn.click(
+                    fn=disable_image_approval_buttons,
+                    inputs=[],
+                    outputs=[image_approve_btn, image_regenerate_btn, image_reject_btn],
+                ).then(
+                    fn=image_approve_handler,
+                    inputs=[execution_id_state, resume_url_state],
+                    outputs=[
+                        status_box,
+                        quote_output,
+                        image_output,
+                        video_output,
+                        execution_id_state,
+                        resume_url_state,
+                        waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
+                    ],
+                ).then(
+                    fn=update_approval_visibility,
+                    inputs=[
+                        status_box,
+                        quote_output,
+                        image_output,
+                        video_output,
+                        execution_id_state,
+                        resume_url_state,
+                        waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
+                    ],
+                    outputs=[
+                        status_box,
+                        quote_output,
+                        image_output,
+                        video_output,
+                        execution_id_state,
+                        resume_url_state,
+                        waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
+                        approval_group,
+                        edited_quote_input,
+                        image_approval_group,
+                        edited_image_prompt_input,
+                        resume_accordion,
+                        resume_exec_id,
+                        generate_btn,
+                        approve_btn,
+                        edit_approve_btn,
+                        reject_btn,
+                        image_approve_btn,
+                        image_regenerate_btn,
+                        image_reject_btn,
+                        resume_btn,
+                    ],
+                )
+
+                image_regenerate_btn.click(
+                    fn=disable_image_approval_buttons,
+                    inputs=[],
+                    outputs=[image_approve_btn, image_regenerate_btn, image_reject_btn],
+                ).then(
+                    fn=image_regenerate_handler,
+                    inputs=[execution_id_state, resume_url_state, edited_image_prompt_input],
+                    outputs=[
+                        status_box,
+                        quote_output,
+                        image_output,
+                        video_output,
+                        execution_id_state,
+                        resume_url_state,
+                        waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
+                    ],
+                ).then(
+                    fn=update_approval_visibility,
+                    inputs=[
+                        status_box,
+                        quote_output,
+                        image_output,
+                        video_output,
+                        execution_id_state,
+                        resume_url_state,
+                        waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
+                    ],
+                    outputs=[
+                        status_box,
+                        quote_output,
+                        image_output,
+                        video_output,
+                        execution_id_state,
+                        resume_url_state,
+                        waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
+                        approval_group,
+                        edited_quote_input,
+                        image_approval_group,
+                        edited_image_prompt_input,
+                        resume_accordion,
+                        resume_exec_id,
+                        generate_btn,
+                        approve_btn,
+                        edit_approve_btn,
+                        reject_btn,
+                        image_approve_btn,
+                        image_regenerate_btn,
+                        image_reject_btn,
+                        resume_btn,
+                    ],
+                )
+
+                image_reject_btn.click(
+                    fn=disable_image_approval_buttons,
+                    inputs=[],
+                    outputs=[image_approve_btn, image_regenerate_btn, image_reject_btn],
+                ).then(
+                    fn=image_reject_handler,
+                    inputs=[execution_id_state, resume_url_state],
+                    outputs=[
+                        status_box,
+                        quote_output,
+                        image_output,
+                        video_output,
+                        execution_id_state,
+                        resume_url_state,
+                        waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
+                    ],
+                ).then(
+                    fn=update_approval_visibility,
+                    inputs=[
+                        status_box,
+                        quote_output,
+                        image_output,
+                        video_output,
+                        execution_id_state,
+                        resume_url_state,
+                        waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
+                    ],
+                    outputs=[
+                        status_box,
+                        quote_output,
+                        image_output,
+                        video_output,
+                        execution_id_state,
+                        resume_url_state,
+                        waiting_for_approval_state,
+                        waiting_for_image_approval_state,
+                        image_prompt_state,
+                        approval_group,
+                        edited_quote_input,
+                        image_approval_group,
+                        edited_image_prompt_input,
+                        resume_accordion,
+                        resume_exec_id,
+                        generate_btn,
+                        approve_btn,
+                        edit_approve_btn,
+                        reject_btn,
+                        image_approve_btn,
+                        image_regenerate_btn,
+                        image_reject_btn,
                         resume_btn,
                     ],
                 )
