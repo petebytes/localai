@@ -1,0 +1,559 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "shorts-generate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c38e758d-696e-4899-a3a2-af219d92c968",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        -544
+      ],
+      "webhookId": "shorts-generate"
+    },
+    {
+      "parameters": {
+        "workflow": "={\n  \"3\": {\n    \"inputs\": {\n      \"seed\": 42,\n      \"steps\": 10,\n      \"cfg\": 5,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1,\n      \"model\": [\"70\", 0],\n      \"positive\": [\"16\", 0],\n      \"negative\": [\"40\", 0],\n      \"latent_image\": [\"53\", 0]\n    },\n    \"class_type\": \"KSampler\"\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\"3\", 0],\n      \"vae\": [\"55\", 0]\n    },\n    \"class_type\": \"VAEDecode\"\n  },\n  \"9\": {\n    \"inputs\": {\n      \"filename_prefix\": \"hidream_test\",\n      \"images\": [\"8\", 0]\n    },\n    \"class_type\": \"SaveImage\"\n  },\n  \"16\": {\n    \"inputs\": {\n      \"text\": \"{{ $json.image_prompt }}\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"40\": {\n    \"inputs\": {\n      \"text\": \"blurry, low quality, distorted, bad ugly jpeg artifacts\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"53\": {\n    \"inputs\": {\n      \"width\": 576,\n      \"height\": 1024,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptySD3LatentImage\"\n  },\n  \"54\": {\n    \"inputs\": {\n      \"clip_name1\": \"clip_l_hidream.safetensors\",\n      \"clip_name2\": \"clip_g_hidream.safetensors\",\n      \"clip_name3\": \"t5xxl_fp8_e4m3fn_scaled.safetensors\",\n      \"clip_name4\": \"llama_3.1_8b_instruct_fp8_scaled.safetensors\"\n    },\n    \"class_type\": \"QuadrupleCLIPLoader\"\n  },\n  \"55\": {\n    \"inputs\": {\n      \"vae_name\": \"ae.safetensors\"\n    },\n    \"class_type\": \"VAELoader\"\n  },\n  \"70\": {\n    \"inputs\": {\n      \"shift\": 3.0,\n      \"model\": [\"76\", 0]\n    },\n    \"class_type\": \"ModelSamplingSD3\"\n  },\n  \"76\": {\n    \"inputs\": {\n      \"unet_name\": \"hidream_i1_full_fp8.safetensors\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\"\n  }\n}",
+        "jpegQuality": 90,
+        "timeout": 15,
+        "autoFreeVram": true
+      },
+      "id": "210b81b0-d421-4269-ab16-ab56e4ded433",
+      "name": "ComfyUI: Generate Image",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        272,
+        -336
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getSystemStats"
+      },
+      "id": "79579040-e820-4562-bc78-fc2f8628c649",
+      "name": "ComfyUI: Get Stats Before",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        -544
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"executionId\": $execution.id } }}",
+        "options": {}
+      },
+      "id": "a37555a1-8963-4b3e-850b-9aaf28a8a67b",
+      "name": "Respond with Execution ID",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -464,
+        -544
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "freeVram"
+      },
+      "id": "fb1ae094-788e-49ae-8b9b-3b06cab2b0ce",
+      "name": "ComfyUI: Free VRAM",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -544
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -640,
+        -176
+      ],
+      "id": "1dc3d3df-0663-409d-b176-7997d84cc3b8",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "9ITdZP15p3HH1JkB",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Generate a quote",
+        "options": {
+          "systemMessage": "You are a compassionate trauma-informed writer inspired by Peggy Oliveira, MSW — focusing on healing, self-trust, boundaries, emotional regulation, and recovery from shame. You generate original, reflective, and emotionally grounded inspirational quotes (not copied or cliché).\n\nTone: Gentle, validating, and empowering. Avoid toxic positivity. Each quote should sound like it could comfort someone healing from trauma or self-doubt.\nStyle guidelines:\nWrite in plain, accessible language.\nKeep each quote 1 sentence long.\nAvoid \"you should\" or \"just do it\" advice.\nUse metaphors of growth, safety, and light when natural.\nInclude variety: self-compassion, boundaries, grief, rest, resilience, embodiment, inner child work.\nEach quote should stand alone and feel sincere, not generic.\n\n** IMPORTANT ** generate a single sentence"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -608,
+        -336
+      ],
+      "id": "b0d6f464-76b8-471c-b991-bd1275823764",
+      "name": "Quote writer"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Generate image and video prompts for this quote: {{ $json.image_prompt }}",
+        "options": {
+          "systemMessage": "You are an artistic director tasked with creating both visual and animated content for reflective, emotionally grounded inspirational quotes.\n\nWhen provided with a quote, you must generate TWO prompts in JSON format:\n\n1. **image_prompt**: A detailed description of a photorealistic 9:16 portrait image that represents or supports the quote. Focus on composition, lighting, mood, subject, and environment.\n\n2. **video_prompt**: A description of how the image should be animated into a 5-second video. Describe subtle movements, camera motion, lighting changes, facial expressions, environmental elements (wind, light shifts), and emotional progression. Keep it natural and cinematic.\n\n** IMPORTANT ** Respond ONLY with valid JSON in this exact format:\n{\n  \"image_prompt\": \"detailed image description here\",\n  \"video_prompt\": \"detailed animation description here. Include the quote spoken: <S>quote text<E>\"\n}\n\nEnsure the video_prompt includes the quote wrapped in <S>quote<E> tags for speech generation."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -224,
+        -336
+      ],
+      "id": "7c119ca2-4188-4a94-bb72-62291bc44791",
+      "name": "Image & Video Prompt Generator"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -272,
+        -160
+      ],
+      "id": "693ea009-589b-4ada-8248-8adce3cf0ba0",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "9ITdZP15p3HH1JkB",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the JSON output from the AI agent\nconst output = $input.item.json.output;\nlet prompts;\n\ntry {\n  // Try to parse as JSON\n  prompts = JSON.parse(output);\n} catch (e) {\n  // If not valid JSON, try to extract JSON from the text\n  const jsonMatch = output.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    prompts = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('Could not parse JSON from AI output');\n  }\n}\n\nreturn {\n  json: {\n    image_prompt: prompts.image_prompt,\n    video_prompt: prompts.video_prompt,\n    original_quote: $('Quote writer').item.json.output\n  }\n};"
+      },
+      "id": "4763530a-20c5-4195-85c6-6e6886ddeec0",
+      "name": "Parse Prompts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "freeVram"
+      },
+      "id": "5d2b27c4-e527-440d-becf-61bed8d475fe",
+      "name": "ComfyUI: Free VRAM Before Video",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        464,
+        -336
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Initialize retry counter on first run\nif (!$input.item.json.vram_check_attempt) {\n  return {\n    json: {\n      ...($input.item.json),\n      vram_check_attempt: 1,\n      max_attempts: 10,\n      vram_check_start: Date.now()\n    }\n  };\n}\n\n// Otherwise increment counter\nreturn {\n  json: {\n    ...($input.item.json),\n    vram_check_attempt: $input.item.json.vram_check_attempt + 1\n  }\n};"
+      },
+      "id": "f5b29bbb-3846-4bf5-89ff-499b0efc664d",
+      "name": "Initialize Retry Counter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getSystemStats"
+      },
+      "id": "4be8e8a4-8aad-4406-aad9-b611aaf2e8de",
+      "name": "ComfyUI: Check VRAM Status",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        -336
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse VRAM info from ComfyUI stats\nconst stats = $input.item.json;\nconst attempt = $('Initialize Retry Counter').item.json.vram_check_attempt;\nconst maxAttempts = $('Initialize Retry Counter').item.json.max_attempts;\n\n// Get free VRAM from ComfyUI stats\nlet freeVramGB = 0;\n\n// ComfyUI provides vram_free directly in devices array\nif (stats.devices && stats.devices[0] && stats.devices[0].vram_free) {\n  freeVramGB = stats.devices[0].vram_free / (1024 * 1024 * 1024);\n} else if (stats.system && stats.system.vram_free) {\n  freeVramGB = stats.system.vram_free / (1024 * 1024 * 1024);\n}\n\n// We need at least 25GB free for Ovi (it uses ~28GB but with CPU offload)\nconst requiredVramGB = 25;\nconst isReady = freeVramGB >= requiredVramGB;\nconst maxAttemptsReached = attempt >= maxAttempts;\n\n// Log for debugging\nconsole.log(`VRAM Check - Attempt ${attempt}/${maxAttempts}: Free=${freeVramGB.toFixed(2)}GB, Required=${requiredVramGB}GB, Ready=${isReady}`);\n\n// Throw error if max attempts reached and still not ready\nif (maxAttemptsReached && !isReady) {\n  throw new Error(`VRAM timeout after ${attempt} attempts. Free: ${freeVramGB.toFixed(2)}GB, Required: ${requiredVramGB}GB. ComfyUI may still be holding memory.`);\n}\n\nreturn {\n  json: {\n    ...($('Initialize Retry Counter').item.json),\n    vram_free_gb: parseFloat(freeVramGB.toFixed(2)),\n    vram_required_gb: requiredVramGB,\n    is_vram_ready: isReady,\n    should_retry: !isReady && !maxAttemptsReached,\n    should_proceed: isReady,\n    debug_stats: {\n      attempt: attempt,\n      max_attempts: maxAttempts,\n      devices_found: stats.devices ? stats.devices.length : 0,\n      vram_free_bytes: stats.devices?.[0]?.vram_free || 0\n    }\n  }\n};\n"
+      },
+      "id": "5fc8078a-1c4d-415b-93e6-717ddc8a269a",
+      "name": "Check if VRAM is Ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "5f492fab-15b9-4654-80f3-916a55e194b8",
+      "name": "Wait Before Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        656,
+        -336
+      ],
+      "webhookId": "wait-vram-retry"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ovi-api:8300/api/generate-video",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text_prompt",
+              "value": "={{ $('Parse Prompts').item.json.video_prompt }}"
+            },
+            {
+              "name": "image_path",
+              "value": "={{ '/mnt/raven-nas/inspirational-shorts/generated-images/' + $('ComfyUI: Generate Image').item.json.filename }}"
+            },
+            {
+              "name": "mode",
+              "value": "i2v"
+            },
+            {
+              "name": "preset",
+              "value": "youtube-shorts-balanced"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "ea0ef8f9-95ca-42cd-b129-627cca6101ab",
+      "name": "Ovi: Generate Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1712,
+        -352
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "is-complete",
+              "leftValue": "={{ $json.is_vram_ready }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        -336
+      ],
+      "id": "a098c9d1-0ef1-4aa7-9cfb-6d670b7b56ff",
+      "name": "Is Complete?"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Respond with Execution ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Generate Image": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Free VRAM Before Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Get Stats Before": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Free VRAM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond with Execution ID": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Get Stats Before",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Free VRAM": {
+      "main": [
+        [
+          {
+            "node": "Quote writer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Quote writer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quote writer": {
+      "main": [
+        [
+          {
+            "node": "Image & Video Prompt Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image & Video Prompt Generator": {
+      "main": [
+        [
+          {
+            "node": "Parse Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image & Video Prompt Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Prompts": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Free VRAM Before Video": {
+      "main": [
+        [
+          {
+            "node": "Wait Before Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Retry Counter": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Check VRAM Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Check VRAM Status": {
+      "main": [
+        [
+          {
+            "node": "Check if VRAM is Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if VRAM is Ready": {
+      "main": [
+        [
+          {
+            "node": "Is Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Retry": {
+      "main": [
+        [
+          {
+            "node": "Initialize Retry Counter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ovi: Generate Video": {
+      "main": [
+        []
+      ]
+    },
+    "Is Complete?": {
+      "main": [
+        [
+          {
+            "node": "Ovi: Generate Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ComfyUI: Free VRAM Before Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Webhook Trigger": [
+      {
+        "headers": {
+          "host": "n8n:5678",
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br",
+          "connection": "keep-alive",
+          "user-agent": "python-httpx/0.28.1",
+          "content-length": "1259",
+          "content-type": "application/json"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "quote_system_prompt": "You are a compassionate trauma-informed writer inspired by Peggy Oliveira, MSW — focusing on healing, self-trust, boundaries, emotional regulation, and recovery from shame. You generate original, reflective, and emotionally grounded inspirational quotes (not copied or cliché).\n\nTone: Gentle, validating, and empowering. Avoid toxic positivity. Each quote should sound like it could comfort someone healing from trauma or self-doubt.\nStyle guidelines:\nWrite in plain, accessible language.\nKeep each quote 1 sentence long.\nAvoid \"you should\" or \"just do it\" advice.\nUse metaphors of growth, safety, and light when natural.\nInclude variety: self-compassion, boundaries, grief, rest, resilience, embodiment, inner child work.\nEach quote should stand alone and feel sincere, not generic.\n\n** IMPORTANT ** generate a single sentence",
+          "image_system_prompt": "You are an artistic director tasked with visualizing reflective, and emotionally grounded inspirational quotes. When provided with a prompt you create a description of what the image representing or supporting the quote should look like. The image being generated must be photorealistic will be used in 9:16 format.\n\n** IMPORTANT ** Generate a single paragraph."
+        },
+        "webhookUrl": "https://n8n.lan/webhook/shorts-generate",
+        "executionMode": "production"
+      }
+    ]
+  },
+  "meta": {
+    "instanceId": "99ff97a0c56026a2c1b3a849547491eb857e68a0b770f2b7c6688eea83f57eda"
+  }
+}
