@@ -1,6 +1,7 @@
 """n8n API client for triggering workflows and retrieving execution data."""
 
 import os
+import sys
 from typing import Any, cast
 
 from httpx import AsyncClient
@@ -193,10 +194,11 @@ class N8nClient:
             # Waiting execution - data is at top level of exec_data
             run_data = exec_data.get("resultData", {}).get("runData", {})
 
-            # Extract webhook URL from waitingExecution
-            waiting_execs = data.get("waitingExecution")
-            if waiting_execs:
-                resume_url = waiting_execs.get("resumeUrl")
+            # Construct resume URL from execution ID
+            # The Wait node creates a webhook at /webhook-waiting/{execution_id}
+            # We need to use the external URL, not the internal n8n:5678 URL
+            base_url = self.base_url.replace("http://n8n:5678", os.getenv("N8N_EXTERNAL_URL", "https://n8n.lan"))
+            resume_url = f"{base_url}/webhook-waiting/{execution_id}"
 
             # Extract quote from "Quote writer" or "Format Custom Quote" node
             quote_node = run_data.get("Quote writer", []) or run_data.get("Format Custom Quote", [])
@@ -253,8 +255,6 @@ class N8nClient:
                     video_path = video_data.get("video_path")
                     if video_path:
                         # Extract filename from path for download URL
-                        import os
-
                         video_filename = os.path.basename(video_path)
                         video_url = f"/download/{video_filename}"
 
@@ -286,13 +286,15 @@ class N8nClient:
         import httpx
 
         # Check environment variable for SSL verification setting
-        # Set N8N_VERIFY_SSL=false to disable SSL verification for self-signed certificates
-        verify_ssl = os.getenv("N8N_VERIFY_SSL", "true").lower() != "false"
+        # Defaults to false since n8n typically uses self-signed certificates
+        # Set N8N_VERIFY_SSL=true to enable SSL verification
+        verify_ssl = os.getenv("N8N_VERIFY_SSL", "false").lower() == "true"
 
         async with httpx.AsyncClient(verify=verify_ssl, timeout=30.0) as client:
             url = request.resume_url
-            if not url:
-                raise N8nError("Resume URL is required for quote approval")
+            # Validate URL exists and is not the string "None"
+            if not url or url == "None" or not url.startswith(("http://", "https://")):
+                raise N8nError("Valid resume URL with http:// or https:// protocol is required for quote approval")
 
             # Prepare payload based on action
             payload: dict[str, Any] = {"action": request.action.value}

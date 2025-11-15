@@ -123,6 +123,7 @@ async def poll_status(execution_id: str) -> dict[str, str]:
             response = await client.get(f"{API_BASE_URL}/api/status/{execution_id}")
             response.raise_for_status()
             data: dict[str, str] = response.json()
+            print(f"🔍 DEBUG poll_status response: {data}", file=sys.stderr)
             return data
         except Exception as e:
             return {"status": "error", "error": str(e)}
@@ -216,8 +217,11 @@ def generate_and_poll(
 
         if status == "waiting_for_approval":
             quote = str(data.get("quote", ""))
-            resume_url = str(data.get("resume_url", ""))
+            # Check both snake_case and camelCase field names
+            resume_url_value = data.get("resume_url") or data.get("resumeUrl")
+            resume_url = resume_url_value if resume_url_value is not None else ""
             print(f"🔔 WAITING FOR APPROVAL! Quote: {quote[:50]}", file=sys.stderr)
+            print(f"📍 Resume URL extracted: {resume_url}", file=sys.stderr)
             yield (
                 "Waiting for approval",
                 quote,
@@ -677,6 +681,10 @@ def create_ui() -> Any:
 
                 # Wire up generation
                 generate_btn.click(
+                    fn=disable_generate_button,
+                    inputs=[],
+                    outputs=[generate_btn],
+                ).then(
                     fn=generate_and_poll,
                     inputs=[custom_quote_input],
                     outputs=[
@@ -721,6 +729,10 @@ def create_ui() -> Any:
 
                 # Wire up resume button
                 resume_btn.click(
+                    fn=disable_resume_button,
+                    inputs=[],
+                    outputs=[resume_btn],
+                ).then(
                     fn=resume_polling,
                     inputs=[resume_exec_id],
                     outputs=[
@@ -777,7 +789,27 @@ def create_ui() -> Any:
                     """Handle reject button click."""
                     yield from continue_after_approval(exec_id, resume_url, "reject")
 
+                def disable_approval_buttons():
+                    """Immediately disable approval buttons when any is clicked."""
+                    return (
+                        gr.Button(interactive=False),  # approve_btn
+                        gr.Button(interactive=False),  # edit_approve_btn
+                        gr.Button(interactive=False),  # reject_btn
+                    )
+
+                def disable_generate_button():
+                    """Immediately disable generate button when clicked."""
+                    return gr.Button(interactive=False)  # generate_btn
+
+                def disable_resume_button():
+                    """Immediately disable resume button when clicked."""
+                    return gr.Button(interactive=False)  # resume_btn
+
                 approve_btn.click(
+                    fn=disable_approval_buttons,
+                    inputs=[],
+                    outputs=[approve_btn, edit_approve_btn, reject_btn],
+                ).then(
                     fn=approve_handler,
                     inputs=[execution_id_state, resume_url_state],
                     outputs=[
@@ -821,6 +853,10 @@ def create_ui() -> Any:
                 )
 
                 edit_approve_btn.click(
+                    fn=disable_approval_buttons,
+                    inputs=[],
+                    outputs=[approve_btn, edit_approve_btn, reject_btn],
+                ).then(
                     fn=edit_approve_handler,
                     inputs=[execution_id_state, resume_url_state, edited_quote_input],
                     outputs=[
@@ -864,6 +900,10 @@ def create_ui() -> Any:
                 )
 
                 reject_btn.click(
+                    fn=disable_approval_buttons,
+                    inputs=[],
+                    outputs=[approve_btn, edit_approve_btn, reject_btn],
+                ).then(
                     fn=reject_handler,
                     inputs=[execution_id_state, resume_url_state],
                     outputs=[
