@@ -17,6 +17,13 @@ echo ""
 # Set BuildKit
 export DOCKER_BUILDKIT=1
 
+# Ensure shared network exists
+if ! docker network inspect ai-services-network >/dev/null 2>&1; then
+    echo "Creating shared network ai-services-network..."
+    docker network create ai-services-network
+    echo ""
+fi
+
 # Start Supabase first (in its own project)
 echo "Starting Supabase services..."
 (cd supabase/docker && docker compose up -d)

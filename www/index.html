@@ -949,6 +949,18 @@
                     ]
                 },
                 {
+                    name: 'Inspirational Shorts Generator',
+                    description: 'Generate inspirational quote images with AI.',
+                    detailedDescription: '<p>Generate beautiful inspirational quote images using AI-powered workflows. This service uses Claude Sonnet 4.5 to generate meaningful quotes and create stunning visual prompts, then uses ComfyUI with the HiDream model to generate the final images.</p><h3>Key Features</h3><ul><li>AI-generated inspirational quotes with Claude Sonnet 4.5</li><li>Custom image style and theme prompts</li><li>ComfyUI + HiDream model integration</li><li>Automated n8n workflow orchestration</li><li>Customizable quote themes and visual styles</li><li>Background task processing with status tracking</li><li>Direct image downloads from ComfyUI output</li><li>REST API for programmatic access</li></ul>',
+                    url: 'https://inspirational-shorts.lan',
+                    internalPort: '7860',
+                    externalPort: 'internal only',
+                    links: [
+                        { text: 'Access Generator', url: 'https://inspirational-shorts.lan', primary: true },
+                        { text: 'API Documentation', url: 'https://inspirational-shorts.lan/api/docs', primary: false }
+                    ]
+                },
+                {
                     name: 'VibeVoice TTS Studio',
                     description: 'TTS with voice cloning and multi-speaker support.',
                     detailedDescription: '<p>VibeVoice TTS Studio provides a comprehensive interface for Microsoft VibeVoice text-to-speech generation. Clone voices from audio samples, generate multi-speaker conversations, and create natural-sounding speech with advanced controls.</p><h3>Key Features</h3><ul><li>Basic TTS with customizable parameters (temperature, speed)</li><li>Voice cloning from WAV audio samples</li><li>Multi-speaker conversations (2-4 speakers)</li><li>Real-time audio preview and playback</li><li>Model management and switching</li><li>Download generated audio in WAV format</li><li>GPU-accelerated generation</li><li>Advanced options (seed, CFG scale)</li></ul>',
@@ -981,6 +993,17 @@
                     githubUrl: 'https://github.com/ubiquiti/unifi-controller',
                     links: [
                         { text: 'Access UniFi Controller', url: 'https://unifi.lan', primary: true }
+                    ]
+                },
+                {
+                    name: 'Portainer',
+                    description: 'Manage Docker containers, images, and services.',
+                    detailedDescription: '<p>Portainer is a lightweight container management UI that provides an intuitive interface for managing Docker environments. Deploy, monitor, and manage containers, images, networks, and volumes with ease.</p><h3>Key Features</h3><ul><li>Visual container management interface</li><li>Docker Compose stack deployment</li><li>Image registry management</li><li>Container logs and statistics</li><li>Network and volume management</li><li>Role-based access control</li><li>Multi-environment support</li><li>Template library for quick deployments</li></ul>',
+                    url: 'https://portainer.lan',
+                    port: '9443',
+                    githubUrl: 'https://github.com/portainer/portainer',
+                    links: [
+                        { text: 'Access Portainer', url: 'https://portainer.lan', primary: true }
                     ]
                 }
             ],
@@ -1085,6 +1108,17 @@
                     links: [
                         { text: 'API Documentation', url: 'https://vibevoice.lan/docs', primary: true },
                         { text: 'ReDoc', url: 'https://vibevoice.lan/redoc', primary: false }
+                    ]
+                },
+                {
+                    name: 'Shorts Generator API',
+                    description: 'REST API for inspirational quote image generation.',
+                    detailedDescription: '<p>FastAPI-based REST API for generating inspirational quote images. Triggers n8n workflows to create AI-generated motivational content with ComfyUI.</p><h3>Key Features</h3><ul><li><strong>Workflow Integration</strong>: Triggers n8n automation workflows</li><li><strong>Async Processing</strong>: Background task execution with status polling</li><li><strong>Custom Prompts</strong>: Configurable system prompts for AI generation</li><li><strong>File Downloads</strong>: Direct access to generated images</li><li><strong>Status Tracking</strong>: Real-time execution status and results</li><li><strong>ComfyUI Integration</strong>: Access to generated outputs</li></ul><h3>API Endpoints</h3><ul><li><code>POST /api/generate</code> - Trigger image generation</li><li><code>GET /api/status/{execution_id}</code> - Check execution status</li><li><code>GET /api/download/{filename}</code> - Download generated file</li><li><code>GET /api/health</code> - Health check endpoint</li></ul><h3>Quick Start</h3><pre><code>curl -X POST "https://inspirational-shorts.lan/api/generate" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"system_prompt_general": "Create an inspirational quote"}\'</code></pre>',
+                    url: 'https://inspirational-shorts.lan',
+                    internalPort: '8000',
+                    externalPort: 'internal only',
+                    links: [
+                        { text: 'API Documentation', url: 'https://inspirational-shorts.lan/api/docs', primary: true }
                     ]
                 }
             ],

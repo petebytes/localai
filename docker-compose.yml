@@ -184,6 +184,7 @@ services:
       - whisperx-cache:/root/.cache
       - ./shared:/app/shared
       - ./whisperx:/app  # Mount source code for faster development iteration
+      - /mnt/raven-nas:/mnt/raven-nas
       # Shared cache volumes - prevent re-downloading models
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
@@ -237,7 +238,8 @@ services:
     volumes:
       - ./shared:/app/shared
       - ./ComfyUI/models:/workspace/ComfyUI/models
-      - ./ComfyUI/output:/workspace/ComfyUI/output
+      - /mnt/raven-nas/inspirational-shorts/generated-images:/workspace/ComfyUI/output
+      - /mnt/raven-nas:/mnt/raven-nas
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
       # Shared Wan models from wan2gp (read-only to avoid conflicts)
@@ -265,13 +267,16 @@ services:
       - 7860  # Gradio UI
       - 8000  # FastAPI
     volumes:
-      - ./ComfyUI/output:/workspace/ComfyUI/output:ro
+      - /mnt/raven-nas/inspirational-shorts/generated-images:/workspace/ComfyUI/output:ro
+      - /mnt/raven-nas/inspirational-shorts/generated-videos:/output:ro  # Ovi video outputs
       - ./custom_code/shorts-generator/downloads:/app/downloads
+      - /mnt/raven-nas:/mnt/raven-nas
     environment:
       - N8N_API_URL=http://n8n:5678
       - N8N_WEBHOOK_PATH=/webhook/shorts-generate
       - N8N_API_KEY=${N8N_API_KEY}
       - COMFYUI_OUTPUT_PATH=/workspace/ComfyUI/output
+      - OVI_OUTPUT_PATH=/output
       - API_BASE_URL=http://localhost:8000
     depends_on:
       - n8n
@@ -301,7 +306,7 @@ services:
       - ./n8n-data:/home/node/.n8n  # Bind mount n8n data to custom_code folder
       - ./n8n/backup:/backup
       - ./shared:/data/shared
-      - /mnt/nas:/nas
+      - /mnt/raven-nas:/mnt/raven-nas
       - n8n-certs:/opt/custom-certificates:ro # Mount the prepared named volume
       - ./custom_code:/custom_code:ro # Mount custom_code directory for auto-installing custom nodes
     environment:
@@ -596,6 +601,66 @@ services:
       retries: 3
       start_period: 120s  # Give model loading time to complete
 
+  # Ovi API - REST API wrapper for Ovi video+audio generation
+  # Provides programmatic access to Ovi 11B for automation and n8n workflows
+  # Shares base image and models with Ovi Gradio UI
+  ovi-api:
+    build:
+      context: ./custom_code/ovi-api-server
+      dockerfile: Dockerfile
+    container_name: ovi-api
+    restart: unless-stopped
+    expose:
+      - 8300
+    volumes:
+      # Ovi source code - required for imports
+      - ./ovi:/workspace/ovi
+      # Shared model storage with Ovi Gradio UI
+      - ./ovi/ckpts:/workspace/ckpts
+      # Output directory for generated videos (workflow stage 4)
+      - /mnt/raven-nas/inspirational-shorts/generated-videos:/output
+      # Shared NAS storage for cross-container file access
+      - /mnt/raven-nas:/mnt/raven-nas
+      # Shared cache volumes
+      - hf-cache:/data/.huggingface
+      - torch-cache:/data/.torch
+    environment:
+      # Ovi configuration
+      - OVI_DIR=/workspace/ovi
+      - OVI_CPU_OFFLOAD=true
+      - OVI_FP8=false
+      - OVI_QINT8=false
+      - OVI_OUTPUT_DIR=/output
+      # API server configuration
+      - PORT=8300
+      - HOST=0.0.0.0
+      # CUDA configuration for RTX 5090
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=0
+      # Cache paths
+      - HF_HOME=/data/.huggingface
+      - TRANSFORMERS_CACHE=/data/.huggingface/transformers
+      - TORCH_HOME=/data/.torch
+      - DIFFUSERS_CACHE=/data/.huggingface/diffusers
+      # Performance optimizations
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - CUDA_MODULE_LOADING=LAZY
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      - ovi  # Ensure base Ovi image is built first
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8300/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 300s  # Give model loading time (lazy load on first request)
+
   # Wan2GP - Multi-Model Video Generation Platform
   # Supports Wan 2.1/2.2 (1.3B-14B), Hunyuan, LTX, Flux, Qwen
   # Integrated tools: MMAudio, Mask Editor, Queue System, LoRAs
@@ -618,7 +683,9 @@ services:
       - wan2gp-outputs:/workspace/outputs
       # Settings persistence - user preferences and queue
       - wan2gp-settings:/workspace/settings
-      # Config files (wgp_config.json, plugins.json) persist naturally in container
+      # Config files - bind mount to host for persistence
+      - ./wan2gp-config-backup/wgp_config.json:/workspace/wgp_config.json
+      - ./wan2gp-config-backup/plugins.json:/workspace/plugins.json
       # LoRA storage - custom model adaptations
       - wan2gp-loras:/workspace/loras
       - wan2gp-loras:/workspace/loras_i2v
@@ -735,11 +802,11 @@ services:
     image: infinitetalk-api:latest
     container_name: infinitetalk-api
     restart: unless-stopped
-    # WSL2 optimization: use host IPC for efficient inter-process communication
+    # GPU optimization: use host IPC for efficient inter-process communication
     ipc: host
-    # WSL2 optimization: increase shared memory for large model inference
+    # GPU optimization: increase shared memory for large model inference
     shm_size: '8gb'
-    # WSL2 optimization: remove memory limits for better GPU performance
+    # GPU optimization: remove memory limits for better performance
     ulimits:
       memlock: -1  # unlimited lockable memory
       stack: 67108864  # 64MB stack size
@@ -755,6 +822,7 @@ services:
       # Mount InfiniteTalk source code (read-only to avoid conflicts)
       # This provides access to wan modules and core generation logic
       - ./InfiniteTalk:/workspace:ro
+      - /mnt/raven-nas:/mnt/raven-nas
       # Shared cache volumes - prevent re-downloading models
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
@@ -858,6 +926,7 @@ services:
       - ./ComfyUI/models/vibevoice:/workspace/ComfyUI/models/vibevoice
       # Output storage - preserves generated audio files
       - ./vibevoice-api-server/output:/output
+      - /mnt/raven-nas:/mnt/raven-nas
       # Shared cache volumes - prevent re-downloading models
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
