@@ -2,270 +2,37 @@
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "shorts-generate",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "c38e758d-696e-4899-a3a2-af219d92c968",
-      "name": "Webhook Trigger",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [
-        -656,
-        -544
-      ],
-      "webhookId": "shorts-generate"
-    },
-    {
-      "parameters": {
-        "workflow": "={\n  \"3\": {\n    \"inputs\": {\n      \"seed\": 42,\n      \"steps\": 10,\n      \"cfg\": 5,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1,\n      \"model\": [\"70\", 0],\n      \"positive\": [\"16\", 0],\n      \"negative\": [\"40\", 0],\n      \"latent_image\": [\"53\", 0]\n    },\n    \"class_type\": \"KSampler\"\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\"3\", 0],\n      \"vae\": [\"55\", 0]\n    },\n    \"class_type\": \"VAEDecode\"\n  },\n  \"9\": {\n    \"inputs\": {\n      \"filename_prefix\": \"hidream_test\",\n      \"images\": [\"8\", 0]\n    },\n    \"class_type\": \"SaveImage\"\n  },\n  \"16\": {\n    \"inputs\": {\n      \"text\": \"{{ $json.image_prompt }}\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"40\": {\n    \"inputs\": {\n      \"text\": \"blurry, low quality, distorted, bad ugly jpeg artifacts\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"53\": {\n    \"inputs\": {\n      \"width\": 576,\n      \"height\": 1024,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptySD3LatentImage\"\n  },\n  \"54\": {\n    \"inputs\": {\n      \"clip_name1\": \"clip_l_hidream.safetensors\",\n      \"clip_name2\": \"clip_g_hidream.safetensors\",\n      \"clip_name3\": \"t5xxl_fp8_e4m3fn_scaled.safetensors\",\n      \"clip_name4\": \"llama_3.1_8b_instruct_fp8_scaled.safetensors\"\n    },\n    \"class_type\": \"QuadrupleCLIPLoader\"\n  },\n  \"55\": {\n    \"inputs\": {\n      \"vae_name\": \"ae.safetensors\"\n    },\n    \"class_type\": \"VAELoader\"\n  },\n  \"70\": {\n    \"inputs\": {\n      \"shift\": 3.0,\n      \"model\": [\"76\", 0]\n    },\n    \"class_type\": \"ModelSamplingSD3\"\n  },\n  \"76\": {\n    \"inputs\": {\n      \"unet_name\": \"hidream_i1_full_fp8.safetensors\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\"\n  }\n}",
-        "jpegQuality": 90,
-        "timeout": 15,
-        "autoFreeVram": true
-      },
-      "id": "210b81b0-d421-4269-ab16-ab56e4ded433",
-      "name": "ComfyUI: Generate Image",
-      "type": "CUSTOM.comfyui",
-      "typeVersion": 1,
-      "position": [
-        272,
-        -336
-      ],
-      "credentials": {
-        "comfyUIApi": {
-          "id": "4TD2TD57KGdNRCVT",
-          "name": "ComfyUI account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "getSystemStats"
-      },
-      "id": "79579040-e820-4562-bc78-fc2f8628c649",
-      "name": "ComfyUI: Get Stats Before",
-      "type": "CUSTOM.comfyui",
-      "typeVersion": 1,
-      "position": [
-        -288,
-        -544
-      ],
-      "credentials": {
-        "comfyUIApi": {
-          "id": "4TD2TD57KGdNRCVT",
-          "name": "ComfyUI account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ { \"executionId\": $execution.id } }}",
-        "options": {}
-      },
-      "id": "a37555a1-8963-4b3e-850b-9aaf28a8a67b",
-      "name": "Respond with Execution ID",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        -464,
-        -544
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "freeVram"
-      },
-      "id": "fb1ae094-788e-49ae-8b9b-3b06cab2b0ce",
-      "name": "ComfyUI: Free VRAM",
-      "type": "CUSTOM.comfyui",
-      "typeVersion": 1,
-      "position": [
-        -96,
-        -544
-      ],
-      "credentials": {
-        "comfyUIApi": {
-          "id": "4TD2TD57KGdNRCVT",
-          "name": "ComfyUI account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "list",
-          "value": "claude-sonnet-4-5-20250929",
-          "cachedResultName": "Claude Sonnet 4.5"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "is-complete",
+              "leftValue": "={{ $json.is_vram_ready }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
         },
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
-      "typeVersion": 1.3,
-      "position": [
-        -640,
-        -176
-      ],
-      "id": "1dc3d3df-0663-409d-b176-7997d84cc3b8",
-      "name": "Anthropic Chat Model",
-      "credentials": {
-        "anthropicApi": {
-          "id": "9ITdZP15p3HH1JkB",
-          "name": "Anthropic account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "promptType": "define",
-        "text": "Generate a quote",
-        "options": {
-          "systemMessage": "You are a compassionate trauma-informed writer inspired by Peggy Oliveira, MSW — focusing on healing, self-trust, boundaries, emotional regulation, and recovery from shame. You generate original, reflective, and emotionally grounded inspirational quotes (not copied or cliché).\n\nTone: Gentle, validating, and empowering. Avoid toxic positivity. Each quote should sound like it could comfort someone healing from trauma or self-doubt.\nStyle guidelines:\nWrite in plain, accessible language.\nKeep each quote 1 sentence long.\nAvoid \"you should\" or \"just do it\" advice.\nUse metaphors of growth, safety, and light when natural.\nInclude variety: self-compassion, boundaries, grief, rest, resilience, embodiment, inner child work.\nEach quote should stand alone and feel sincere, not generic.\n\n** IMPORTANT ** generate a single sentence"
-        }
-      },
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 3,
-      "position": [
-        -608,
-        -336
-      ],
-      "id": "b0d6f464-76b8-471c-b991-bd1275823764",
-      "name": "Quote writer"
-    },
-    {
-      "parameters": {
-        "promptType": "define",
-        "text": "=Generate image and video prompts for this quote: {{ $json.image_prompt }}",
-        "options": {
-          "systemMessage": "You are an artistic director tasked with creating both visual and animated content for reflective, emotionally grounded inspirational quotes.\n\nWhen provided with a quote, you must generate TWO prompts in JSON format:\n\n1. **image_prompt**: A detailed description of a photorealistic 9:16 portrait image that represents or supports the quote. Focus on composition, lighting, mood, subject, and environment.\n\n2. **video_prompt**: A description of how the image should be animated into a 5-second video. Describe subtle movements, camera motion, lighting changes, facial expressions, environmental elements (wind, light shifts), and emotional progression. Keep it natural and cinematic.\n\n** IMPORTANT ** Respond ONLY with valid JSON in this exact format:\n{\n  \"image_prompt\": \"detailed image description here\",\n  \"video_prompt\": \"detailed animation description here. Include the quote spoken: <S>quote text<E>\"\n}\n\nEnsure the video_prompt includes the quote wrapped in <S>quote<E> tags for speech generation."
-        }
-      },
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 3,
-      "position": [
-        -224,
-        -336
-      ],
-      "id": "7c119ca2-4188-4a94-bb72-62291bc44791",
-      "name": "Image & Video Prompt Generator"
-    },
-    {
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "list",
-          "value": "claude-sonnet-4-5-20250929",
-          "cachedResultName": "Claude Sonnet 4.5"
-        },
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
-      "typeVersion": 1.3,
-      "position": [
-        -272,
-        -160
-      ],
-      "id": "693ea009-589b-4ada-8248-8adce3cf0ba0",
-      "name": "Anthropic Chat Model1",
-      "credentials": {
-        "anthropicApi": {
-          "id": "9ITdZP15p3HH1JkB",
-          "name": "Anthropic account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Parse the JSON output from the AI agent\nconst output = $input.item.json.output;\nlet prompts;\n\ntry {\n  // Try to parse as JSON\n  prompts = JSON.parse(output);\n} catch (e) {\n  // If not valid JSON, try to extract JSON from the text\n  const jsonMatch = output.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    prompts = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('Could not parse JSON from AI output');\n  }\n}\n\nreturn {\n  json: {\n    image_prompt: prompts.image_prompt,\n    video_prompt: prompts.video_prompt,\n    original_quote: $('Quote writer').item.json.output\n  }\n};"
-      },
-      "id": "4763530a-20c5-4195-85c6-6e6886ddeec0",
-      "name": "Parse Prompts",
-      "type": "n8n-nodes-base.code",
+      "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        80,
-        -336
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "freeVram"
-      },
-      "id": "5d2b27c4-e527-440d-becf-61bed8d475fe",
-      "name": "ComfyUI: Free VRAM Before Video",
-      "type": "CUSTOM.comfyui",
-      "typeVersion": 1,
-      "position": [
-        464,
-        -336
+        576,
+        176
       ],
-      "credentials": {
-        "comfyUIApi": {
-          "id": "4TD2TD57KGdNRCVT",
-          "name": "ComfyUI account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Initialize retry counter on first run\nif (!$input.item.json.vram_check_attempt) {\n  return {\n    json: {\n      ...($input.item.json),\n      vram_check_attempt: 1,\n      max_attempts: 10,\n      vram_check_start: Date.now()\n    }\n  };\n}\n\n// Otherwise increment counter\nreturn {\n  json: {\n    ...($input.item.json),\n    vram_check_attempt: $input.item.json.vram_check_attempt + 1\n  }\n};"
-      },
-      "id": "f5b29bbb-3846-4bf5-89ff-499b0efc664d",
-      "name": "Initialize Retry Counter",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        848,
-        -336
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "getSystemStats"
-      },
-      "id": "4be8e8a4-8aad-4406-aad9-b611aaf2e8de",
-      "name": "ComfyUI: Check VRAM Status",
-      "type": "CUSTOM.comfyui",
-      "typeVersion": 1,
-      "position": [
-        1056,
-        -336
-      ],
-      "credentials": {
-        "comfyUIApi": {
-          "id": "4TD2TD57KGdNRCVT",
-          "name": "ComfyUI account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Parse VRAM info from ComfyUI stats\nconst stats = $input.item.json;\nconst attempt = $('Initialize Retry Counter').item.json.vram_check_attempt;\nconst maxAttempts = $('Initialize Retry Counter').item.json.max_attempts;\n\n// Get free VRAM from ComfyUI stats\nlet freeVramGB = 0;\n\n// ComfyUI provides vram_free directly in devices array\nif (stats.devices && stats.devices[0] && stats.devices[0].vram_free) {\n  freeVramGB = stats.devices[0].vram_free / (1024 * 1024 * 1024);\n} else if (stats.system && stats.system.vram_free) {\n  freeVramGB = stats.system.vram_free / (1024 * 1024 * 1024);\n}\n\n// We need at least 25GB free for Ovi (it uses ~28GB but with CPU offload)\nconst requiredVramGB = 25;\nconst isReady = freeVramGB >= requiredVramGB;\nconst maxAttemptsReached = attempt >= maxAttempts;\n\n// Log for debugging\nconsole.log(`VRAM Check - Attempt ${attempt}/${maxAttempts}: Free=${freeVramGB.toFixed(2)}GB, Required=${requiredVramGB}GB, Ready=${isReady}`);\n\n// Throw error if max attempts reached and still not ready\nif (maxAttemptsReached && !isReady) {\n  throw new Error(`VRAM timeout after ${attempt} attempts. Free: ${freeVramGB.toFixed(2)}GB, Required: ${requiredVramGB}GB. ComfyUI may still be holding memory.`);\n}\n\nreturn {\n  json: {\n    ...($('Initialize Retry Counter').item.json),\n    vram_free_gb: parseFloat(freeVramGB.toFixed(2)),\n    vram_required_gb: requiredVramGB,\n    is_vram_ready: isReady,\n    should_retry: !isReady && !maxAttemptsReached,\n    should_proceed: isReady,\n    debug_stats: {\n      attempt: attempt,\n      max_attempts: maxAttempts,\n      devices_found: stats.devices ? stats.devices.length : 0,\n      vram_free_bytes: stats.devices?.[0]?.vram_free || 0\n    }\n  }\n};\n"
-      },
-      "id": "5fc8078a-1c4d-415b-93e6-717ddc8a269a",
-      "name": "Check if VRAM is Ready",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1280,
-        -336
-      ]
-    },
-    {
-      "parameters": {
-        "amount": 2
-      },
-      "id": "5f492fab-15b9-4654-80f3-916a55e194b8",
-      "name": "Wait Before Retry",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        656,
-        -336
-      ],
-      "webhookId": "wait-vram-retry"
+      "id": "a84002e0-b9a8-4f65-b635-d4f019dd0402",
+      "name": "Is Complete?"
     },
     {
       "parameters": {
@@ -296,14 +63,147 @@
           "timeout": 600000
         }
       },
-      "id": "ea0ef8f9-95ca-42cd-b129-627cca6101ab",
+      "id": "2e11f837-fd7c-49a0-8b3a-9f78399ee1d1",
       "name": "Ovi: Generate Video",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1712,
-        -352
+        816,
+        144
       ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "e475c5fc-2773-4aa2-bc18-aea1f98b6109",
+      "name": "Wait Before Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -256,
+        176
+      ],
+      "webhookId": "wait-vram-retry"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse VRAM info from ComfyUI stats\nconst stats = $input.item.json;\nconst attempt = $('Initialize Retry Counter').item.json.vram_check_attempt;\nconst maxAttempts = $('Initialize Retry Counter').item.json.max_attempts;\n\n// Get free VRAM from ComfyUI stats\nlet freeVramGB = 0;\n\n// ComfyUI provides vram_free directly in devices array\nif (stats.devices && stats.devices[0] && stats.devices[0].vram_free) {\n  freeVramGB = stats.devices[0].vram_free / (1024 * 1024 * 1024);\n} else if (stats.system && stats.system.vram_free) {\n  freeVramGB = stats.system.vram_free / (1024 * 1024 * 1024);\n}\n\n// We need at least 25GB free for Ovi (it uses ~28GB but with CPU offload)\nconst requiredVramGB = 25;\nconst isReady = freeVramGB >= requiredVramGB;\nconst maxAttemptsReached = attempt >= maxAttempts;\n\n// Log for debugging\nconsole.log(`VRAM Check - Attempt ${attempt}/${maxAttempts}: Free=${freeVramGB.toFixed(2)}GB, Required=${requiredVramGB}GB, Ready=${isReady}`);\n\n// Throw error if max attempts reached and still not ready\nif (maxAttemptsReached && !isReady) {\n  throw new Error(`VRAM timeout after ${attempt} attempts. Free: ${freeVramGB.toFixed(2)}GB, Required: ${requiredVramGB}GB. ComfyUI may still be holding memory.`);\n}\n\nreturn {\n  json: {\n    ...($('Initialize Retry Counter').item.json),\n    vram_free_gb: parseFloat(freeVramGB.toFixed(2)),\n    vram_required_gb: requiredVramGB,\n    is_vram_ready: isReady,\n    should_retry: !isReady && !maxAttemptsReached,\n    should_proceed: isReady,\n    debug_stats: {\n      attempt: attempt,\n      max_attempts: maxAttempts,\n      devices_found: stats.devices ? stats.devices.length : 0,\n      vram_free_bytes: stats.devices?.[0]?.vram_free || 0\n    }\n  }\n};\n"
+      },
+      "id": "8c38c16f-9ab5-4b35-bc38-5bff9e9dca46",
+      "name": "Check if VRAM is Ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getSystemStats"
+      },
+      "id": "f1e959f8-6a68-4f41-85f0-77546a1f609b",
+      "name": "ComfyUI: Check VRAM Status",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        160,
+        176
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Initialize retry counter on first run\nif (!$input.item.json.vram_check_attempt) {\n  return {\n    json: {\n      ...($input.item.json),\n      vram_check_attempt: 1,\n      max_attempts: 10,\n      vram_check_start: Date.now()\n    }\n  };\n}\n\n// Otherwise increment counter\nreturn {\n  json: {\n    ...($input.item.json),\n    vram_check_attempt: $input.item.json.vram_check_attempt + 1\n  }\n};"
+      },
+      "id": "55237367-2bb0-4b50-9ca8-33a659324139",
+      "name": "Initialize Retry Counter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "freeVram"
+      },
+      "id": "b7b2ce5d-f67a-4f36-9f46-94d631146e5b",
+      "name": "ComfyUI: Free VRAM Before Video",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        176
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the JSON output from the AI agent\nconst output = $input.item.json.output;\nlet prompts;\n\ntry {\n  // Try to parse as JSON\n  prompts = JSON.parse(output);\n} catch (e) {\n  // If not valid JSON, try to extract JSON from the text\n  const jsonMatch = output.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    prompts = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('Could not parse JSON from AI output');\n  }\n}\n\n// Get the original quote from whichever path was taken\n// Try Quote writer first (AI-generated), then Format Custom Quote (user-provided)\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  originalQuote = $('Format Custom Quote').item.json.output;\n}\n\nreturn {\n  json: {\n    image_prompt: prompts.image_prompt,\n    video_prompt: prompts.video_prompt,\n    original_quote: originalQuote\n  }\n};"
+      },
+      "id": "f25c8be2-59ff-4a20-9657-09a6931b1966",
+      "name": "Parse Prompts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -1280,
+        352
+      ],
+      "id": "c459fe76-a33b-4fcb-98cb-2ddfa1b7803a",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "9ITdZP15p3HH1JkB",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Generate image and video prompts for this quote: {{ $json.output }}",
+        "options": {
+          "systemMessage": "You are an artistic director tasked with creating both visual and animated content for reflective, emotionally grounded inspirational quotes.\n\nWhen provided with a quote, you must generate TWO prompts in JSON format:\n\n1. **image_prompt**: A detailed description of a photorealistic 9:16 portrait image that represents or supports the quote. Focus on composition, lighting, mood, subject, and environment.\n\n2. **video_prompt**: A description of how the image should be animated into a 5-second video. Describe subtle movements, camera motion, lighting changes, facial expressions, environmental elements (wind, light shifts), and emotional progression. Keep it natural and cinematic.\n\n** IMPORTANT ** Respond ONLY with valid JSON in this exact format:\n{\n  \"image_prompt\": \"detailed image description here\",\n  \"video_prompt\": \"detailed animation description here. Include the quote spoken: <S>quote text<E>\"\n}\n\nEnsure the video_prompt includes the quote wrapped in <S>quote<E> tags for speech generation."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -1248,
+        176
+      ],
+      "id": "779aa347-31a6-42ca-b132-be55b94c51d0",
+      "name": "Image & Video Prompt Generator"
     },
     {
       "parameters": {
@@ -316,8 +216,8 @@
           },
           "conditions": [
             {
-              "id": "is-complete",
-              "leftValue": "={{ $json.is_vram_ready }}",
+              "id": "is-approved",
+              "leftValue": "={{ $json.approved }}",
               "rightValue": "true",
               "operator": {
                 "type": "boolean",
@@ -333,27 +233,245 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1472,
-        -336
+        -1472,
+        192
       ],
-      "id": "a098c9d1-0ef1-4aa7-9cfb-6d670b7b56ff",
-      "name": "Is Complete?"
+      "id": "37303e6b-6995-4a5c-8a11-9eb000990ae7",
+      "name": "Check Approval Status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Capture execution context and quote before waiting\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  try {\n    originalQuote = $('Format Custom Quote').item.json.output;\n  } catch (e2) {\n    originalQuote = 'No quote found';\n  }\n}\n\n// Get the execution context\nconst executionId = $execution.id;\n// Note: $execution.resumeUrl will have the full URL with UUID after Wait node starts\n// For now, just pass the execution ID\n\n// Log for debugging\nconsole.log('Execution ID:', executionId);\n\nreturn {\n  json: {\n    quote: originalQuote,\n    execution_id: executionId,\n    status: 'preparing_for_approval',\n    resumeUrl: $execution.resumeUrl\n  }\n};"
+      },
+      "id": "ace9df55-9079-4e7a-8706-08eb1d1eb3d8",
+      "name": "Capture Resume URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2000,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process the approval response from the webhook\nconst webhookData = $input.item.json;\nconst action = webhookData.action;\n\n// Get the original quote from previous nodes\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  try {\n    originalQuote = $('Format Custom Quote').item.json.output;\n  } catch (e2) {\n    throw new Error('Could not find original quote');\n  }\n}\n\n// Determine the final quote based on action\nlet finalQuote = originalQuote;\nlet approved = false;\n\nif (action === 'approve') {\n  approved = true;\n  finalQuote = originalQuote;\n} else if (action === 'edit' && webhookData.approved_quote) {\n  approved = true;\n  finalQuote = webhookData.approved_quote;\n} else if (action === 'reject') {\n  approved = false;\n}\n\nreturn {\n  json: {\n    output: finalQuote,\n    approved: approved,\n    action: action,\n    original_quote: originalQuote\n  }\n};"
+      },
+      "id": "50e9032e-eb43-4014-95d2-7193dcbe35fe",
+      "name": "Handle Approval Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1664,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "a704f216-48ec-45ff-8ca4-33c85e817273",
+      "name": "Wait for Quote Approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1856,
+        192
+      ],
+      "webhookId": "wait-quote-approval"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Generate a quote",
+        "options": {
+          "systemMessage": "You are a compassionate trauma-informed writer inspired by Peggy Oliveira, MSW — focusing on healing, self-trust, boundaries, emotional regulation, and recovery from shame. You generate original, reflective, and emotionally grounded inspirational quotes (not copied or cliché).\n\nTone: Gentle, validating, and empowering. Avoid toxic positivity. Each quote should sound like it could comfort someone healing from trauma or self-doubt.\nStyle guidelines:\nWrite in plain, accessible language.\nKeep each quote 1 sentence long.\nAvoid \"you should\" or \"just do it\" advice.\nUse metaphors of growth, safety, and light when natural.\nInclude variety: self-compassion, boundaries, grief, rest, resilience, embodiment, inner child work.\nEach quote should stand alone and feel sincere, not generic.\n\n** IMPORTANT ** generate a single sentence"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -2336,
+        256
+      ],
+      "id": "dbff6b8d-7c3d-44c6-9ae2-b96b97ba555f",
+      "name": "Quote writer"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format custom quote to match Quote writer output structure\nconst customQuote = $('Webhook Trigger').first().json.body.custom_quote;\n\nreturn {\n  json: {\n    output: customQuote\n  }\n};"
+      },
+      "id": "7e329e28-833a-42c0-807c-5d822aa5522a",
+      "name": "Format Custom Quote",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2336,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-custom-quote",
+              "leftValue": "={{ $('Webhook Trigger').item.json.body.custom_quote }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -2608,
+        80
+      ],
+      "id": "73f0ae99-2562-4703-a2da-eec5b5639944",
+      "name": "Check for Custom Quote"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -2352,
+        416
+      ],
+      "id": "68b6c0ab-1ba8-4a47-a086-ac07ac003d39",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "9ITdZP15p3HH1JkB",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "freeVram"
+      },
+      "id": "9dd8ceaa-3fbd-4605-9eaf-8fb9107eb207",
+      "name": "ComfyUI: Free VRAM",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -2048,
+        -160
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"executionId\": $execution.id } }}",
+        "options": {}
+      },
+      "id": "bedd16f9-0988-43be-b906-44c52d5e2524",
+      "name": "Respond with Execution ID",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -2416,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getSystemStats"
+      },
+      "id": "3c176ce0-3dee-47b3-b2b5-994bc8907bc0",
+      "name": "ComfyUI: Get Stats Before",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -2240,
+        -160
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflow": "={\n  \"3\": {\n    \"inputs\": {\n      \"seed\": 42,\n      \"steps\": 10,\n      \"cfg\": 5,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1,\n      \"model\": [\"70\", 0],\n      \"positive\": [\"16\", 0],\n      \"negative\": [\"40\", 0],\n      \"latent_image\": [\"53\", 0]\n    },\n    \"class_type\": \"KSampler\"\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\"3\", 0],\n      \"vae\": [\"55\", 0]\n    },\n    \"class_type\": \"VAEDecode\"\n  },\n  \"9\": {\n    \"inputs\": {\n      \"filename_prefix\": \"hidream_test\",\n      \"images\": [\"8\", 0]\n    },\n    \"class_type\": \"SaveImage\"\n  },\n  \"16\": {\n    \"inputs\": {\n      \"text\": \"{{ $json.image_prompt }}\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"40\": {\n    \"inputs\": {\n      \"text\": \"blurry, low quality, distorted, bad ugly jpeg artifacts\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"53\": {\n    \"inputs\": {\n      \"width\": 576,\n      \"height\": 1024,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptySD3LatentImage\"\n  },\n  \"54\": {\n    \"inputs\": {\n      \"clip_name1\": \"clip_l_hidream.safetensors\",\n      \"clip_name2\": \"clip_g_hidream.safetensors\",\n      \"clip_name3\": \"t5xxl_fp8_e4m3fn_scaled.safetensors\",\n      \"clip_name4\": \"llama_3.1_8b_instruct_fp8_scaled.safetensors\"\n    },\n    \"class_type\": \"QuadrupleCLIPLoader\"\n  },\n  \"55\": {\n    \"inputs\": {\n      \"vae_name\": \"ae.safetensors\"\n    },\n    \"class_type\": \"VAELoader\"\n  },\n  \"70\": {\n    \"inputs\": {\n      \"shift\": 3.0,\n      \"model\": [\"76\", 0]\n    },\n    \"class_type\": \"ModelSamplingSD3\"\n  },\n  \"76\": {\n    \"inputs\": {\n      \"unet_name\": \"hidream_i1_full_fp8.safetensors\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\"\n  }\n}",
+        "jpegQuality": 90,
+        "timeout": 15,
+        "autoFreeVram": true
+      },
+      "id": "e42a8814-f241-4e9a-b88b-0f408ea82452",
+      "name": "ComfyUI: Generate Image",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -768,
+        176
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "shorts-generate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "42e8f536-b48d-44bc-8ea7-cce0371d3ff4",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2608,
+        -160
+      ],
+      "webhookId": "shorts-generate"
     }
   ],
   "connections": {
-    "Webhook Trigger": {
+    "Is Complete?": {
       "main": [
         [
           {
-            "node": "Respond with Execution ID",
+            "node": "Ovi: Generate Video",
             "type": "main",
             "index": 0
           }
-        ]
-      ]
-    },
-    "ComfyUI: Generate Image": {
-      "main": [
+        ],
         [
           {
             "node": "ComfyUI: Free VRAM Before Video",
@@ -363,30 +481,169 @@
         ]
       ]
     },
-    "ComfyUI: Get Stats Before": {
+    "Wait Before Retry": {
       "main": [
         [
           {
-            "node": "ComfyUI: Free VRAM",
+            "node": "Initialize Retry Counter",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Respond with Execution ID": {
+    "Check if VRAM is Ready": {
       "main": [
         [
           {
-            "node": "ComfyUI: Get Stats Before",
+            "node": "Is Complete?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "ComfyUI: Free VRAM": {
+    "ComfyUI: Check VRAM Status": {
       "main": [
+        [
+          {
+            "node": "Check if VRAM is Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Retry Counter": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Check VRAM Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Free VRAM Before Video": {
+      "main": [
+        [
+          {
+            "node": "Wait Before Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Prompts": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image & Video Prompt Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image & Video Prompt Generator": {
+      "main": [
+        [
+          {
+            "node": "Parse Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Approval Status": {
+      "main": [
+        [
+          {
+            "node": "Image & Video Prompt Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Resume URL": {
+      "main": [
+        [
+          {
+            "node": "Wait for Quote Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Approval Response": {
+      "main": [
+        [
+          {
+            "node": "Check Approval Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Quote Approval": {
+      "main": [
+        [
+          {
+            "node": "Handle Approval Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quote writer": {
+      "main": [
+        [
+          {
+            "node": "Capture Resume URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Custom Quote": {
+      "main": [
+        [
+          {
+            "node": "Capture Resume URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Custom Quote": {
+      "main": [
+        [
+          {
+            "node": "Format Custom Quote",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Quote writer",
@@ -407,119 +664,41 @@
         ]
       ]
     },
-    "Quote writer": {
+    "ComfyUI: Free VRAM": {
       "main": [
         [
           {
-            "node": "Image & Video Prompt Generator",
+            "node": "Check for Custom Quote",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Image & Video Prompt Generator": {
+    "Respond with Execution ID": {
       "main": [
         [
           {
-            "node": "Parse Prompts",
+            "node": "ComfyUI: Get Stats Before",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Anthropic Chat Model1": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Image & Video Prompt Generator",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse Prompts": {
+    "ComfyUI: Get Stats Before": {
       "main": [
         [
           {
-            "node": "ComfyUI: Generate Image",
+            "node": "ComfyUI: Free VRAM",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "ComfyUI: Free VRAM Before Video": {
+    "ComfyUI: Generate Image": {
       "main": [
-        [
-          {
-            "node": "Wait Before Retry",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Initialize Retry Counter": {
-      "main": [
-        [
-          {
-            "node": "ComfyUI: Check VRAM Status",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "ComfyUI: Check VRAM Status": {
-      "main": [
-        [
-          {
-            "node": "Check if VRAM is Ready",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check if VRAM is Ready": {
-      "main": [
-        [
-          {
-            "node": "Is Complete?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait Before Retry": {
-      "main": [
-        [
-          {
-            "node": "Initialize Retry Counter",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Ovi: Generate Video": {
-      "main": [
-        []
-      ]
-    },
-    "Is Complete?": {
-      "main": [
-        [
-          {
-            "node": "Ovi: Generate Video",
-            "type": "main",
-            "index": 0
-          }
-        ],
         [
           {
             "node": "ComfyUI: Free VRAM Before Video",
@@ -528,31 +707,20 @@
           }
         ]
       ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Respond with Execution ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "pinData": {
-    "Webhook Trigger": [
-      {
-        "headers": {
-          "host": "n8n:5678",
-          "accept": "*/*",
-          "accept-encoding": "gzip, deflate, br",
-          "connection": "keep-alive",
-          "user-agent": "python-httpx/0.28.1",
-          "content-length": "1259",
-          "content-type": "application/json"
-        },
-        "params": {},
-        "query": {},
-        "body": {
-          "quote_system_prompt": "You are a compassionate trauma-informed writer inspired by Peggy Oliveira, MSW — focusing on healing, self-trust, boundaries, emotional regulation, and recovery from shame. You generate original, reflective, and emotionally grounded inspirational quotes (not copied or cliché).\n\nTone: Gentle, validating, and empowering. Avoid toxic positivity. Each quote should sound like it could comfort someone healing from trauma or self-doubt.\nStyle guidelines:\nWrite in plain, accessible language.\nKeep each quote 1 sentence long.\nAvoid \"you should\" or \"just do it\" advice.\nUse metaphors of growth, safety, and light when natural.\nInclude variety: self-compassion, boundaries, grief, rest, resilience, embodiment, inner child work.\nEach quote should stand alone and feel sincere, not generic.\n\n** IMPORTANT ** generate a single sentence",
-          "image_system_prompt": "You are an artistic director tasked with visualizing reflective, and emotionally grounded inspirational quotes. When provided with a prompt you create a description of what the image representing or supporting the quote should look like. The image being generated must be photorealistic will be used in 9:16 format.\n\n** IMPORTANT ** Generate a single paragraph."
-        },
-        "webhookUrl": "https://n8n.lan/webhook/shorts-generate",
-        "executionMode": "production"
-      }
-    ]
-  },
+  "pinData": {},
   "meta": {
     "instanceId": "99ff97a0c56026a2c1b3a849547491eb857e68a0b770f2b7c6688eea83f57eda"
   }

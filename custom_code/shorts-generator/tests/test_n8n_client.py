@@ -72,6 +72,36 @@ async def test_trigger_workflow_sends_hardcoded_prompts(
     json_data = call_args.kwargs.get("json", {})
     assert json_data.get("quote_system_prompt") == DEFAULT_QUOTE_PROMPT
     assert json_data.get("image_system_prompt") == DEFAULT_IMAGE_PROMPT
+    # No custom_quote should be sent when not provided
+    assert "custom_quote" not in json_data
+
+
+async def test_trigger_workflow_with_custom_quote(
+    n8n_client: N8nClient,
+    mocker: MockerFixture,
+) -> None:
+    """Test workflow trigger includes custom quote when provided."""
+    custom_text = "Your healing journey is valid."
+    request = GenerateRequest(custom_quote=custom_text)
+
+    mock_response = {"data": {"executionId": "exec_789"}}
+    mock_post = mocker.patch.object(
+        AsyncClient,
+        "post",
+        return_value=Response(200, json=mock_response),
+    )
+
+    execution_id = await n8n_client.trigger_workflow(request)
+
+    assert execution_id == "exec_789"
+
+    # Verify custom_quote was sent along with default prompts
+    call_args = mock_post.call_args
+    assert call_args is not None
+    json_data = call_args.kwargs.get("json", {})
+    assert json_data.get("quote_system_prompt") == DEFAULT_QUOTE_PROMPT
+    assert json_data.get("image_system_prompt") == DEFAULT_IMAGE_PROMPT
+    assert json_data.get("custom_quote") == custom_text
 
 
 async def test_trigger_workflow_api_error(
@@ -166,8 +196,22 @@ async def test_get_execution_status_success(
                         "Quote writer": [
                             {"data": {"main": [[{"json": {"output": "Healing is not linear"}}]]}}
                         ],
-                        "Quote Image Prompt Generator": [
-                            {"data": {"main": [[{"json": {"output": "A winding forest path"}}]]}}
+                        "Parse Prompts": [
+                            {
+                                "data": {
+                                    "main": [
+                                        [
+                                            {
+                                                "json": {
+                                                    "image_prompt": "A winding forest path",
+                                                    "video_prompt": "Camera slowly pans through the forest path",
+                                                    "original_quote": "Healing is not linear",
+                                                }
+                                            }
+                                        ]
+                                    ]
+                                }
+                            }
                         ],
                         "ComfyUI: Generate Image": [
                             {
@@ -204,6 +248,7 @@ async def test_get_execution_status_success(
     assert response.status == ExecutionStatus.SUCCESS
     assert response.quote == "Healing is not linear"
     assert response.image_prompt == "A winding forest path"
+    assert response.video_prompt == "Camera slowly pans through the forest path"
     assert response.image_url == "/download/hidream_test_00001.png"
 
 
@@ -255,3 +300,128 @@ async def test_client_context_manager(n8n_client: N8nClient) -> None:
     async with n8n_client as client:
         assert client is not None
         assert isinstance(client, N8nClient)
+
+
+async def test_get_execution_status_waiting_for_approval(
+    n8n_client: N8nClient,
+    mocker: MockerFixture,
+) -> None:
+    """Test getting execution status when waiting for approval."""
+    mock_response = {
+        "status": "waiting",
+        "data": {
+            "id": "exec_123",
+            "finished": False,
+            "resultData": {
+                "runData": {
+                    "Quote writer": [
+                        {"data": {"main": [[{"json": {"output": "Test quote for approval"}}]]}}
+                    ]
+                }
+            },
+        },
+        "waitingExecution": {"resumeUrl": "https://n8n.lan/webhook-waiting/exec_123"},
+    }
+
+    mocker.patch.object(
+        AsyncClient,
+        "get",
+        return_value=Response(200, json=mock_response),
+    )
+
+    response = await n8n_client.get_execution_status("exec_123")
+
+    assert response.execution_id == "exec_123"
+    assert response.status == ExecutionStatus.WAITING_FOR_APPROVAL
+    assert response.quote == "Test quote for approval"
+    assert response.resume_url == "https://n8n.lan/webhook-waiting/exec_123"
+    assert response.image_url is None  # No image yet when waiting
+
+
+async def test_approve_quote_with_url_approve(
+    n8n_client: N8nClient,
+    mocker: MockerFixture,
+) -> None:
+    """Test approving a quote via webhook URL."""
+    from models import ApprovalAction, QuoteApprovalRequest
+
+    mock_post = mocker.patch(
+        "httpx.AsyncClient.post",
+        return_value=Response(200, json={"success": True}),
+    )
+
+    request = QuoteApprovalRequest(
+        execution_id="exec_123",
+        action=ApprovalAction.APPROVE,
+        resume_url="https://n8n.lan/webhook-waiting/exec_123",
+    )
+
+    result = await n8n_client.approve_quote_with_url(request)
+
+    assert result["success"] is True
+    # Verify the payload sent
+    call_args = mock_post.call_args
+    assert call_args is not None
+    json_data = call_args.kwargs.get("json", {})
+    assert json_data["action"] == "approve"
+    assert json_data["approved"] is True
+
+
+async def test_approve_quote_with_url_edit(
+    n8n_client: N8nClient,
+    mocker: MockerFixture,
+) -> None:
+    """Test editing and approving a quote via webhook URL."""
+    from models import ApprovalAction, QuoteApprovalRequest
+
+    mock_post = mocker.patch(
+        "httpx.AsyncClient.post",
+        return_value=Response(200, json={"success": True}),
+    )
+
+    request = QuoteApprovalRequest(
+        execution_id="exec_123",
+        action=ApprovalAction.EDIT,
+        edited_quote="Modified quote text",
+        resume_url="https://n8n.lan/webhook-waiting/exec_123",
+    )
+
+    result = await n8n_client.approve_quote_with_url(request)
+
+    assert result["success"] is True
+    # Verify the payload sent
+    call_args = mock_post.call_args
+    assert call_args is not None
+    json_data = call_args.kwargs.get("json", {})
+    assert json_data["action"] == "edit"
+    assert json_data["approved"] is True
+    assert json_data["approved_quote"] == "Modified quote text"
+
+
+async def test_approve_quote_with_url_reject(
+    n8n_client: N8nClient,
+    mocker: MockerFixture,
+) -> None:
+    """Test rejecting a quote via webhook URL."""
+    from models import ApprovalAction, QuoteApprovalRequest
+
+    mock_post = mocker.patch(
+        "httpx.AsyncClient.post",
+        return_value=Response(200, json={"success": True}),
+    )
+
+    request = QuoteApprovalRequest(
+        execution_id="exec_123",
+        action=ApprovalAction.REJECT,
+        resume_url="https://n8n.lan/webhook-waiting/exec_123",
+    )
+
+    result = await n8n_client.approve_quote_with_url(request)
+
+    assert result["success"] is True
+    # Verify the payload sent
+    call_args = mock_post.call_args
+    assert call_args is not None
+    json_data = call_args.kwargs.get("json", {})
+    assert json_data["action"] == "reject"
+    assert json_data["approved"] is False

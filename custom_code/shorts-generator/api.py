@@ -11,6 +11,8 @@ from models import (
     GenerateResponse,
     GenerationItem,
     ListGenerationsResponse,
+    QuoteApprovalRequest,
+    QuoteApprovalResponse,
 )
 from n8n_client import N8nClient, N8nError
 
@@ -227,3 +229,40 @@ async def list_generations(limit: int = 50) -> ListGenerationsResponse:
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list generations: {str(e)}")
+
+
+@app.post("/api/approve-quote", response_model=QuoteApprovalResponse)
+async def approve_quote(
+    request: QuoteApprovalRequest,
+    client: N8nClient = Depends(get_n8n_client),
+) -> QuoteApprovalResponse:
+    """Approve, edit, or reject a generated quote.
+
+    This resumes the n8n workflow execution that is waiting for user approval.
+
+    Args:
+        request: Approval request with execution ID, action, and resume_url from n8n
+        client: n8n client dependency
+
+    Returns:
+        Response indicating success or failure
+
+    Raises:
+        HTTPException: If approval fails
+    """
+    try:
+        # Use the resume_url provided by n8n (passed from frontend)
+        # This is more reliable than constructing the URL manually
+        await client.approve_quote_with_url(request)
+        await client.close()
+
+        action_msg = {
+            "approve": "Quote approved",
+            "edit": "Quote edited and approved",
+            "reject": "Quote rejected",
+        }
+        message = action_msg.get(request.action.value, "Action processed")
+
+        return QuoteApprovalResponse(success=True, message=message)
+    except N8nError as e:
+        raise HTTPException(status_code=500, detail=str(e))

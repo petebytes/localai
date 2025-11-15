@@ -3,15 +3,45 @@
 import pytest
 from pydantic import ValidationError
 
-from models import ExecutionStatus, GenerateRequest, GenerateResponse
+from models import (
+    ApprovalAction,
+    ExecutionStatus,
+    GenerateRequest,
+    GenerateResponse,
+    QuoteApprovalRequest,
+)
 
 
 def test_generate_request_creation() -> None:
     """Test GenerateRequest can be created."""
     request = GenerateRequest()
 
-    # Request should be valid with no user-facing fields
+    # Request should be valid with no fields
     assert request is not None
+    assert request.custom_quote is None
+
+
+def test_generate_request_with_custom_quote() -> None:
+    """Test GenerateRequest can be created with custom quote."""
+    custom_text = "Your healing journey is valid."
+    request = GenerateRequest(custom_quote=custom_text)
+
+    assert request.custom_quote == custom_text
+
+
+def test_generate_request_custom_quote_optional() -> None:
+    """Test custom_quote is optional in GenerateRequest."""
+    # Should work without custom_quote
+    request1 = GenerateRequest()
+    assert request1.custom_quote is None
+
+    # Should work with custom_quote
+    request2 = GenerateRequest(custom_quote="Test quote")
+    assert request2.custom_quote == "Test quote"
+
+    # Should work with empty string
+    request3 = GenerateRequest(custom_quote="")
+    assert request3.custom_quote == ""
 
 
 def test_generate_response_pending_status() -> None:
@@ -101,3 +131,60 @@ def get_mock_response(overrides: dict[str, object] | None = None) -> GenerateRes
     if overrides:
         defaults.update(overrides)  # type: ignore[arg-type]
     return GenerateResponse(**defaults)  # type: ignore[arg-type]
+
+
+def test_quote_approval_request_approve() -> None:
+    """Test QuoteApprovalRequest with approve action."""
+    request = QuoteApprovalRequest(
+        execution_id="exec_123",
+        action=ApprovalAction.APPROVE,
+        resume_url="https://n8n.lan/webhook-waiting/exec_123",
+    )
+    assert request.execution_id == "exec_123"
+    assert request.action == ApprovalAction.APPROVE
+    assert request.edited_quote is None
+    assert request.resume_url == "https://n8n.lan/webhook-waiting/exec_123"
+
+
+def test_quote_approval_request_reject() -> None:
+    """Test QuoteApprovalRequest with reject action."""
+    request = QuoteApprovalRequest(
+        execution_id="exec_123",
+        action=ApprovalAction.REJECT,
+        resume_url="https://n8n.lan/webhook-waiting/exec_123",
+    )
+    assert request.action == ApprovalAction.REJECT
+    assert request.edited_quote is None
+    assert request.resume_url == "https://n8n.lan/webhook-waiting/exec_123"
+
+
+def test_quote_approval_request_edit_with_quote() -> None:
+    """Test QuoteApprovalRequest with edit action and edited quote."""
+    request = QuoteApprovalRequest(
+        execution_id="exec_123",
+        action=ApprovalAction.EDIT,
+        edited_quote="Modified quote text",
+        resume_url="https://n8n.lan/webhook-waiting/exec_123",
+    )
+    assert request.action == ApprovalAction.EDIT
+    assert request.edited_quote == "Modified quote text"
+    assert request.resume_url == "https://n8n.lan/webhook-waiting/exec_123"
+
+
+def test_quote_approval_request_edit_without_quote_fails() -> None:
+    """Test QuoteApprovalRequest with edit action but no edited_quote raises error."""
+    with pytest.raises(ValidationError, match="edited_quote is required"):
+        QuoteApprovalRequest(
+            execution_id="exec_123",
+            action=ApprovalAction.EDIT,
+            resume_url="https://n8n.lan/webhook-waiting/exec_123",
+        )
+
+
+def test_quote_approval_request_without_resume_url_fails() -> None:
+    """Test QuoteApprovalRequest without resume_url raises error."""
+    with pytest.raises(ValidationError, match="resume_url is required"):
+        QuoteApprovalRequest(
+            execution_id="exec_123",
+            action=ApprovalAction.APPROVE,
+        )

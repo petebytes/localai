@@ -17,6 +17,8 @@ volumes:
     driver: local
   registry-cache:
     driver: local
+  shorts-generator-venv:
+    driver: local
   # Shared AI model caches - reduces downloads across services
   hf-cache:
     driver: local
@@ -269,8 +271,11 @@ services:
     volumes:
       - /mnt/raven-nas/inspirational-shorts/generated-images:/workspace/ComfyUI/output:ro
       - /mnt/raven-nas/inspirational-shorts/generated-videos:/output:ro  # Ovi video outputs
-      - ./custom_code/shorts-generator/downloads:/app/downloads
       - /mnt/raven-nas:/mnt/raven-nas
+      # Mount source code for development (no rebuild needed for code changes)
+      - ./custom_code/shorts-generator:/app
+      # Mount the container's .venv over the host's broken one
+      - shorts-generator-venv:/app/.venv
     environment:
       - N8N_API_URL=http://n8n:5678
       - N8N_WEBHOOK_PATH=/webhook/shorts-generate

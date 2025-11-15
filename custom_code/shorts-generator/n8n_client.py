@@ -1,5 +1,6 @@
 """n8n API client for triggering workflows and retrieving execution data."""
 
+import os
 from typing import Any, cast
 
 from httpx import AsyncClient
@@ -7,9 +8,11 @@ from httpx import AsyncClient
 from models import (
     DEFAULT_IMAGE_PROMPT,
     DEFAULT_QUOTE_PROMPT,
+    ApprovalAction,
     ExecutionStatus,
     GenerateRequest,
     GenerateResponse,
+    QuoteApprovalRequest,
 )
 
 
@@ -57,11 +60,11 @@ class N8nClient:
             self._client = AsyncClient(timeout=30.0)
         return self._client
 
-    async def trigger_workflow(self, request: GenerateRequest) -> str:  # noqa: ARG002
+    async def trigger_workflow(self, request: GenerateRequest) -> str:
         """Trigger n8n workflow via webhook with hardcoded prompts.
 
         Args:
-            request: Generate request (no user-facing parameters, kept for API compatibility)
+            request: Generate request with optional custom quote
 
         Returns:
             Execution ID from webhook response
@@ -77,6 +80,10 @@ class N8nClient:
             "quote_system_prompt": DEFAULT_QUOTE_PROMPT,
             "image_system_prompt": DEFAULT_IMAGE_PROMPT,
         }
+
+        # Add custom quote if provided
+        if request.custom_quote:
+            payload["custom_quote"] = request.custom_quote
 
         response = await client.post(url, json=payload)
 
@@ -142,15 +149,20 @@ class N8nClient:
         Returns:
             Parsed GenerateResponse
         """
-        # Status and finished are at top level of response
-        status_str = data.get("status", "running")
-        finished = data.get("finished", False)
+        # Check top-level status first (for waiting executions)
+        top_level_status = data.get("status")
 
         # Execution data is nested under "data"
         exec_data = data.get("data", {})
 
+        # Status and finished can be at top level OR in the data object
+        status_str = top_level_status or exec_data.get("status", "running")
+        finished = data.get("finished", exec_data.get("finished", False))
+
         # Map n8n status to our ExecutionStatus enum
-        if status_str == "error":
+        if status_str == "waiting":
+            status = ExecutionStatus.WAITING_FOR_APPROVAL
+        elif status_str == "error":
             status = ExecutionStatus.ERROR
         elif status_str == "success" and finished:
             status = ExecutionStatus.SUCCESS
@@ -162,11 +174,11 @@ class N8nClient:
         # Extract error if present
         error = None
         if status == ExecutionStatus.ERROR:
-            result_data = exec_data.get("resultData", {})
+            result_data = exec_data.get("data", {}).get("resultData", {})
             error_data = result_data.get("error", {})
             error = error_data.get("message", "Unknown error")
 
-        # Extract results if successful
+        # Extract results if successful or waiting for approval
         quote = None
         image_prompt = None
         image_url = None
@@ -174,8 +186,28 @@ class N8nClient:
         video_url = None
         video_path = None
 
-        if status == ExecutionStatus.SUCCESS:
+        # For waiting executions, data is at exec_data.resultData
+        # For completed executions, data is at exec_data.data.resultData
+        resume_url = None
+        if status == ExecutionStatus.WAITING_FOR_APPROVAL:
+            # Waiting execution - data is at top level of exec_data
             run_data = exec_data.get("resultData", {}).get("runData", {})
+
+            # Extract webhook URL from waitingExecution
+            waiting_execs = data.get("waitingExecution")
+            if waiting_execs:
+                resume_url = waiting_execs.get("resumeUrl")
+
+            # Extract quote from "Quote writer" or "Format Custom Quote" node
+            quote_node = run_data.get("Quote writer", []) or run_data.get("Format Custom Quote", [])
+            if quote_node and len(quote_node) > 0:
+                quote_output = quote_node[0].get("data", {}).get("main", [[]])[0]
+                if quote_output:
+                    quote_data = quote_output[0].get("json", {})
+                    quote = quote_data.get("output")
+
+        if status == ExecutionStatus.SUCCESS:
+            run_data = exec_data.get("data", {}).get("resultData", {}).get("runData", {})
 
             # Extract quote from "Quote writer" node
             quote_node = run_data.get("Quote writer", [])
@@ -235,8 +267,51 @@ class N8nClient:
             video_prompt=video_prompt,
             video_url=video_url,
             video_path=video_path,
+            resume_url=resume_url,
             error=error,
         )
+
+    async def approve_quote_with_url(self, request: QuoteApprovalRequest) -> dict[str, bool]:
+        """Resume workflow execution with quote approval decision using the actual webhook URL.
+
+        Args:
+            request: Quote approval request with action, optional edited quote, and resume_url
+
+        Returns:
+            Dict with success status
+
+        Raises:
+            N8nError: If approval fails
+        """
+        import httpx
+
+        # Check environment variable for SSL verification setting
+        # Set N8N_VERIFY_SSL=false to disable SSL verification for self-signed certificates
+        verify_ssl = os.getenv("N8N_VERIFY_SSL", "true").lower() != "false"
+
+        async with httpx.AsyncClient(verify=verify_ssl, timeout=30.0) as client:
+            url = request.resume_url
+            if not url:
+                raise N8nError("Resume URL is required for quote approval")
+
+            # Prepare payload based on action
+            payload: dict[str, Any] = {"action": request.action.value}
+
+            if request.action == ApprovalAction.EDIT and request.edited_quote:
+                payload["approved_quote"] = request.edited_quote
+                payload["approved"] = True  # EDIT action also means approved
+            elif request.action == ApprovalAction.APPROVE:
+                # The workflow will use the original quote
+                payload["approved"] = True
+            elif request.action == ApprovalAction.REJECT:
+                payload["approved"] = False
+
+            response = await client.post(url, json=payload)
+
+            if response.status_code not in (200, 201, 204):
+                raise N8nError(f"Failed to approve quote: {response.status_code} {response.text}")
+
+            return {"success": True}
 
     async def close(self) -> None:
         """Close HTTP client."""

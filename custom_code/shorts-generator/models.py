@@ -2,7 +2,7 @@
 
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Default system prompts for quote and image generation
 # ruff: noqa: E501
@@ -41,6 +41,7 @@ class ExecutionStatus(str, Enum):
 
     PENDING = "pending"
     RUNNING = "running"
+    WAITING_FOR_APPROVAL = "waiting_for_approval"
     SUCCESS = "success"
     ERROR = "error"
 
@@ -51,7 +52,10 @@ class GenerateRequest(BaseModel):
     Note: System prompts are hardcoded and not exposed to users.
     """
 
-    pass
+    custom_quote: str | None = Field(
+        default=None,
+        description="Optional custom quote to use instead of AI-generated quote",
+    )
 
 
 class GenerateResponse(BaseModel):
@@ -66,6 +70,9 @@ class GenerateResponse(BaseModel):
     video_url: str | None = Field(default=None, description="URL to download generated video")
     video_path: str | None = Field(
         default=None, description="Absolute path to generated video file"
+    )
+    resume_url: str | None = Field(
+        default=None, description="Resume webhook URL when waiting for approval"
     )
     error: str | None = Field(default=None, description="Error message if failed")
 
@@ -87,3 +94,40 @@ class ListGenerationsResponse(BaseModel):
 
     generations: list[GenerationItem] = Field(description="List of previous generations")
     total: int = Field(description="Total number of generations found")
+
+
+class ApprovalAction(str, Enum):
+    """Quote approval action."""
+
+    APPROVE = "approve"
+    EDIT = "edit"
+    REJECT = "reject"
+
+
+class QuoteApprovalRequest(BaseModel):
+    """Request to approve, edit, or reject a generated quote."""
+
+    execution_id: str = Field(description="n8n workflow execution ID")
+    action: ApprovalAction = Field(description="Approval action")
+    edited_quote: str | None = Field(
+        default=None, description="Edited quote text (required if action is 'edit')"
+    )
+    resume_url: str | None = Field(
+        default=None, description="Resume webhook URL from n8n (required for approval)"
+    )
+
+    @model_validator(mode="after")
+    def validate_edited_quote(self) -> "QuoteApprovalRequest":
+        """Validate that edited_quote is provided when action is 'edit'."""
+        if self.action == ApprovalAction.EDIT and not self.edited_quote:
+            raise ValueError("edited_quote is required when action is 'edit'")
+        if not self.resume_url:
+            raise ValueError("resume_url is required for approval")
+        return self
+
+
+class QuoteApprovalResponse(BaseModel):
+    """Response for quote approval request."""
+
+    success: bool = Field(description="Whether the approval was processed successfully")
+    message: str = Field(description="Status message")
