@@ -733,10 +733,48 @@ def continue_after_image_approval(
         data = asyncio.run(poll_status(execution_id))
         status = data.get("status", "unknown")
 
+        print(f"📊 Polling status: {status} (attempt {attempt})", file=sys.stderr)
+
         if status == "error":
             error_msg = data.get("error", "Unknown error")
             yield (f"Error: {error_msg}", "", None, None, execution_id, "", False, False, "")
             return
+
+        # Handle regeneration - workflow looped back to image approval
+        if status == "waiting_for_image_approval":
+            print("🔄 Detected image regeneration - new image ready for approval!", file=sys.stderr)
+            # Extract the new image data
+            new_image_url = data.get("image_url", "")
+            new_image_prompt = data.get("image_prompt", "")
+            resume_url = data.get("resume_url", "")
+
+            print(f"🖼️  New image URL: {new_image_url}", file=sys.stderr)
+            print(
+                f"📝 New image prompt: {new_image_prompt[:100] if new_image_prompt else 'None'}...",
+                file=sys.stderr,
+            )
+
+            # Download the newly generated image
+            new_image_path = None
+            if new_image_url:
+                filename = new_image_url.split("/")[-1]
+                print(f"⬇️  Downloading new image: {filename}", file=sys.stderr)
+                new_image_path = download_file_from_api(filename, timeout=30.0)
+                print(f"✅ Downloaded to: {new_image_path}", file=sys.stderr)
+
+            # Yield state showing the new image and waiting for approval
+            yield (
+                "Regenerated! Please review the new image.",
+                data.get("quote", ""),
+                new_image_path,
+                None,  # no video yet
+                execution_id,
+                resume_url,
+                False,  # not waiting for quote approval
+                True,  # waiting for image approval
+                new_image_prompt,
+            )
+            return  # Exit polling loop - UI will handle the new approval cycle
 
         if status == "success":
             quote = str(data.get("quote", ""))
@@ -911,20 +949,21 @@ def create_ui() -> Any:
                                 image_reject_btn = gr.Button("✗ Reject", variant="stop", scale=1)
 
                     with gr.Column():
-                        image_output = gr.Image(
-                            label="Generated Image (9:16)",
-                            type="filepath",
-                            interactive=False,
-                            height=600,
-                            show_download_button=True,
-                        )
+                        with gr.Row():
+                            image_output = gr.Image(
+                                label="Generated Image (9:16)",
+                                type="filepath",
+                                interactive=False,
+                                height=600,
+                                show_download_button=True,
+                            )
 
-                        video_output = gr.Video(
-                            label="Generated Video (10s with audio)",
-                            interactive=False,
-                            height=600,
-                            show_download_button=True,
-                        )
+                            video_output = gr.Video(
+                                label="Generated Video (10s with audio)",
+                                interactive=False,
+                                height=600,
+                                show_download_button=True,
+                            )
 
                 # Helper function to show/hide approval groups and resume accordion based on status
                 def update_approval_visibility(
