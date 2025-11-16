@@ -819,6 +819,7 @@ def continue_after_image_approval(
     action: str,
     edited_image_prompt: str | None = None,
     quote: str | None = None,
+    image_path: str | None = None,
 ) -> Generator[tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None]:
     """Continue workflow after image approval.
 
@@ -828,6 +829,7 @@ def continue_after_image_approval(
         action: Approval action (approve/edit/reject)
         edited_image_prompt: Optional edited image prompt
         quote: Optional quote text to preserve
+        image_path: Optional current image path to preserve
 
     Yields:
         Tuples of (status, quote, image_path, video_path, execution_id,
@@ -886,7 +888,7 @@ def continue_after_image_approval(
     yield (
         f"{message}, continuing...",
         clean_quote,
-        None,
+        image_path,  # Preserve the current image
         None,
         execution_id,
         "",
@@ -900,7 +902,7 @@ def continue_after_image_approval(
     attempt = 0
     # Track the current quote and image to preserve them during polling
     current_quote = clean_quote
-    current_image_path = None
+    current_image_path = image_path  # Initialize with the current image instead of None
 
     while attempt < max_attempts:
         time.sleep(1)
@@ -1287,33 +1289,37 @@ def create_ui() -> Any:
                     yield from continue_after_approval(exec_id, resume_url, "reject")
 
                 def image_approve_handler(
-                    exec_id: str, resume_url: str, quote: str
+                    exec_id: str, resume_url: str, quote: str, current_image: str | None
                 ) -> Generator[
                     tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle image approve button click."""
                     yield from continue_after_image_approval(
-                        exec_id, resume_url, "approve", None, quote
+                        exec_id, resume_url, "approve", None, quote, current_image
                     )
 
                 def image_regenerate_handler(
-                    exec_id: str, resume_url: str, edited_prompt: str, quote: str
-                ) -> Generator[
+                    exec_id: str,
+                    resume_url: str,
+                    edited_prompt: str,
+                    quote: str,
+                    current_image: str | None,
+                ) -> Generator[  # noqa: E501
                     tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle image regenerate button click."""
                     yield from continue_after_image_approval(
-                        exec_id, resume_url, "edit", edited_prompt, quote
+                        exec_id, resume_url, "edit", edited_prompt, quote, current_image
                     )
 
                 def image_reject_handler(
-                    exec_id: str, resume_url: str, quote: str
+                    exec_id: str, resume_url: str, quote: str, current_image: str | None
                 ) -> Generator[
                     tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle image reject button click."""
                     yield from continue_after_image_approval(
-                        exec_id, resume_url, "reject", None, quote
+                        exec_id, resume_url, "reject", None, quote, current_image
                     )
 
                 def disable_approval_buttons() -> tuple[Any, Any, Any]:
@@ -1635,7 +1641,7 @@ def create_ui() -> Any:
                     outputs=[image_approve_btn, image_regenerate_btn, image_reject_btn],
                 ).then(
                     fn=image_approve_handler,
-                    inputs=[execution_id_state, resume_url_state, quote_output],
+                    inputs=[execution_id_state, resume_url_state, quote_output, image_output],
                     outputs=[
                         status_box,
                         quote_output,
@@ -1697,6 +1703,7 @@ def create_ui() -> Any:
                         resume_url_state,
                         edited_image_prompt_input,
                         quote_output,
+                        image_output,
                     ],
                     outputs=[
                         status_box,
@@ -1754,7 +1761,7 @@ def create_ui() -> Any:
                     outputs=[image_approve_btn, image_regenerate_btn, image_reject_btn],
                 ).then(
                     fn=image_reject_handler,
-                    inputs=[execution_id_state, resume_url_state, quote_output],
+                    inputs=[execution_id_state, resume_url_state, quote_output, image_output],
                     outputs=[
                         status_box,
                         quote_output,
