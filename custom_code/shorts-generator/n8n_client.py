@@ -258,18 +258,31 @@ class N8nClient:
                     quote_data = quote_output[0].get("json", {})
                     quote = quote_data.get("output")
 
-            # Extract image prompt from Parse Prompts node
-            parse_node = run_data.get("Parse Prompts", [])
-            if parse_node and len(parse_node) > 0:
-                parse_output = parse_node[0].get("data", {}).get("main", [[]])[0]
-                if parse_output:
-                    parse_data = parse_output[0].get("json", {})
-                    image_prompt = parse_data.get("image_prompt")
+            # Extract image prompt - check Handle Image Approval Response first (for regeneration)
+            # then fall back to Parse Prompts (for initial generation)
+            approval_response_node = run_data.get("Handle Image Approval Response", [])
+            if approval_response_node and len(approval_response_node) > 0:
+                approval_output = approval_response_node[0].get("data", {}).get("main", [[]])[0]
+                if approval_output:
+                    approval_data = approval_output[0].get("json", {})
+                    image_prompt = approval_data.get("image_prompt")
+
+            # If not found in approval response, check Parse Prompts
+            if not image_prompt:
+                parse_node = run_data.get("Parse Prompts", [])
+                if parse_node and len(parse_node) > 0:
+                    parse_output = parse_node[0].get("data", {}).get("main", [[]])[0]
+                    if parse_output:
+                        parse_data = parse_output[0].get("json", {})
+                        image_prompt = parse_data.get("image_prompt")
 
             # Extract image filename from ComfyUI: Generate Image node
+            # NOTE: Get the LAST execution (index -1) in case the node ran
+            # multiple times (regeneration)
             image_node = run_data.get("ComfyUI: Generate Image", [])
             if image_node and len(image_node) > 0:
-                image_output = image_node[0].get("data", {}).get("main", [[]])[0]
+                # Get the most recent execution
+                image_output = image_node[-1].get("data", {}).get("main", [[]])[0]
                 if image_output:
                     json_data = image_output[0].get("json", {})
                     # Try images array first (old format), then filename directly (new format)
