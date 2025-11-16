@@ -240,12 +240,16 @@ services:
     volumes:
       - ./shared:/app/shared
       - ./ComfyUI/models:/workspace/ComfyUI/models
+      - ./ComfyUI/custom_nodes:/workspace/ComfyUI/custom_nodes
+      - ./custom_code/comfyui/workflows:/workspace/ComfyUI/user/default/workflows
       - /mnt/raven-nas/inspirational-shorts/generated-images:/workspace/ComfyUI/output
       - /mnt/raven-nas:/mnt/raven-nas
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
       # Shared Wan models from wan2gp (read-only to avoid conflicts)
       - wan2gp-models:/workspace/shared-wan-models:ro
+      # Wan2.2-TI2V-5B models from Ovi (read-only)
+      - ./ovi/ckpts/Wan2.2-TI2V-5B:/workspace/ovi-models/Wan2.2-TI2V-5B:ro
     environment:
       - NVIDIA_VISIBLE_DEVICES=0
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
