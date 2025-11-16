@@ -2,6 +2,7 @@
 """
 Test script to verify segment-level SRT output
 """
+
 import requests
 import json
 from pathlib import Path
@@ -13,7 +14,7 @@ if not test_file.exists():
     print(f"Error: Test file not found: {test_file}")
     exit(1)
 
-print(f"Testing segment-level SRT generation")
+print("Testing segment-level SRT generation")
 print(f"Test file: {test_file}")
 print(f"File size: {test_file.stat().st_size / 1024:.1f} KB")
 print("-" * 60)
@@ -25,7 +26,7 @@ with open(test_file, "rb") as f:
     files = {"file": (test_file.name, f, "audio/mpeg")}
     data = {
         "model": "base",  # Use small model for faster testing
-        "enable_diarization": "false"  # Disable for speed
+        "enable_diarization": "false",  # Disable for speed
     }
 
     print("Sending request to WhisperX...")
@@ -39,7 +40,7 @@ if response.status_code != 200:
 # Parse response
 result = response.json()
 
-print(f"\n✓ Request successful!")
+print("\n✓ Request successful!")
 print(f"Language detected: {result.get('language', 'unknown')}")
 print("-" * 60)
 
@@ -47,9 +48,11 @@ print("-" * 60)
 has_word_srt = "srt" in result
 has_segment_srt = "segments_srt" in result
 
-print(f"\nSRT Format Check:")
+print("\nSRT Format Check:")
 print(f"  Word-level SRT (srt):         {'✓ Present' if has_word_srt else '✗ Missing'}")
-print(f"  Segment-level SRT (segments_srt): {'✓ Present' if has_segment_srt else '✗ Missing'}")
+print(
+    f"  Segment-level SRT (segments_srt): {'✓ Present' if has_segment_srt else '✗ Missing'}"
+)
 
 if not has_segment_srt:
     print("\n✗ FAILED: segments_srt field not found in response!")
@@ -60,22 +63,22 @@ if not has_segment_srt:
 segment_srt = result["segments_srt"]
 word_srt = result.get("srt", "")
 
-print(f"\n✓ SUCCESS: segments_srt field found!")
-print(f"\nSize comparison:")
+print("\n✓ SUCCESS: segments_srt field found!")
+print("\nSize comparison:")
 print(f"  Word-level SRT:    {len(word_srt):,} characters")
 print(f"  Segment-level SRT: {len(segment_srt):,} characters")
-print(f"  Reduction:         {100 * (1 - len(segment_srt)/len(word_srt)):.1f}%")
+print(f"  Reduction:         {100 * (1 - len(segment_srt) / len(word_srt)):.1f}%")
 
 # Count entries
 word_entries = word_srt.count("\n\n") if word_srt else 0
 segment_entries = segment_srt.count("\n\n") if segment_srt else 0
 
-print(f"\nEntry count:")
+print("\nEntry count:")
 print(f"  Word-level entries:    {word_entries}")
 print(f"  Segment-level entries: {segment_entries}")
 
 # Show sample segment-level SRT
-print(f"\nSample segment-level SRT (first 500 chars):")
+print("\nSample segment-level SRT (first 500 chars):")
 print("-" * 60)
 print(segment_srt[:500])
 if len(segment_srt) > 500:
@@ -85,16 +88,16 @@ print("-" * 60)
 # Validate format
 lines = segment_srt.strip().split("\n")
 if len(lines) >= 3:
-    print(f"\n✓ Format validation:")
+    print("\n✓ Format validation:")
     print(f"  First entry number: {lines[0]}")
     print(f"  First timestamp:    {lines[1]}")
     print(f"  First text:         {lines[2][:50]}...")
 
     # Check if timestamp has correct format
     if "-->" in lines[1]:
-        print(f"  ✓ Timestamp format correct")
+        print("  ✓ Timestamp format correct")
     else:
-        print(f"  ✗ Invalid timestamp format")
+        print("  ✗ Invalid timestamp format")
 
 # Save outputs
 output_dir = Path("/home/ghar/code/localai/whisperx/tests")

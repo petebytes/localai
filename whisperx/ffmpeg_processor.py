@@ -42,10 +42,7 @@ class FFmpegProcessor:
         """Verify FFmpeg is installed and accessible."""
         try:
             subprocess.run(
-                ['ffmpeg', '-version'],
-                capture_output=True,
-                text=True,
-                check=True
+                ["ffmpeg", "-version"], capture_output=True, text=True, check=True
             )
             logger.info("FFmpeg verified successfully")
         except subprocess.CalledProcessError as e:
@@ -63,12 +60,14 @@ class FFmpegProcessor:
             Dictionary with video metadata
         """
         cmd = [
-            'ffprobe',
-            '-v', 'quiet',
-            '-print_format', 'json',
-            '-show_format',
-            '-show_streams',
-            video_path
+            "ffprobe",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+            video_path,
         ]
 
         try:
@@ -76,26 +75,26 @@ class FFmpegProcessor:
             metadata = json.loads(result.stdout)
 
             # Extract useful info
-            format_info = metadata.get('format', {})
+            format_info = metadata.get("format", {})
             video_stream = next(
-                (s for s in metadata.get('streams', []) if s['codec_type'] == 'video'),
-                {}
+                (s for s in metadata.get("streams", []) if s["codec_type"] == "video"),
+                {},
             )
             audio_stream = next(
-                (s for s in metadata.get('streams', []) if s['codec_type'] == 'audio'),
-                {}
+                (s for s in metadata.get("streams", []) if s["codec_type"] == "audio"),
+                {},
             )
 
             return {
-                'duration': float(format_info.get('duration', 0)),
-                'size_bytes': int(format_info.get('size', 0)),
-                'format': format_info.get('format_name', ''),
-                'video_codec': video_stream.get('codec_name', ''),
-                'video_width': video_stream.get('width', 0),
-                'video_height': video_stream.get('height', 0),
-                'audio_codec': audio_stream.get('codec_name', ''),
-                'audio_sample_rate': int(audio_stream.get('sample_rate', 0)),
-                'audio_channels': audio_stream.get('channels', 0)
+                "duration": float(format_info.get("duration", 0)),
+                "size_bytes": int(format_info.get("size", 0)),
+                "format": format_info.get("format_name", ""),
+                "video_codec": video_stream.get("codec_name", ""),
+                "video_width": video_stream.get("width", 0),
+                "video_height": video_stream.get("height", 0),
+                "audio_codec": audio_stream.get("codec_name", ""),
+                "audio_sample_rate": int(audio_stream.get("sample_rate", 0)),
+                "audio_channels": audio_stream.get("channels", 0),
             }
         except Exception as e:
             logger.error(f"Failed to get video info: {e}")
@@ -107,7 +106,7 @@ class FFmpegProcessor:
         output_path: str,
         sample_rate: int = 16000,
         channels: int = 1,
-        codec: str = 'pcm_s16le'
+        codec: str = "pcm_s16le",
     ) -> str:
         """
         Extract audio from video with speech optimization.
@@ -131,49 +130,49 @@ class FFmpegProcessor:
         logger.info(f"Extracting audio from {video_path}")
 
         # Build FFmpeg command
-        cmd = ['ffmpeg']
+        cmd = ["ffmpeg"]
 
         # Hardware acceleration for decoding (must come BEFORE input file)
         if self.use_hw_accel:
-            cmd.extend(['-hwaccel', 'cuda'])
+            cmd.extend(["-hwaccel", "cuda"])
 
         # Add input file
-        cmd.extend(['-i', video_path])
+        cmd.extend(["-i", video_path])
 
         # Audio filters for speech enhancement
         filters = []
 
         if self.enhance_speech:
             # High-pass filter: remove frequencies below 100Hz (removes rumble)
-            filters.append('highpass=f=100')
+            filters.append("highpass=f=100")
 
             # Low-pass filter: remove frequencies above 10kHz (speech is <10kHz)
-            filters.append('lowpass=f=10000')
+            filters.append("lowpass=f=10000")
 
             # Dynamic audio normalization (better than simple volume)
-            filters.append('dynaudnorm')
+            filters.append("dynaudnorm")
 
         # Apply filters if any
         if filters:
-            cmd.extend(['-af', ','.join(filters)])
+            cmd.extend(["-af", ",".join(filters)])
 
         # Audio output settings
-        cmd.extend([
-            '-vn',  # No video
-            '-acodec', codec,
-            '-ar', str(sample_rate),
-            '-ac', str(channels),
-            '-y',  # Overwrite output file
-            output_path
-        ])
+        cmd.extend(
+            [
+                "-vn",  # No video
+                "-acodec",
+                codec,
+                "-ar",
+                str(sample_rate),
+                "-ac",
+                str(channels),
+                "-y",  # Overwrite output file
+                output_path,
+            ]
+        )
 
         try:
-            subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True
-            )
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
             logger.info(f"Audio extracted successfully to {output_path}")
             return output_path
         except subprocess.CalledProcessError as e:
@@ -184,7 +183,7 @@ class FFmpegProcessor:
         self,
         audio_path: str,
         min_silence_duration: float = 2.0,
-        silence_threshold: str = '-50dB'
+        silence_threshold: str = "-50dB",
     ) -> list:
         """
         Detect silence periods in audio for intelligent segmentation.
@@ -198,11 +197,14 @@ class FFmpegProcessor:
             List of silence periods as (start, end) tuples
         """
         cmd = [
-            'ffmpeg',
-            '-i', audio_path,
-            '-af', f'silencedetect=noise={silence_threshold}:d={min_silence_duration}',
-            '-f', 'null',
-            '-'
+            "ffmpeg",
+            "-i",
+            audio_path,
+            "-af",
+            f"silencedetect=noise={silence_threshold}:d={min_silence_duration}",
+            "-f",
+            "null",
+            "-",
         ]
 
         try:
@@ -210,18 +212,18 @@ class FFmpegProcessor:
 
             # Parse silence detection output
             silences = []
-            lines = result.stderr.split('\n')
+            lines = result.stderr.split("\n")
 
             silence_start = None
             for line in lines:
-                if 'silence_start' in line:
-                    parts = line.split('silence_start: ')
+                if "silence_start" in line:
+                    parts = line.split("silence_start: ")
                     if len(parts) > 1:
                         silence_start = float(parts[1].strip())
-                elif 'silence_end' in line and silence_start is not None:
-                    parts = line.split('silence_end: ')
+                elif "silence_end" in line and silence_start is not None:
+                    parts = line.split("silence_end: ")
                     if len(parts) > 1:
-                        silence_end_str = parts[1].split('|')[0].strip()
+                        silence_end_str = parts[1].split("|")[0].strip()
                         silence_end = float(silence_end_str)
                         silences.append((silence_start, silence_end))
                         silence_start = None
@@ -238,7 +240,7 @@ class FFmpegProcessor:
         video_path: str,
         output_dir: str,
         segment_duration: int = 600,
-        use_hw_accel: bool = True
+        use_hw_accel: bool = True,
     ) -> list:
         """
         Segment video into smaller chunks using stream copy (fast, no re-encoding).
@@ -258,15 +260,21 @@ class FFmpegProcessor:
         output_pattern = os.path.join(output_dir, f"{base_name}_segment_%03d.mp4")
 
         cmd = [
-            'ffmpeg',
-            '-i', video_path,
-            '-c', 'copy',  # Stream copy (no re-encoding, very fast)
-            '-map', '0',
-            '-segment_time', str(segment_duration),
-            '-f', 'segment',
-            '-reset_timestamps', '1',
-            '-y',
-            output_pattern
+            "ffmpeg",
+            "-i",
+            video_path,
+            "-c",
+            "copy",  # Stream copy (no re-encoding, very fast)
+            "-map",
+            "0",
+            "-segment_time",
+            str(segment_duration),
+            "-f",
+            "segment",
+            "-reset_timestamps",
+            "1",
+            "-y",
+            output_pattern,
         ]
 
         try:
@@ -274,11 +282,13 @@ class FFmpegProcessor:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
 
             # Find all created segments
-            segments = sorted([
-                os.path.join(output_dir, f)
-                for f in os.listdir(output_dir)
-                if f.startswith(f"{base_name}_segment_") and f.endswith('.mp4')
-            ])
+            segments = sorted(
+                [
+                    os.path.join(output_dir, f)
+                    for f in os.listdir(output_dir)
+                    if f.startswith(f"{base_name}_segment_") and f.endswith(".mp4")
+                ]
+            )
 
             logger.info(f"Created {len(segments)} video segments")
             return segments
@@ -293,8 +303,8 @@ class FFmpegProcessor:
         subtitle_path: str,
         output_path: str,
         font_size: int = 24,
-        font_color: str = 'white',
-        use_hw_accel: bool = True
+        font_color: str = "white",
+        use_hw_accel: bool = True,
     ) -> str:
         """
         Burn subtitles into video using NVENC hardware acceleration.
@@ -313,39 +323,44 @@ class FFmpegProcessor:
         logger.info(f"Burning subtitles into {video_path}")
 
         # Escape subtitle path for FFmpeg filter
-        subtitle_path_escaped = subtitle_path.replace('\\', '/').replace(':', '\\:')
+        subtitle_path_escaped = subtitle_path.replace("\\", "/").replace(":", "\\:")
 
-        cmd = ['ffmpeg']
+        cmd = ["ffmpeg"]
 
         # Hardware decoding (must come BEFORE input file)
         if use_hw_accel and self.use_hw_accel:
-            cmd.extend(['-hwaccel', 'cuda'])
+            cmd.extend(["-hwaccel", "cuda"])
 
         # Add input file
-        cmd.extend(['-i', video_path])
+        cmd.extend(["-i", video_path])
 
         # Subtitle filter
-        cmd.extend([
-            '-vf', f"subtitles='{subtitle_path_escaped}':force_style='FontSize={font_size},PrimaryColour={font_color}'"
-        ])
+        cmd.extend(
+            [
+                "-vf",
+                f"subtitles='{subtitle_path_escaped}':force_style='FontSize={font_size},PrimaryColour={font_color}'",
+            ]
+        )
 
         # Hardware encoding with NVENC (RTX 5090's 9th-gen NVENC)
         if use_hw_accel and self.use_hw_accel:
-            cmd.extend([
-                '-c:v', 'h264_nvenc',
-                '-preset', 'p6',  # High quality preset (RTX 5090 9th-gen NVENC)
-                '-cq', '23',  # Constant quality
-                '-b:v', '0'  # Let CQ control bitrate
-            ])
+            cmd.extend(
+                [
+                    "-c:v",
+                    "h264_nvenc",
+                    "-preset",
+                    "p6",  # High quality preset (RTX 5090 9th-gen NVENC)
+                    "-cq",
+                    "23",  # Constant quality
+                    "-b:v",
+                    "0",  # Let CQ control bitrate
+                ]
+            )
         else:
-            cmd.extend(['-c:v', 'libx264', '-crf', '23'])
+            cmd.extend(["-c:v", "libx264", "-crf", "23"])
 
         # Copy audio without re-encoding
-        cmd.extend([
-            '-c:a', 'copy',
-            '-y',
-            output_path
-        ])
+        cmd.extend(["-c:a", "copy", "-y", output_path])
 
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)

@@ -159,7 +159,7 @@ async def generate_video(request: VideoGenerationRequest):
         if request.mode == "i2v" and not request.image_path:
             raise HTTPException(
                 status_code=400,
-                detail="image_path is required for Image-to-Video (i2v) mode"
+                detail="image_path is required for Image-to-Video (i2v) mode",
             )
 
         # Log request
@@ -230,12 +230,12 @@ async def root():
             "Image-to-Video+Audio (I2V)",
             "5-second videos at 24 FPS",
             "Up to 1920x1080 resolution",
-            "Synchronized audio generation"
+            "Synchronized audio generation",
         ],
         "endpoints": {
             "health": "/api/health",
             "generate": "/api/generate-video",
-            "docs": "/docs"
+            "docs": "/docs",
         },
     }
 
@@ -246,6 +246,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8300"))
     host = os.environ.get("HOST", "0.0.0.0")
 
-    uvicorn.run(
-        "ovi_api_server.main:app", host=host, port=port, log_level="info"
-    )
+    uvicorn.run("ovi_api_server.main:app", host=host, port=port, log_level="info")

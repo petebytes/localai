@@ -26,20 +26,21 @@ from typing import List, Optional, Tuple
 
 class Colors:
     """ANSI color codes for terminal output"""
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
+
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKCYAN = "\033[96m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
 
 
 class SecretRestorer:
     """Restore secrets from backup"""
 
-    def __init__(self, project_root: Path, backup_dir: str = 'backups/secrets'):
+    def __init__(self, project_root: Path, backup_dir: str = "backups/secrets"):
         self.project_root = project_root
         self.backup_root = project_root / backup_dir
 
@@ -56,16 +57,16 @@ class SecretRestorer:
 
             # Parse timestamp
             try:
-                timestamp_str = backup_path.name.replace('secrets-backup-', '')
-                backup_date = datetime.strptime(timestamp_str, "%Y%m%d-%H%M%S")
+                timestamp_str = backup_path.name.replace("secrets-backup-", "")
+                datetime.strptime(timestamp_str, "%Y%m%d-%H%M%S")
             except ValueError:
                 continue
 
             # Load metadata
-            metadata_path = backup_path / 'metadata.json'
+            metadata_path = backup_path / "metadata.json"
             metadata = {}
             if metadata_path.exists():
-                with open(metadata_path, 'r') as f:
+                with open(metadata_path, "r") as f:
                     metadata = json.load(f)
 
             backups.append((timestamp_str, backup_path, metadata))
@@ -77,7 +78,9 @@ class SecretRestorer:
         backups = self.list_backups()
 
         if not backups:
-            print(f"{Colors.WARNING}No backups found in {self.backup_root}{Colors.ENDC}")
+            print(
+                f"{Colors.WARNING}No backups found in {self.backup_root}{Colors.ENDC}"
+            )
             return
 
         print(f"{Colors.HEADER}Available Backups:{Colors.ENDC}\n")
@@ -100,15 +103,15 @@ class SecretRestorer:
                 age_str = f"{age.seconds // 60} minute(s) ago"
 
             # Print backup info
-            print(f"{Colors.OKBLUE}{i+1}. {display_time}{Colors.ENDC} ({age_str})")
+            print(f"{Colors.OKBLUE}{i + 1}. {display_time}{Colors.ENDC} ({age_str})")
             print(f"   Timestamp: {Colors.OKCYAN}{timestamp}{Colors.ENDC}")
 
-            if 'rotated_secrets' in metadata:
-                secret_count = len(metadata['rotated_secrets'])
+            if "rotated_secrets" in metadata:
+                secret_count = len(metadata["rotated_secrets"])
                 print(f"   Secrets rotated: {secret_count}")
 
-            if 'affected_services' in metadata:
-                service_count = len(metadata['affected_services'])
+            if "affected_services" in metadata:
+                service_count = len(metadata["affected_services"])
                 print(f"   Services affected: {service_count}")
 
             print()
@@ -137,29 +140,33 @@ class SecretRestorer:
             raise FileNotFoundError(f"Backup not found: {backup_path}")
 
         # Load metadata
-        metadata_path = backup_path / 'metadata.json'
+        metadata_path = backup_path / "metadata.json"
         metadata = {}
         if metadata_path.exists():
-            with open(metadata_path, 'r') as f:
+            with open(metadata_path, "r") as f:
                 metadata = json.load(f)
 
-        print(f"{Colors.HEADER}Restoring from backup: {backup_path.name}{Colors.ENDC}\n")
+        print(
+            f"{Colors.HEADER}Restoring from backup: {backup_path.name}{Colors.ENDC}\n"
+        )
 
         if metadata:
             print(f"{Colors.OKBLUE}Backup Info:{Colors.ENDC}")
             print(f"  Timestamp: {metadata.get('timestamp', 'unknown')}")
 
-            if 'rotated_secrets' in metadata:
+            if "rotated_secrets" in metadata:
                 print(f"  Secrets: {', '.join(metadata['rotated_secrets'][:5])}")
-                if len(metadata['rotated_secrets']) > 5:
-                    print(f"          ... and {len(metadata['rotated_secrets']) - 5} more")
+                if len(metadata["rotated_secrets"]) > 5:
+                    print(
+                        f"          ... and {len(metadata['rotated_secrets']) - 5} more"
+                    )
 
             print()
 
         # Find all .env files in backup
         env_files = []
-        for item in backup_path.rglob('.env*'):
-            if item.is_file() and item.name != 'metadata.json':
+        for item in backup_path.rglob(".env*"):
+            if item.is_file() and item.name != "metadata.json":
                 # Get relative path
                 rel_path = item.relative_to(backup_path)
                 env_files.append(rel_path)
@@ -176,7 +183,9 @@ class SecretRestorer:
             dst = self.project_root / rel_path
 
             if dry_run:
-                print(f"  {Colors.OKCYAN}[DRY RUN] Would restore: {rel_path}{Colors.ENDC}")
+                print(
+                    f"  {Colors.OKCYAN}[DRY RUN] Would restore: {rel_path}{Colors.ENDC}"
+                )
             else:
                 # Ensure destination directory exists
                 dst.parent.mkdir(parents=True, exist_ok=True)
@@ -186,6 +195,7 @@ class SecretRestorer:
 
                 # Set restrictive permissions
                 import os
+
                 os.chmod(dst, 0o600)
 
                 print(f"  {Colors.OKGREEN}✓ Restored: {rel_path}{Colors.ENDC}")
@@ -194,8 +204,12 @@ class SecretRestorer:
 
         # Print next steps
         print(f"{Colors.BOLD}Next Steps:{Colors.ENDC}")
-        print(f"  1. Restart services: {Colors.OKCYAN}./scripts/restart-after-rotation.sh{Colors.ENDC}")
-        print(f"  2. Verify services are healthy: {Colors.OKCYAN}./scripts/check-services.py{Colors.ENDC}")
+        print(
+            f"  1. Restart services: {Colors.OKCYAN}./scripts/restart-after-rotation.sh{Colors.ENDC}"
+        )
+        print(
+            f"  2. Verify services are healthy: {Colors.OKCYAN}./scripts/check-services.py{Colors.ENDC}"
+        )
         print()
 
 
@@ -203,28 +217,24 @@ def main():
     parser = argparse.ArgumentParser(
         description="Restore secrets from backup",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
     parser.add_argument(
-        '--list',
-        action='store_true',
-        help="List all available backups"
+        "--list", action="store_true", help="List all available backups"
     )
     parser.add_argument(
-        '--backup',
+        "--backup",
         type=str,
-        metavar='TIMESTAMP',
-        help="Restore from specific backup (YYYYMMDD-HHMMSS)"
+        metavar="TIMESTAMP",
+        help="Restore from specific backup (YYYYMMDD-HHMMSS)",
     )
     parser.add_argument(
-        '--latest',
-        action='store_true',
-        help="Restore from most recent backup"
+        "--latest", action="store_true", help="Restore from most recent backup"
     )
     parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help="Preview restore without applying changes"
+        "--dry-run",
+        action="store_true",
+        help="Preview restore without applying changes",
     )
 
     args = parser.parse_args()
@@ -248,7 +258,7 @@ def main():
             backup_path = restorer.find_backup(args.backup)
             if not backup_path:
                 print(f"{Colors.FAIL}Backup not found: {args.backup}{Colors.ENDC}")
-                print(f"\nRun with --list to see available backups")
+                print("\nRun with --list to see available backups")
                 sys.exit(1)
 
         elif args.latest:
@@ -260,15 +270,21 @@ def main():
         else:
             # No restore action specified
             parser.print_help()
-            print(f"\n{Colors.WARNING}Please specify --list, --backup, or --latest{Colors.ENDC}")
+            print(
+                f"\n{Colors.WARNING}Please specify --list, --backup, or --latest{Colors.ENDC}"
+            )
             sys.exit(1)
 
         # Confirm restore
         if not args.dry_run:
-            print(f"{Colors.WARNING}This will OVERWRITE current .env files!{Colors.ENDC}")
-            response = input(f"Are you sure you want to restore from {backup_path.name}? [y/N]: ")
+            print(
+                f"{Colors.WARNING}This will OVERWRITE current .env files!{Colors.ENDC}"
+            )
+            response = input(
+                f"Are you sure you want to restore from {backup_path.name}? [y/N]: "
+            )
 
-            if response.lower() not in ['y', 'yes']:
+            if response.lower() not in ["y", "yes"]:
                 print(f"{Colors.WARNING}Restore cancelled{Colors.ENDC}")
                 sys.exit(0)
 
@@ -276,7 +292,9 @@ def main():
         restorer.restore_from_backup(backup_path, dry_run=args.dry_run)
 
         if args.dry_run:
-            print(f"{Colors.OKCYAN}This was a DRY RUN. No changes were made.{Colors.ENDC}")
+            print(
+                f"{Colors.OKCYAN}This was a DRY RUN. No changes were made.{Colors.ENDC}"
+            )
             print(f"Remove --dry-run to apply changes.{Colors.ENDC}\n")
 
         sys.exit(0)
@@ -286,5 +304,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

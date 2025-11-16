@@ -25,7 +25,7 @@ class AudioSegment:
         start: float,
         end: float,
         audio_data: Optional[np.ndarray] = None,
-        segment_id: int = 0
+        segment_id: int = 0,
     ):
         self.start = start
         self.end = end
@@ -52,7 +52,7 @@ class VideoSegmenter:
         self,
         chunk_duration: int = 30,
         overlap_duration: int = 10,
-        vad_threshold: float = 0.5
+        vad_threshold: float = 0.5,
     ):
         """
         Initialize video segmenter.
@@ -77,11 +77,11 @@ class VideoSegmenter:
             if self.vad_model is None:
                 logger.info("Loading Silero VAD model...")
                 model, utils = torch.hub.load(
-                    repo_or_dir='snakers4/silero-vad',
-                    model='silero_vad',
+                    repo_or_dir="snakers4/silero-vad",
+                    model="silero_vad",
                     force_reload=False,
                     onnx=False,
-                    trust_repo=True
+                    trust_repo=True,
                 )
                 self.vad_model = model
                 self.vad_utils = utils
@@ -94,7 +94,7 @@ class VideoSegmenter:
         self,
         audio_path: str,
         min_speech_duration: float = 0.25,
-        min_silence_duration: float = 0.1
+        min_silence_duration: float = 0.1,
     ) -> List[Tuple[float, float]]:
         """
         Detect speech segments using VAD.
@@ -111,7 +111,9 @@ class VideoSegmenter:
             self.load_vad_model()
 
         if self.vad_model is None:
-            logger.warning("VAD model not available, falling back to time-based chunking")
+            logger.warning(
+                "VAD model not available, falling back to time-based chunking"
+            )
             return []
 
         try:
@@ -137,14 +139,11 @@ class VideoSegmenter:
                 sampling_rate=sr,
                 threshold=self.vad_threshold,
                 min_speech_duration_ms=int(min_speech_duration * 1000),
-                min_silence_duration_ms=int(min_silence_duration * 1000)
+                min_silence_duration_ms=int(min_silence_duration * 1000),
             )
 
             # Convert to seconds
-            segments = [
-                (ts['start'] / sr, ts['end'] / sr)
-                for ts in speech_timestamps
-            ]
+            segments = [(ts["start"] / sr, ts["end"] / sr) for ts in speech_timestamps]
 
             logger.info(f"Detected {len(segments)} speech segments")
             return segments
@@ -154,10 +153,7 @@ class VideoSegmenter:
             return []
 
     def create_vad_chunks(
-        self,
-        audio_path: str,
-        target_duration: int = None,
-        overlap: int = None
+        self, audio_path: str, target_duration: int = None, overlap: int = None
     ) -> List[AudioSegment]:
         """
         Create chunks using VAD with Cut & Merge strategy.
@@ -205,11 +201,13 @@ class VideoSegmenter:
             else:
                 # Save current chunk with overlap
                 chunk_end = current_end + overlap
-                chunks.append(AudioSegment(
-                    start=max(0, current_start - overlap),
-                    end=chunk_end,
-                    segment_id=chunk_id
-                ))
+                chunks.append(
+                    AudioSegment(
+                        start=max(0, current_start - overlap),
+                        end=chunk_end,
+                        segment_id=chunk_id,
+                    )
+                )
                 chunk_id += 1
 
                 # Start new chunk
@@ -218,20 +216,19 @@ class VideoSegmenter:
 
         # Add final chunk
         if current_start < current_end:
-            chunks.append(AudioSegment(
-                start=max(0, current_start - overlap),
-                end=current_end,
-                segment_id=chunk_id
-            ))
+            chunks.append(
+                AudioSegment(
+                    start=max(0, current_start - overlap),
+                    end=current_end,
+                    segment_id=chunk_id,
+                )
+            )
 
         logger.info(f"Created {len(chunks)} VAD-based chunks")
         return chunks
 
     def create_time_based_chunks(
-        self,
-        audio_path: str,
-        chunk_duration: int = None,
-        overlap: int = None
+        self, audio_path: str, chunk_duration: int = None, overlap: int = None
     ) -> List[AudioSegment]:
         """
         Create fixed-duration chunks with overlap.
@@ -258,7 +255,7 @@ class VideoSegmenter:
         try:
             # For audio files, use ffprobe directly on the audio
             info = processor.get_video_info(audio_path)
-            duration = info.get('duration', 0)
+            duration = info.get("duration", 0)
         except Exception as e:
             logger.error(f"Could not determine audio duration: {e}")
             return []
@@ -271,24 +268,24 @@ class VideoSegmenter:
             chunk_start = current_pos
             chunk_end = min(current_pos + chunk_duration, duration)
 
-            chunks.append(AudioSegment(
-                start=chunk_start,
-                end=chunk_end,
-                segment_id=chunk_id
-            ))
+            chunks.append(
+                AudioSegment(start=chunk_start, end=chunk_end, segment_id=chunk_id)
+            )
 
             chunk_id += 1
             # Move forward by (chunk_duration - overlap) to create overlap
-            current_pos += (chunk_duration - overlap)
+            current_pos += chunk_duration - overlap
 
-        logger.info(f"Created {len(chunks)} time-based chunks ({chunk_duration}s with {overlap}s overlap)")
+        logger.info(
+            f"Created {len(chunks)} time-based chunks ({chunk_duration}s with {overlap}s overlap)"
+        )
         return chunks
 
     def create_silence_based_chunks(
         self,
         audio_path: str,
         min_silence_duration: float = 2.0,
-        max_chunk_duration: int = None
+        max_chunk_duration: int = None,
     ) -> List[AudioSegment]:
         """
         Create chunks based on silence detection.
@@ -328,33 +325,29 @@ class VideoSegmenter:
                     pos = prev_end
                     while pos < silence_start:
                         chunk_end = min(pos + max_chunk_duration, silence_start)
-                        chunks.append(AudioSegment(
-                            start=pos,
-                            end=chunk_end,
-                            segment_id=chunk_id
-                        ))
+                        chunks.append(
+                            AudioSegment(start=pos, end=chunk_end, segment_id=chunk_id)
+                        )
                         chunk_id += 1
                         pos = chunk_end
                 else:
                     # Add chunk
-                    chunks.append(AudioSegment(
-                        start=prev_end,
-                        end=silence_start,
-                        segment_id=chunk_id
-                    ))
+                    chunks.append(
+                        AudioSegment(
+                            start=prev_end, end=silence_start, segment_id=chunk_id
+                        )
+                    )
                     chunk_id += 1
 
             prev_end = silence_end
 
         # Add final chunk if needed
         info = processor.get_video_info(audio_path)
-        duration = info.get('duration', prev_end)
+        duration = info.get("duration", prev_end)
         if prev_end < duration:
-            chunks.append(AudioSegment(
-                start=prev_end,
-                end=duration,
-                segment_id=chunk_id
-            ))
+            chunks.append(
+                AudioSegment(start=prev_end, end=duration, segment_id=chunk_id)
+            )
 
         logger.info(f"Created {len(chunks)} silence-based chunks")
         return chunks
@@ -375,16 +368,14 @@ class VideoSegmenter:
             Strategy name: 'none', 'vad', 'time', or 'silence'
         """
         if audio_duration < 30:
-            return 'none'  # No chunking needed
+            return "none"  # No chunking needed
         elif audio_duration < 600:  # < 10 minutes
-            return 'vad'  # VAD-based for optimal accuracy
+            return "vad"  # VAD-based for optimal accuracy
         else:
-            return 'vad'  # VAD with longer chunks for efficiency
+            return "vad"  # VAD with longer chunks for efficiency
 
     def segment_audio(
-        self,
-        audio_path: str,
-        strategy: str = 'auto'
+        self, audio_path: str, strategy: str = "auto"
     ) -> List[AudioSegment]:
         """
         Segment audio using specified strategy.
@@ -400,25 +391,25 @@ class VideoSegmenter:
 
         processor = FFmpegProcessor()
         info = processor.get_video_info(audio_path)
-        duration = info.get('duration', 0)
+        duration = info.get("duration", 0)
 
         logger.info(f"Segmenting audio: {duration:.1f}s using '{strategy}' strategy")
 
         # Auto-select strategy
-        if strategy == 'auto':
+        if strategy == "auto":
             strategy = self.get_optimal_strategy(duration)
             logger.info(f"Auto-selected strategy: {strategy}")
 
         # No chunking needed
-        if strategy == 'none':
+        if strategy == "none":
             return [AudioSegment(start=0, end=duration, segment_id=0)]
 
         # Apply selected strategy
-        if strategy == 'vad':
+        if strategy == "vad":
             return self.create_vad_chunks(audio_path)
-        elif strategy == 'time':
+        elif strategy == "time":
             return self.create_time_based_chunks(audio_path)
-        elif strategy == 'silence':
+        elif strategy == "silence":
             return self.create_silence_based_chunks(audio_path)
         else:
             logger.warning(f"Unknown strategy '{strategy}', using VAD")

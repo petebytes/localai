@@ -3,7 +3,6 @@
 import logging
 import os
 import sys
-import tempfile
 from datetime import datetime
 from typing import Dict, Optional, Tuple
 
@@ -82,7 +81,9 @@ QUALITY_PRESETS = {
 class VideoGenerator:
     """Wraps OviFusionEngine for API use with lazy model loading."""
 
-    def __init__(self, cpu_offload: bool = True, fp8: bool = False, qint8: bool = False):
+    def __init__(
+        self, cpu_offload: bool = True, fp8: bool = False, qint8: bool = False
+    ):
         """Initialize video generator with configuration.
 
         Args:
@@ -129,9 +130,7 @@ class VideoGenerator:
 
         self.is_loading = False
 
-    def apply_preset(
-        self, preset: str, params: Dict
-    ) -> Dict:
+    def apply_preset(self, preset: str, params: Dict) -> Dict:
         """Apply quality preset to parameters.
 
         Args:
@@ -149,16 +148,18 @@ class VideoGenerator:
         logger.info(f"Applying preset: {preset}")
 
         # Override parameters with preset values
-        params.update({
-            "video_height": preset_config["height"],
-            "video_width": preset_config["width"],
-            "sample_steps": preset_config["steps"],
-            "video_guidance_scale": preset_config["video_guidance"],
-            "audio_guidance_scale": preset_config["audio_guidance"],
-            "shift": preset_config["shift"],
-            "solver_name": preset_config["solver"],
-            "slg_layer": preset_config["slg_layer"],
-        })
+        params.update(
+            {
+                "video_height": preset_config["height"],
+                "video_width": preset_config["width"],
+                "sample_steps": preset_config["steps"],
+                "video_guidance_scale": preset_config["video_guidance"],
+                "audio_guidance_scale": preset_config["audio_guidance"],
+                "shift": preset_config["shift"],
+                "solver_name": preset_config["solver"],
+                "slg_layer": preset_config["slg_layer"],
+            }
+        )
 
         return params
 
@@ -209,7 +210,9 @@ class VideoGenerator:
 
         # Safety check
         if self.ovi_engine is None:
-            raise RuntimeError("OviFusionEngine failed to initialize. Check logs for errors.")
+            raise RuntimeError(
+                "OviFusionEngine failed to initialize. Check logs for errors."
+            )
 
         # Apply preset if provided
         if preset:
@@ -246,7 +249,9 @@ class VideoGenerator:
         # Clean and validate text prompt
         text_prompt = clean_text(text_prompt)
         logger.info(f"Generating {mode.upper()} video: {text_prompt[:100]}...")
-        logger.info(f"Resolution: {video_width}x{video_height}, Steps: {sample_steps}, Seed: {video_seed}")
+        logger.info(
+            f"Resolution: {video_width}x{video_height}, Steps: {sample_steps}, Seed: {video_seed}"
+        )
 
         # Scale dimensions to valid area
         video_height, video_width = scale_hw_to_area_divisible(
@@ -282,7 +287,9 @@ class VideoGenerator:
 
         # Save video with audio
         logger.info(f"Saving video to: {output_path}")
-        save_video(output_path, generated_video, generated_audio, fps=24, sample_rate=16000)
+        save_video(
+            output_path, generated_video, generated_audio, fps=24, sample_rate=16000
+        )
 
         # Calculate metadata
         # generated_video shape is (C, F, H, W) for 4D or (B, C, F, H, W) for 5D
@@ -310,7 +317,9 @@ class VideoGenerator:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        logger.info(f"Video generation completed: {frame_count} frames, {duration_seconds:.2f}s")
+        logger.info(
+            f"Video generation completed: {frame_count} frames, {duration_seconds:.2f}s"
+        )
 
         return output_path, {
             "duration_seconds": duration_seconds,

@@ -15,19 +15,26 @@ import argparse
 import platform
 import socket
 
+
 def run_command(cmd, cwd=None):
     """Run a shell command and print it."""
     print("Running:", " ".join(cmd))
     subprocess.run(cmd, cwd=cwd, check=True)
 
+
 def clone_supabase_repo():
     """Clone the Supabase repository using sparse checkout if not already present."""
     if not os.path.exists("supabase"):
         print("Cloning the Supabase repository...")
-        run_command([
-            "git", "clone", "--filter=blob:none", "--no-checkout",
-            "https://github.com/supabase/supabase.git"
-        ])
+        run_command(
+            [
+                "git",
+                "clone",
+                "--filter=blob:none",
+                "--no-checkout",
+                "https://github.com/supabase/supabase.git",
+            ]
+        )
         os.chdir("supabase")
         run_command(["git", "sparse-checkout", "init", "--cone"])
         run_command(["git", "sparse-checkout", "set", "docker"])
@@ -39,6 +46,7 @@ def clone_supabase_repo():
         run_command(["git", "pull"])
         os.chdir("..")
 
+
 def prepare_supabase_env():
     """Copy .env to .env in supabase/docker."""
     env_path = os.path.join("supabase", "docker", ".env")
@@ -46,23 +54,43 @@ def prepare_supabase_env():
     print("Copying .env in root to .env in supabase/docker...")
     shutil.copyfile(env_example_path, env_path)
 
+
 def stop_existing_containers():
     """Stop and remove existing containers for our unified project ('localai')."""
-    print("Stopping and removing existing containers for the unified project 'localai'...")
-    run_command([
-        "docker", "compose",
-        "-p", "localai",
-        "-f", "docker-compose.yml",
-        "-f", "supabase/docker/docker-compose.yml",
-        "down"
-    ])
+    print(
+        "Stopping and removing existing containers for the unified project 'localai'..."
+    )
+    run_command(
+        [
+            "docker",
+            "compose",
+            "-p",
+            "localai",
+            "-f",
+            "docker-compose.yml",
+            "-f",
+            "supabase/docker/docker-compose.yml",
+            "down",
+        ]
+    )
+
 
 def start_supabase():
     """Start the Supabase services (using its compose file)."""
     print("Starting Supabase services...")
-    run_command([
-        "docker", "compose", "-p", "localai", "-f", "supabase/docker/docker-compose.yml", "up", "-d"
-    ])
+    run_command(
+        [
+            "docker",
+            "compose",
+            "-p",
+            "localai",
+            "-f",
+            "supabase/docker/docker-compose.yml",
+            "up",
+            "-d",
+        ]
+    )
+
 
 def check_ngc_api_key():
     """Check NGC authentication by running the setup-ngc.sh script."""
@@ -76,11 +104,7 @@ def check_ngc_api_key():
     try:
         # Run the existing NGC setup script which handles everything securely
         result = subprocess.run(
-            ["bash", setup_script],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            cwd="."
+            ["bash", setup_script], capture_output=True, text=True, timeout=30, cwd="."
         )
 
         if result.returncode == 0:
@@ -102,6 +126,7 @@ def check_ngc_api_key():
         print("Virtual Assistant services may not start without NGC authentication")
         return False
 
+
 def check_crawl4ai_image():
     """Verify Crawl4AI will use the official pre-built GPU image."""
     print("Crawl4AI: Using official unclecode/crawl4ai:gpu image from Docker Hub")
@@ -110,21 +135,36 @@ def check_crawl4ai_image():
     print("  - Image will be pulled automatically on first run")
     return True
 
+
 def generate_certificates():
     """Generate self-signed certificates if they don't exist."""
     if not os.path.exists("certs/local-cert.pem"):
         print("Generating self-signed certificates...")
         os.makedirs("certs", exist_ok=True)
-        run_command([
-            "openssl", "req", "-x509", "-nodes", "-days", "365", "-newkey", "rsa:2048",
-            "-keyout", "nginx/certs/local-key.pem",
-            "-out", "nginx/certs/local-cert.pem",
-            "-subj", "/CN=*.lan",
-            "-addext", "subjectAltName = DNS:*.lan,DNS:localhost"
-        ])
+        run_command(
+            [
+                "openssl",
+                "req",
+                "-x509",
+                "-nodes",
+                "-days",
+                "365",
+                "-newkey",
+                "rsa:2048",
+                "-keyout",
+                "nginx/certs/local-key.pem",
+                "-out",
+                "nginx/certs/local-cert.pem",
+                "-subj",
+                "/CN=*.lan",
+                "-addext",
+                "subjectAltName = DNS:*.lan,DNS:localhost",
+            ]
+        )
         print("Certificates generated successfully!")
     else:
         print("Certificates already exist.")
+
 
 def get_primary_ip():
     """Get the primary network IP address of this machine."""
@@ -137,10 +177,16 @@ def get_primary_ip():
     except Exception:
         if platform.system() != "Windows":
             try:
-                result = subprocess.run(["hostname", "-I"], capture_output=True, text=True)
+                result = subprocess.run(
+                    ["hostname", "-I"], capture_output=True, text=True
+                )
                 ips = result.stdout.strip().split()
                 for ip in ips:
-                    if not ip.startswith("127.") and not ip.startswith("172.17.") and not ip.startswith("172.18."):
+                    if (
+                        not ip.startswith("127.")
+                        and not ip.startswith("172.17.")
+                        and not ip.startswith("172.18.")
+                    ):
                         return ip
             except (subprocess.CalledProcessError, OSError):
                 pass
@@ -157,8 +203,7 @@ def fix_open_webui_read_aloud():
     # Check if the Open WebUI container is running
     try:
         container_id = subprocess.check_output(
-            ["docker", "ps", "-q", "-f", "name=open-webui"],
-            text=True
+            ["docker", "ps", "-q", "-f", "name=open-webui"], text=True
         ).strip()
 
         if not container_id:
@@ -167,26 +212,37 @@ def fix_open_webui_read_aloud():
 
         # Get the original file content
         orig_content = subprocess.check_output(
-            ["docker", "exec", container_id, "cat", "/app/backend/open_webui/routers/audio.py"],
-            text=True
+            [
+                "docker",
+                "exec",
+                container_id,
+                "cat",
+                "/app/backend/open_webui/routers/audio.py",
+            ],
+            text=True,
         )
 
         # Check if the file contains the error
-        if "status_code=getattr(r, \"status\", 500)," in orig_content:
+        if 'status_code=getattr(r, "status", 500),' in orig_content:
             print("Fixing Open WebUI Read Aloud error handling...")
 
             # Make a backup of the original file
             subprocess.run(
-                ["docker", "exec", container_id, "cp",
-                 "/app/backend/open_webui/routers/audio.py",
-                 "/app/backend/open_webui/routers/audio.py.bak"],
-                check=True
+                [
+                    "docker",
+                    "exec",
+                    container_id,
+                    "cp",
+                    "/app/backend/open_webui/routers/audio.py",
+                    "/app/backend/open_webui/routers/audio.py.bak",
+                ],
+                check=True,
             )
 
             # Fix the variable scope issue
             fixed_content = orig_content.replace(
                 'status_code=getattr(r, "status", 500),',
-                'status_code=500,  # Fixed: removed reference to undefined variable r'
+                "status_code=500,  # Fixed: removed reference to undefined variable r",
             )
 
             # Write the fixed content to a temporary file
@@ -195,9 +251,13 @@ def fix_open_webui_read_aloud():
 
             # Copy the fixed file back to the container
             subprocess.run(
-                ["docker", "cp", "/tmp/fixed_audio.py",
-                 f"{container_id}:/app/backend/open_webui/routers/audio.py"],
-                check=True
+                [
+                    "docker",
+                    "cp",
+                    "/tmp/fixed_audio.py",
+                    f"{container_id}:/app/backend/open_webui/routers/audio.py",
+                ],
+                check=True,
             )
 
             print("Fix applied successfully! The Read Aloud feature should now work.")
@@ -207,6 +267,7 @@ def fix_open_webui_read_aloud():
     except subprocess.CalledProcessError as e:
         print(f"Error checking Open WebUI container: {e}")
         print("Skipping Read Aloud fix.")
+
 
 def start_local_ai(profile=None):
     """Start the local AI services (using its compose file)."""
@@ -219,7 +280,9 @@ def start_local_ai(profile=None):
     compose_files = ["-f", "docker-compose.yml"]
     if os.path.exists("docker-compose.host-cache.yml"):
         compose_files.extend(["-f", "docker-compose.host-cache.yml"])
-        print("Using host-level cache (/opt/ai-cache) for shared models across projects")
+        print(
+            "Using host-level cache (/opt/ai-cache) for shared models across projects"
+        )
 
     cmd.extend(compose_files)
     cmd.extend(["up", "-d", "--build"])  # Add --build to use BuildKit optimizations
@@ -234,20 +297,31 @@ def start_local_ai(profile=None):
     # Fix the Read Aloud feature in Open WebUI
     fix_open_webui_read_aloud()
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Start the local AI and Supabase services.')
-    parser.add_argument('--profile', choices=['cpu', 'gpu-nvidia', 'gpu-amd', 'none'], default='cpu',
-                      help='Profile to use for Docker Compose (default: cpu)')
-    parser.add_argument('--skip-certs', action='store_true',
-                      help='Skip certificate generation')
-    parser.add_argument('--network-access', action='store_true',
-                      help='Configure for network access from other computers')
+    parser = argparse.ArgumentParser(
+        description="Start the local AI and Supabase services."
+    )
+    parser.add_argument(
+        "--profile",
+        choices=["cpu", "gpu-nvidia", "gpu-amd", "none"],
+        default="cpu",
+        help="Profile to use for Docker Compose (default: cpu)",
+    )
+    parser.add_argument(
+        "--skip-certs", action="store_true", help="Skip certificate generation"
+    )
+    parser.add_argument(
+        "--network-access",
+        action="store_true",
+        help="Configure for network access from other computers",
+    )
     args = parser.parse_args()
 
     # Check NGC API key for Virtual Assistant services
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("Checking Prerequisites")
-    print("="*50)
+    print("=" * 50)
     check_ngc_api_key()
 
     # Check if Crawl4AI image exists
@@ -258,7 +332,7 @@ def main():
         generate_certificates()
 
     # Update hosts file for local domains
-    update_hosts_file(network_access=args.network_access)
+    # update_hosts_file(network_access=args.network_access)  # TODO: implement or remove
 
     # If network access is requested, show additional instructions
     if args.network_access:
@@ -302,11 +376,18 @@ def main():
     if args.network_access:
         ip_address = get_primary_ip()
         if ip_address:
-            print(f"\n** Network Access Enabled: Services accessible from {ip_address} **")
-            print("Run 'python configure_network_access.py' for client setup instructions")
+            print(
+                f"\n** Network Access Enabled: Services accessible from {ip_address} **"
+            )
+            print(
+                "Run 'python configure_network_access.py' for client setup instructions"
+            )
 
-    print("\nNote: You may need to accept browser security warnings for self-signed certificates")
+    print(
+        "\nNote: You may need to accept browser security warnings for self-signed certificates"
+    )
     print("==============================")
+
 
 if __name__ == "__main__":
     main()

@@ -2,6 +2,7 @@
 """
 Test script to verify WhisperX word-level timing output
 """
+
 import requests
 import json
 from pathlib import Path
@@ -24,7 +25,7 @@ with open(test_file, "rb") as f:
     files = {"file": (test_file.name, f, "audio/mpeg")}
     data = {
         "model": "base",  # Use small model for faster testing
-        "enable_diarization": "false"  # Disable for speed
+        "enable_diarization": "false",  # Disable for speed
     }
 
     print("Sending request to WhisperX...")
@@ -38,7 +39,7 @@ if response.status_code != 200:
 # Parse response
 result = response.json()
 
-print(f"\n✓ Request successful!")
+print("\n✓ Request successful!")
 print(f"Language detected: {result.get('language', 'unknown')}")
 print(f"Number of segments: {len(result.get('segments', []))}")
 print("-" * 60)
@@ -51,7 +52,7 @@ if not segments:
 
 # Check first segment
 first_segment = segments[0]
-print(f"\nFirst segment structure:")
+print("\nFirst segment structure:")
 print(f"  Keys: {list(first_segment.keys())}")
 print(f"  Text: {first_segment.get('text', '(no text)')}")
 print(f"  Start: {first_segment.get('start', 'N/A')}s")
@@ -60,17 +61,19 @@ print(f"  End: {first_segment.get('end', 'N/A')}s")
 # Check for words array
 if "words" in first_segment:
     words = first_segment["words"]
-    print(f"\n✓ Word-level timings FOUND!")
+    print("\n✓ Word-level timings FOUND!")
     print(f"  Number of words: {len(words)}")
 
     # Show first few words
-    print(f"\n  Sample words:")
+    print("\n  Sample words:")
     for i, word in enumerate(words[:5]):
-        print(f"    {i+1}. '{word.get('word', '?')}' "
-              f"[{word.get('start', '?'):.2f}s - {word.get('end', '?'):.2f}s]")
+        print(
+            f"    {i + 1}. '{word.get('word', '?')}' "
+            f"[{word.get('start', '?'):.2f}s - {word.get('end', '?'):.2f}s]"
+        )
 
     # Verify all words have timing
-    words_with_timing = sum(1 for w in words if 'start' in w and 'end' in w)
+    words_with_timing = sum(1 for w in words if "start" in w and "end" in w)
     print(f"\n  Words with timing: {words_with_timing}/{len(words)}")
 
     if words_with_timing == len(words):
@@ -78,7 +81,7 @@ if "words" in first_segment:
     else:
         print(f"\n⚠ WARNING: {len(words) - words_with_timing} words missing timing")
 else:
-    print(f"\n✗ FAILED: No 'words' array found in segment!")
+    print("\n✗ FAILED: No 'words' array found in segment!")
     print(f"  Available keys: {list(first_segment.keys())}")
 
 # Save full response for inspection

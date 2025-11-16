@@ -25,10 +25,16 @@ class VideoGenerationRequest(BaseModel):
 
     # Video configuration
     video_height: int = Field(
-        1080, ge=128, le=2048, description="Video height in pixels (must be divisible by 32)"
+        1080,
+        ge=128,
+        le=2048,
+        description="Video height in pixels (must be divisible by 32)",
     )
     video_width: int = Field(
-        1920, ge=128, le=2048, description="Video width in pixels (must be divisible by 32)"
+        1920,
+        ge=128,
+        le=2048,
+        description="Video width in pixels (must be divisible by 32)",
     )
     video_seed: int = Field(
         100, ge=0, le=100000, description="Random seed for reproducibility"
@@ -78,14 +84,16 @@ class VideoGenerationRequest(BaseModel):
     )
 
     # Quality presets
-    preset: Optional[Literal[
-        "youtube-shorts-high",
-        "youtube-shorts-balanced",
-        "youtube-shorts-fast",
-        "square",
-        "widescreen",
-        "custom"
-    ]] = Field(
+    preset: Optional[
+        Literal[
+            "youtube-shorts-high",
+            "youtube-shorts-balanced",
+            "youtube-shorts-fast",
+            "square",
+            "widescreen",
+            "custom",
+        ]
+    ] = Field(
         None,
         description="Quality preset. If provided, overrides individual parameters.",
     )
@@ -104,7 +112,7 @@ class VideoGenerationRequest(BaseModel):
                 "video_guidance_scale": 8.0,
                 "audio_guidance_scale": 7.0,
                 "slg_layer": 11,
-                "preset": "youtube-shorts-high"
+                "preset": "youtube-shorts-high",
             }
         }
 
@@ -134,8 +142,8 @@ class VideoGenerationResponse(BaseModel):
                     "steps": "70",
                     "solver": "unipc",
                     "video_guidance": "8.0",
-                    "audio_guidance": "7.0"
-                }
+                    "audio_guidance": "7.0",
+                },
             }
         }
 
@@ -156,6 +164,6 @@ class HealthResponse(BaseModel):
                 "model_loaded": True,
                 "gpu_available": True,
                 "gpu_name": "NVIDIA GeForce RTX 5090",
-                "version": "1.0.0"
+                "version": "1.0.0",
             }
         }

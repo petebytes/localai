@@ -12,7 +12,7 @@ import whisperx
 import uvicorn
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.responses import JSONResponse
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from pathlib import Path
 from pydantic import BaseModel, Field
 import logging
@@ -27,6 +27,7 @@ from video_segmenter import VideoSegmenter, AudioSegment
 # Pydantic models for API documentation
 class WordTiming(BaseModel):
     """Individual word timing information"""
+
     word: str = Field(..., description="The word text")
     start: float = Field(..., description="Start time in seconds")
     end: float = Field(..., description="End time in seconds")
@@ -34,22 +35,22 @@ class WordTiming(BaseModel):
 
     class Config:
         json_schema_extra = {
-            "example": {
-                "word": "Hello,",
-                "start": 0.031,
-                "end": 0.432,
-                "score": 0.894
-            }
+            "example": {"word": "Hello,", "start": 0.031, "end": 0.432, "score": 0.894}
         }
 
 
 class TranscriptionSegment(BaseModel):
     """Transcription segment with optional word-level timing"""
+
     start: float = Field(..., description="Segment start time in seconds")
     end: float = Field(..., description="Segment end time in seconds")
     text: str = Field(..., description="Transcribed text for this segment")
-    words: Optional[List[WordTiming]] = Field(None, description="Word-level timing array (available after alignment)")
-    speaker: Optional[str] = Field(None, description="Speaker label (e.g., 'SPEAKER_00') if diarization enabled")
+    words: Optional[List[WordTiming]] = Field(
+        None, description="Word-level timing array (available after alignment)"
+    )
+    speaker: Optional[str] = Field(
+        None, description="Speaker label (e.g., 'SPEAKER_00') if diarization enabled"
+    )
 
     class Config:
         json_schema_extra = {
@@ -59,19 +60,28 @@ class TranscriptionSegment(BaseModel):
                 "text": " Hello, this is a test.",
                 "words": [
                     {"word": "Hello,", "start": 0.031, "end": 0.432, "score": 0.894},
-                    {"word": "this", "start": 0.693, "end": 0.833, "score": 0.999}
-                ]
+                    {"word": "this", "start": 0.693, "end": 0.833, "score": 0.999},
+                ],
             }
         }
 
 
 class TranscriptionResponse(BaseModel):
     """Standard transcription response with four output formats"""
+
     filename: str = Field(..., description="Original filename")
     language: str = Field(..., description="Detected or specified language code")
-    segments: List[TranscriptionSegment] = Field(..., description="Array of transcription segments with word-level timing")
-    srt: str = Field(..., description="Pre-formatted word-level SRT subtitles (one word per entry, for karaoke/animations)")
-    segments_srt: str = Field(..., description="Pre-formatted segment-level SRT subtitles (one phrase per entry, ideal for AI analysis)")
+    segments: List[TranscriptionSegment] = Field(
+        ..., description="Array of transcription segments with word-level timing"
+    )
+    srt: str = Field(
+        ...,
+        description="Pre-formatted word-level SRT subtitles (one word per entry, for karaoke/animations)",
+    )
+    segments_srt: str = Field(
+        ...,
+        description="Pre-formatted segment-level SRT subtitles (one phrase per entry, ideal for AI analysis)",
+    )
     txt: str = Field(..., description="Plain text transcript without timestamps")
 
     class Config:
@@ -85,26 +95,42 @@ class TranscriptionResponse(BaseModel):
                         "end": 3.381,
                         "text": " Hello, this is a test.",
                         "words": [
-                            {"word": "Hello,", "start": 0.031, "end": 0.432, "score": 0.894},
-                            {"word": "this", "start": 0.693, "end": 0.833, "score": 0.999}
-                        ]
+                            {
+                                "word": "Hello,",
+                                "start": 0.031,
+                                "end": 0.432,
+                                "score": 0.894,
+                            },
+                            {
+                                "word": "this",
+                                "start": 0.693,
+                                "end": 0.833,
+                                "score": 0.999,
+                            },
+                        ],
                     }
                 ],
                 "srt": "1\n00:00:00,031 --> 00:00:00,432\nHello,\n\n2\n00:00:00,693 --> 00:00:00,833\nthis\n\n",
                 "segments_srt": "1\n00:00:00,031 --> 00:00:03,381\nHello, this is a test.\n\n",
-                "txt": "Hello, this is a test."
+                "txt": "Hello, this is a test.",
             }
         }
 
 
 class LargeTranscriptionResponse(TranscriptionResponse):
     """Extended response for large file transcription with performance metadata"""
+
     duration: float = Field(..., description="Total audio duration in seconds")
     num_segments: int = Field(..., description="Number of transcription segments")
     num_chunks: int = Field(..., description="Number of processing chunks used")
-    chunking_strategy: str = Field(..., description="Chunking strategy used (auto/vad/time/silence)")
+    chunking_strategy: str = Field(
+        ..., description="Chunking strategy used (auto/vad/time/silence)"
+    )
     processing_time: float = Field(..., description="Total processing time in seconds")
-    realtime_factor: float = Field(..., description="Processing speed relative to audio duration (higher is faster)")
+    realtime_factor: float = Field(
+        ...,
+        description="Processing speed relative to audio duration (higher is faster)",
+    )
 
     class Config:
         json_schema_extra = {
@@ -120,13 +146,14 @@ class LargeTranscriptionResponse(TranscriptionResponse):
                 "segments": [],
                 "srt": "1\n00:00:00,031 --> 00:00:00,432\nHello,\n\n",
                 "segments_srt": "1\n00:00:00,031 --> 00:00:05,381\nHello, this is a test.\n\n",
-                "txt": "Full transcript text..."
+                "txt": "Full transcript text...",
             }
         }
 
 
 class VideoInfo(BaseModel):
     """Video file metadata"""
+
     format: str = Field(..., description="Video container format")
     duration: float = Field(..., description="Video duration in seconds")
     size_bytes: int = Field(..., description="File size in bytes")
@@ -137,6 +164,7 @@ class VideoInfo(BaseModel):
 
 class VideoTranscriptionResponse(LargeTranscriptionResponse):
     """Video processing response with video metadata"""
+
     video_info: VideoInfo = Field(..., description="Video file metadata")
 
     class Config:
@@ -160,16 +188,15 @@ class VideoTranscriptionResponse(LargeTranscriptionResponse):
                     "size_bytes": 15728640,
                     "video_codec": "h264",
                     "resolution": "1920x1080",
-                    "audio_codec": "aac"
-                }
+                    "audio_codec": "aac",
+                },
             }
         }
 
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -177,7 +204,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="WhisperX Transcription API",
     description="Audio transcription with word-level timestamps and speaker diarization",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # Configuration
@@ -206,7 +233,9 @@ SHARED_DIR = Path("/app/shared")
 TEMP_DIR = SHARED_DIR / "temp"
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
-logger.info(f"Starting WhisperX API Server on {DEVICE} with compute type {COMPUTE_TYPE}")
+logger.info(
+    f"Starting WhisperX API Server on {DEVICE} with compute type {COMPUTE_TYPE}"
+)
 
 
 def format_timestamp_srt(seconds: float) -> str:
@@ -259,7 +288,9 @@ def generate_srt_from_segments(segments: list) -> str:
             # Text
             # (blank line)
             srt_lines.append(f"{counter}")
-            srt_lines.append(f"{format_timestamp_srt(start)} --> {format_timestamp_srt(end)}")
+            srt_lines.append(
+                f"{format_timestamp_srt(start)} --> {format_timestamp_srt(end)}"
+            )
             srt_lines.append(word_text)
             srt_lines.append("")  # Blank line between entries
 
@@ -292,7 +323,9 @@ def generate_segment_srt(segments: list) -> str:
             continue
 
         srt_lines.append(f"{counter}")
-        srt_lines.append(f"{format_timestamp_srt(start)} --> {format_timestamp_srt(end)}")
+        srt_lines.append(
+            f"{format_timestamp_srt(start)} --> {format_timestamp_srt(end)}"
+        )
         srt_lines.append(text)
         srt_lines.append("")  # Blank line between entries
 
@@ -323,7 +356,14 @@ def generate_txt_from_segments(segments: list) -> str:
     return " ".join(text_lines)
 
 
-def send_progress_callback(callback_url: str, job_id: str, progress: int, stage: str, message: str, segment_info: dict = None):
+def send_progress_callback(
+    callback_url: str,
+    job_id: str,
+    progress: int,
+    stage: str,
+    message: str,
+    segment_info: dict = None,
+):
     """
     Send progress update to callback URL.
     Fails silently if callback fails to not interrupt transcription.
@@ -337,7 +377,7 @@ def send_progress_callback(callback_url: str, job_id: str, progress: int, stage:
             "status": "processing",
             "progress": progress,
             "stage": stage,
-            "message": message
+            "message": message,
         }
 
         if segment_info:
@@ -347,7 +387,9 @@ def send_progress_callback(callback_url: str, job_id: str, progress: int, stage:
         if response.status_code == 200:
             logger.debug(f"Progress callback sent: {progress}% - {message}")
         else:
-            logger.warning(f"Progress callback failed with status {response.status_code}")
+            logger.warning(
+                f"Progress callback failed with status {response.status_code}"
+            )
     except Exception as e:
         logger.warning(f"Failed to send progress callback: {e}")
 
@@ -360,7 +402,7 @@ async def root():
         "version": "1.0.0",
         "device": DEVICE,
         "compute_type": COMPUTE_TYPE,
-        "status": "ready"
+        "status": "ready",
     }
 
 
@@ -370,7 +412,7 @@ async def health_check():
     return {
         "status": "healthy",
         "device": DEVICE,
-        "gpu_available": torch.cuda.is_available()
+        "gpu_available": torch.cuda.is_available(),
     }
 
 
@@ -382,7 +424,7 @@ async def transcribe(
     enable_diarization: bool = Form(default=True),
     min_speakers: Optional[int] = Form(default=None),
     max_speakers: Optional[int] = Form(default=None),
-    hf_token: Optional[str] = Form(default=None)
+    hf_token: Optional[str] = Form(default=None),
 ):
     """
     Transcribe audio file with word-level timestamps and optional speaker diarization.
@@ -448,19 +490,13 @@ async def transcribe(
         # Load model
         logger.info(f"Loading Whisper model: {model}")
         model_obj = whisperx.load_model(
-            model,
-            device=DEVICE,
-            compute_type=COMPUTE_TYPE,
-            language=language
+            model, device=DEVICE, compute_type=COMPUTE_TYPE, language=language
         )
 
         # Transcribe with whisperx
         logger.info("Starting transcription...")
         audio = whisperx.load_audio(str(temp_file))
-        result = model_obj.transcribe(
-            audio,
-            batch_size=BATCH_SIZE
-        )
+        result = model_obj.transcribe(audio, batch_size=BATCH_SIZE)
 
         # Cleanup model to free VRAM
         del model_obj
@@ -473,8 +509,7 @@ async def transcribe(
 
         try:
             model_a, metadata = whisperx.load_align_model(
-                language_code=detected_language,
-                device=DEVICE
+                language_code=detected_language, device=DEVICE
             )
             result = whisperx.align(
                 result["segments"],
@@ -482,7 +517,7 @@ async def transcribe(
                 metadata,
                 audio,
                 DEVICE,
-                return_char_alignments=False
+                return_char_alignments=False,
             )
 
             # Cleanup alignment model
@@ -491,7 +526,9 @@ async def transcribe(
             torch.cuda.empty_cache()
 
         except Exception as e:
-            logger.warning(f"Alignment failed: {e}. Continuing without word-level timestamps.")
+            logger.warning(
+                f"Alignment failed: {e}. Continuing without word-level timestamps."
+            )
 
         # Speaker diarization (optional)
         if enable_diarization:
@@ -502,14 +539,11 @@ async def transcribe(
                 logger.info("Running speaker diarization...")
                 try:
                     diarize_model = whisperx.DiarizationPipeline(
-                        use_auth_token=hf_token,
-                        device=DEVICE
+                        use_auth_token=hf_token, device=DEVICE
                     )
 
                     diarize_segments = diarize_model(
-                        audio,
-                        min_speakers=min_speakers,
-                        max_speakers=max_speakers
+                        audio, min_speakers=min_speakers, max_speakers=max_speakers
                     )
 
                     result = whisperx.assign_word_speakers(diarize_segments, result)
@@ -520,18 +554,28 @@ async def transcribe(
                     torch.cuda.empty_cache()
 
                 except Exception as e:
-                    logger.warning(f"Diarization failed: {e}. Continuing without speaker labels.")
+                    logger.warning(
+                        f"Diarization failed: {e}. Continuing without speaker labels."
+                    )
             else:
-                logger.warning("Diarization requested but no HF_TOKEN provided. Skipping diarization.")
+                logger.warning(
+                    "Diarization requested but no HF_TOKEN provided. Skipping diarization."
+                )
 
         # DEBUG: Log result structure after alignment
-        logger.info(f"Result keys after alignment: {result.keys() if isinstance(result, dict) else 'Not a dict'}")
+        logger.info(
+            f"Result keys after alignment: {result.keys() if isinstance(result, dict) else 'Not a dict'}"
+        )
         if isinstance(result, dict) and "segments" in result and result["segments"]:
             first_seg = result["segments"][0]
             logger.info(f"First segment keys: {first_seg.keys()}")
             if "words" in first_seg:
-                logger.info(f"✓ Words array present with {len(first_seg['words'])} words")
-                logger.info(f"Sample word: {first_seg['words'][0] if first_seg['words'] else 'Empty'}")
+                logger.info(
+                    f"✓ Words array present with {len(first_seg['words'])} words"
+                )
+                logger.info(
+                    f"Sample word: {first_seg['words'][0] if first_seg['words'] else 'Empty'}"
+                )
             else:
                 logger.warning("✗ NO 'words' array in segment after alignment!")
 
@@ -550,7 +594,7 @@ async def transcribe(
             "segments": segments,
             "srt": srt_content,
             "segments_srt": segment_srt_content,
-            "txt": txt_content
+            "txt": txt_content,
         }
 
         logger.info(f"Transcription completed for {file.filename}")
@@ -574,7 +618,7 @@ def transcribe_audio_segment(
     audio_path: str,
     segment: AudioSegment,
     model,  # Pre-loaded model instance
-    language: Optional[str] = None
+    language: Optional[str] = None,
 ) -> dict:
     """
     Transcribe a single audio segment using a pre-loaded model.
@@ -599,7 +643,9 @@ def transcribe_audio_segment(
         segment_audio = audio[start_sample:end_sample]
 
         # Transcribe with pre-loaded model (no model loading overhead!)
-        result = model.transcribe(segment_audio, batch_size=BATCH_SIZE, language=language)
+        result = model.transcribe(
+            segment_audio, batch_size=BATCH_SIZE, language=language
+        )
 
         # Adjust timestamps to absolute time
         for seg in result.get("segments", []):
@@ -611,7 +657,7 @@ def transcribe_audio_segment(
             "start": segment.start,
             "end": segment.end,
             "segments": result.get("segments", []),
-            "language": result.get("language", language)
+            "language": result.get("language", language),
         }
 
     except Exception as e:
@@ -621,7 +667,7 @@ def transcribe_audio_segment(
             "start": segment.start,
             "end": segment.end,
             "error": str(e),
-            "segments": []
+            "segments": [],
         }
 
 
@@ -634,7 +680,7 @@ async def transcribe_large(
     enable_diarization: bool = Form(default=True),
     hf_token: Optional[str] = Form(default=None),
     callback_url: Optional[str] = Form(default=None),
-    job_id: Optional[str] = Form(default=None)
+    job_id: Optional[str] = Form(default=None),
 ):
     """
     Transcribe large audio/video files with automatic chunking.
@@ -704,7 +750,7 @@ async def transcribe_large(
             f.write(content)
 
         # Extract audio if video file
-        if temp_file.suffix.lower() in ['.mp4', '.avi', '.mkv', '.mov', '.webm']:
+        if temp_file.suffix.lower() in [".mp4", ".avi", ".mkv", ".mov", ".webm"]:
             logger.info("Detected video file, extracting audio...")
             audio_file = TEMP_DIR / f"{temp_file.stem}.wav"
             ffmpeg_processor.extract_audio_optimized(str(temp_file), str(audio_file))
@@ -713,12 +759,16 @@ async def transcribe_large(
 
         # Get audio duration
         info = ffmpeg_processor.get_video_info(str(audio_file))
-        duration = info.get('duration', 0)
+        duration = info.get("duration", 0)
         logger.info(f"Audio duration: {duration:.1f}s")
 
         # Segment audio
-        segments = video_segmenter.segment_audio(str(audio_file), strategy=chunking_strategy)
-        logger.info(f"Created {len(segments)} segments using '{chunking_strategy}' strategy")
+        segments = video_segmenter.segment_audio(
+            str(audio_file), strategy=chunking_strategy
+        )
+        logger.info(
+            f"Created {len(segments)} segments using '{chunking_strategy}' strategy"
+        )
 
         # Load Whisper model ONCE and reuse for all segments (major optimization!)
         # Best practice from 2025: "Most time is taken by model initialization"
@@ -727,7 +777,7 @@ async def transcribe_large(
             model,
             device=DEVICE,
             compute_type=COMPUTE_TYPE,
-            language=language  # Pre-set language if provided
+            language=language,  # Pre-set language if provided
         )
 
         # Detect language once from first segment if not provided (optimization)
@@ -737,9 +787,11 @@ async def transcribe_large(
 
         if not detected_language and len(segments) > 0:
             logger.info("Detecting language from first segment...")
-            first_result = transcribe_audio_segment(str(audio_file), segments[0], model_obj, language=None)
-            detected_language = first_result.get('language', 'en')
-            all_segments.extend(first_result.get('segments', []))
+            first_result = transcribe_audio_segment(
+                str(audio_file), segments[0], model_obj, language=None
+            )
+            detected_language = first_result.get("language", "en")
+            all_segments.extend(first_result.get("segments", []))
             logger.info(f"Detected language: {detected_language}")
             start_idx = 1  # Skip first segment since we already processed it
         else:
@@ -748,7 +800,9 @@ async def transcribe_large(
         # Transcribe remaining segments with cached model and detected language
         for i in range(start_idx, len(segments)):
             seg = segments[i]
-            logger.info(f"Transcribing segment {i+1}/{len(segments)} ({seg.start:.1f}s - {seg.end:.1f}s)")
+            logger.info(
+                f"Transcribing segment {i + 1}/{len(segments)} ({seg.start:.1f}s - {seg.end:.1f}s)"
+            )
 
             # Calculate progress: 20-80% range for transcription phase
             segment_progress = 20 + int((i / len(segments)) * 60)
@@ -759,17 +813,19 @@ async def transcribe_large(
                 job_id=job_id,
                 progress=segment_progress,
                 stage="transcription",
-                message=f"Transcribing segment {i+1}/{len(segments)}",
+                message=f"Transcribing segment {i + 1}/{len(segments)}",
                 segment_info={
                     "current": i + 1,
                     "total": len(segments),
-                    "time_range": f"{seg.start:.1f}s - {seg.end:.1f}s"
-                }
+                    "time_range": f"{seg.start:.1f}s - {seg.end:.1f}s",
+                },
             )
 
             # Reuse model and detected language (no reload, no re-detection!)
-            result = transcribe_audio_segment(str(audio_file), seg, model_obj, language=detected_language)
-            all_segments.extend(result.get('segments', []))
+            result = transcribe_audio_segment(
+                str(audio_file), seg, model_obj, language=detected_language
+            )
+            all_segments.extend(result.get("segments", []))
 
         # Cleanup model after all segments processed
         del model_obj
@@ -783,15 +839,14 @@ async def transcribe_large(
             job_id=job_id,
             progress=80,
             stage="alignment",
-            message="Aligning word-level timestamps..."
+            message="Aligning word-level timestamps...",
         )
 
         audio = whisperx.load_audio(str(audio_file))
 
         try:
             model_a, metadata = whisperx.load_align_model(
-                language_code=detected_language or 'en',
-                device=DEVICE
+                language_code=detected_language or "en", device=DEVICE
             )
             result = whisperx.align(
                 all_segments,
@@ -799,7 +854,7 @@ async def transcribe_large(
                 metadata,
                 audio,
                 DEVICE,
-                return_char_alignments=False
+                return_char_alignments=False,
             )
             all_segments = result.get("segments", all_segments)
 
@@ -822,16 +877,17 @@ async def transcribe_large(
                     job_id=job_id,
                     progress=85,
                     stage="diarization",
-                    message="Identifying speakers..."
+                    message="Identifying speakers...",
                 )
 
                 try:
                     diarize_model = whisperx.DiarizationPipeline(
-                        use_auth_token=hf_token,
-                        device=DEVICE
+                        use_auth_token=hf_token, device=DEVICE
                     )
                     diarize_segments = diarize_model(audio)
-                    all_segments = whisperx.assign_word_speakers(diarize_segments, {"segments": all_segments})["segments"]
+                    all_segments = whisperx.assign_word_speakers(
+                        diarize_segments, {"segments": all_segments}
+                    )["segments"]
 
                     del diarize_model
                     gc.collect()
@@ -860,10 +916,12 @@ async def transcribe_large(
             "segments": all_segments,
             "srt": srt_content,
             "segments_srt": segment_srt_content,
-            "txt": txt_content
+            "txt": txt_content,
         }
 
-        logger.info(f"Large file transcription completed in {processing_time:.1f}s ({realtime_factor:.1f}x realtime)")
+        logger.info(
+            f"Large file transcription completed in {processing_time:.1f}s ({realtime_factor:.1f}x realtime)"
+        )
         return JSONResponse(content=response)
 
     except Exception as e:
@@ -888,7 +946,7 @@ async def process_video(
     language: Optional[str] = Form(default=None),
     enhance_audio: bool = Form(default=True),
     enable_diarization: bool = Form(default=True),
-    hf_token: Optional[str] = Form(default=None)
+    hf_token: Optional[str] = Form(default=None),
 ):
     """
     Process video file: extract audio, enhance, and transcribe.
@@ -964,10 +1022,7 @@ async def process_video(
         else:
             # Basic extraction without enhancement
             ffmpeg_processor.extract_audio_optimized(
-                str(temp_video),
-                str(temp_audio),
-                sample_rate=16000,
-                channels=1
+                str(temp_video), str(temp_audio), sample_rate=16000, channels=1
             )
 
         # Use the large file endpoint for transcription
@@ -996,12 +1051,13 @@ async def process_video(
                 language=language,
                 chunking_strategy="auto",
                 enable_diarization=enable_diarization,
-                hf_token=hf_token
+                hf_token=hf_token,
             )
 
             # Add video metadata to response
-            result_data = transcription_result.body.decode('utf-8')
+            result_data = transcription_result.body.decode("utf-8")
             import json
+
             transcription_data = json.loads(result_data)
 
             transcription_data["video_info"] = {
@@ -1010,14 +1066,16 @@ async def process_video(
                 "size_bytes": video_info.get("size_bytes", 0),
                 "video_codec": video_info.get("video_codec", ""),
                 "resolution": f"{video_info.get('video_width', 0)}x{video_info.get('video_height', 0)}",
-                "audio_codec": video_info.get("audio_codec", "")
+                "audio_codec": video_info.get("audio_codec", ""),
             }
 
             return JSONResponse(content=transcription_data)
 
     except Exception as e:
         logger.error(f"Video processing error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Video processing failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Video processing failed: {str(e)}"
+        )
 
     finally:
         # Cleanup
@@ -1041,18 +1099,13 @@ async def list_models():
             "medium",
             "large-v2",
             "large-v3",
-            "large-v3-turbo"
+            "large-v3-turbo",
         ],
         "recommended_for_rtx5090": ["large-v3", "large-v3-turbo"],
         "note": "large-v3 provides best accuracy, large-v3-turbo is 6x faster with similar quality",
-        "rtx5090_features": "32GB VRAM, 5th-gen Tensor Cores with FP4/INT4, 3,352 AI TOPS"
+        "rtx5090_features": "32GB VRAM, 5th-gen Tensor Cores with FP4/INT4, 3,352 AI TOPS",
     }
 
 
 if __name__ == "__main__":
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=8000,
-        log_level="info"
-    )
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")

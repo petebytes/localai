@@ -13,7 +13,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict
 
 
 class ASSSubtitleGenerator:
@@ -26,9 +26,9 @@ class ASSSubtitleGenerator:
     COLOR_SEMI_TRANSPARENT_BLACK = "&H80000000"  # For CTA background
 
     # Vertical alignment codes (ASS format)
-    ALIGN_TOP_CENTER = 8        # Hook title
-    ALIGN_BOTTOM_CENTER = 2     # Captions and CTA
-    ALIGN_MIDDLE_CENTER = 5     # Fallback
+    ALIGN_TOP_CENTER = 8  # Hook title
+    ALIGN_BOTTOM_CENTER = 2  # Captions and CTA
+    ALIGN_MIDDLE_CENTER = 5  # Fallback
 
     def __init__(self, play_res_x=1920, play_res_y=1080):
         self.script_info = {
@@ -37,7 +37,7 @@ class ASSSubtitleGenerator:
             "PlayResX": play_res_x,  # Source video resolution (before crop/scale)
             "PlayResY": play_res_y,
             "WrapStyle": 0,
-            "ScaledBorderAndShadow": "yes"
+            "ScaledBorderAndShadow": "yes",
         }
 
     def format_time(self, seconds: float) -> str:
@@ -52,22 +52,21 @@ class ASSSubtitleGenerator:
         """Generate ASS V4+ Styles section."""
         styles = [
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-
             # Hook style: Bold, large, white text at top
             # MarginV=100 for top alignment (distance from top)
             f"Style: Hook,Montserrat,80,{self.COLOR_WHITE},{self.COLOR_WHITE},{self.COLOR_BLACK},{self.COLOR_SEMI_TRANSPARENT_BLACK},-1,0,0,0,100,100,0,0,1,3,2,{self.ALIGN_TOP_CENTER},50,50,100,1",
-
             # Caption style: Medium weight, white/yellow for active word
             # MarginV=100 for bottom alignment (distance from bottom)
             f"Style: Caption,Montserrat,60,{self.COLOR_WHITE},{self.COLOR_YELLOW},{self.COLOR_BLACK},{self.COLOR_BLACK},0,0,0,0,100,100,0,0,1,3,2,{self.ALIGN_BOTTOM_CENTER},50,50,100,1",
-
             # CTA style: Bold, large, white with semi-transparent background
             # MarginV=150 for bottom alignment (slightly higher than captions)
-            f"Style: CTA,Montserrat,70,{self.COLOR_WHITE},{self.COLOR_WHITE},{self.COLOR_BLACK},{self.COLOR_SEMI_TRANSPARENT_BLACK},-1,0,0,0,100,100,0,0,1,3,2,{self.ALIGN_BOTTOM_CENTER},50,50,150,1"
+            f"Style: CTA,Montserrat,70,{self.COLOR_WHITE},{self.COLOR_WHITE},{self.COLOR_BLACK},{self.COLOR_SEMI_TRANSPARENT_BLACK},-1,0,0,0,100,100,0,0,1,3,2,{self.ALIGN_BOTTOM_CENTER},50,50,150,1",
         ]
         return "\n".join(styles)
 
-    def generate_validating_hook(self, hook_title: str, duration: float = 5.0) -> List[str]:
+    def generate_validating_hook(
+        self, hook_title: str, duration: float = 5.0
+    ) -> List[str]:
         """
         Generate static "Validating Hook" title overlay (0-5s).
 
@@ -85,16 +84,14 @@ class ASSSubtitleGenerator:
         start_time = self.format_time(0.0)
         end_time = self.format_time(duration)
 
-        return [
-            f"Dialogue: 0,{start_time},{end_time},Hook,,0,0,0,,{formatted_title}"
-        ]
+        return [f"Dialogue: 0,{start_time},{end_time},Hook,,0,0,0,,{formatted_title}"]
 
     def generate_engaging_dialogue(
         self,
         whisperx_data: List[Dict],
         clip_start: float,
         clip_end: float,
-        power_words: List[str]
+        power_words: List[str],
     ) -> List[str]:
         """
         Generate word-by-word captions with active word highlighting.
@@ -134,7 +131,6 @@ class ASSSubtitleGenerator:
 
             # Generate word-by-word highlighting
             for i, word_data in enumerate(words):
-                word = word_data.get("word", "").strip()
                 word_start = word_data.get("start", segment_start)
                 word_end = word_data.get("end", word_start + 0.5)
 
@@ -158,9 +154,13 @@ class ASSSubtitleGenerator:
                         # Current word: yellow highlight + bold
                         if ctx_word.lower() in power_words_lower:
                             # Power word: always in caps, yellow
-                            context_words.append(f"{{\\c{self.COLOR_YELLOW}}}{{\\b1}}{ctx_word.upper()}{{\\b0}}{{\\c{self.COLOR_WHITE}}}")
+                            context_words.append(
+                                f"{{\\c{self.COLOR_YELLOW}}}{{\\b1}}{ctx_word.upper()}{{\\b0}}{{\\c{self.COLOR_WHITE}}}"
+                            )
                         else:
-                            context_words.append(f"{{\\c{self.COLOR_YELLOW}}}{{\\b1}}{ctx_word}{{\\b0}}{{\\c{self.COLOR_WHITE}}}")
+                            context_words.append(
+                                f"{{\\c{self.COLOR_YELLOW}}}{{\\b1}}{ctx_word}{{\\b0}}{{\\c{self.COLOR_WHITE}}}"
+                            )
                     else:
                         # Inactive word: white
                         if ctx_word.lower() in power_words_lower:
@@ -177,10 +177,7 @@ class ASSSubtitleGenerator:
         return dialogues
 
     def generate_bridge_cta(
-        self,
-        cta_text: str,
-        cta_start: float,
-        clip_duration: float
+        self, cta_text: str, cta_start: float, clip_duration: float
     ) -> List[str]:
         """
         Generate Bridge/CTA overlay for last 5-8 seconds.
@@ -196,9 +193,7 @@ class ASSSubtitleGenerator:
         start_time = self.format_time(cta_start)
         end_time = self.format_time(clip_duration)
 
-        return [
-            f"Dialogue: 0,{start_time},{end_time},CTA,,0,0,0,,{cta_text}"
-        ]
+        return [f"Dialogue: 0,{start_time},{end_time},CTA,,0,0,0,,{cta_text}"]
 
     def generate_ass_file(
         self,
@@ -209,7 +204,7 @@ class ASSSubtitleGenerator:
         power_words: List[str],
         cta_start: float,
         cta_text: str,
-        output_path: str
+        output_path: str,
     ) -> None:
         """
         Generate complete ASS subtitle file.
@@ -225,7 +220,7 @@ class ASSSubtitleGenerator:
             output_path: Where to save ASS file
         """
         # Load WhisperX data
-        with open(whisperx_json_path, 'r', encoding='utf-8') as f:
+        with open(whisperx_json_path, "r", encoding="utf-8") as f:
             whisperx_data = json.load(f)
 
         clip_duration = clip_end - clip_start
@@ -236,12 +231,11 @@ class ASSSubtitleGenerator:
         # Generate all subtitle elements
         hook_dialogues = self.generate_validating_hook(hook_title)
         caption_dialogues = self.generate_engaging_dialogue(
-            whisperx_data,
-            clip_start,
-            clip_end,
-            power_words
+            whisperx_data, clip_start, clip_end, power_words
         )
-        cta_dialogues = self.generate_bridge_cta(cta_text, cta_start_relative, clip_duration)
+        cta_dialogues = self.generate_bridge_cta(
+            cta_text, cta_start_relative, clip_duration
+        )
 
         # Build complete ASS file
         ass_content = [
@@ -257,7 +251,7 @@ class ASSSubtitleGenerator:
             self.generate_style_section(),
             "",
             "[Events]",
-            "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
+            "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
         ]
 
         # Add all dialogues
@@ -269,7 +263,7 @@ class ASSSubtitleGenerator:
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write("\n".join(ass_content))
 
         print(f"Generated ASS subtitle: {output_path}")
@@ -282,12 +276,25 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate ASS subtitle overlays for YouTube Shorts"
     )
-    parser.add_argument("--whisperx-json", required=True, help="Path to WhisperX JSON file")
-    parser.add_argument("--clip-start", type=float, required=True, help="Clip start time (seconds)")
-    parser.add_argument("--clip-end", type=float, required=True, help="Clip end time (seconds)")
+    parser.add_argument(
+        "--whisperx-json", required=True, help="Path to WhisperX JSON file"
+    )
+    parser.add_argument(
+        "--clip-start", type=float, required=True, help="Clip start time (seconds)"
+    )
+    parser.add_argument(
+        "--clip-end", type=float, required=True, help="Clip end time (seconds)"
+    )
     parser.add_argument("--hook-title", required=True, help="Static hook title text")
-    parser.add_argument("--power-words", default="", help="Comma-separated power words to emphasize")
-    parser.add_argument("--cta-start", type=float, required=True, help="CTA start time (clip-relative seconds)")
+    parser.add_argument(
+        "--power-words", default="", help="Comma-separated power words to emphasize"
+    )
+    parser.add_argument(
+        "--cta-start",
+        type=float,
+        required=True,
+        help="CTA start time (clip-relative seconds)",
+    )
     parser.add_argument("--cta-text", required=True, help="CTA promise text")
     parser.add_argument("--output", required=True, help="Output ASS file path")
 
@@ -307,12 +314,13 @@ def main():
             power_words=power_words,
             cta_start=args.cta_start,
             cta_text=args.cta_text,
-            output_path=args.output
+            output_path=args.output,
         )
         sys.exit(0)
     except Exception as e:
         print(f"Error generating ASS file: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
