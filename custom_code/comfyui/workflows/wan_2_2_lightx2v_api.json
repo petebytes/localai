@@ -1,0 +1,274 @@
+{
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "38",
+        0
+      ],
+      "text": "\u8272\u8c03\u8273\u4e3d\uff0c\u8fc7\u66dd\uff0c\u9759\u6001\uff0c\u7ec6\u8282\u6a21\u7cca\u4e0d\u6e05\uff0c\u5b57\u5e55\uff0c\u98ce\u683c\uff0c\u4f5c\u54c1\uff0c\u753b\u4f5c\uff0c\u753b\u9762\uff0c\u9759\u6b62\uff0c\u6574\u4f53\u53d1\u7070\uff0c\u6700\u5dee\u8d28\u91cf\uff0c\u4f4e\u8d28\u91cf\uff0cJPEG\u538b\u7f29\u6b8b\u7559\uff0c\u4e11\u964b\u7684\uff0c\u6b8b\u7f3a\u7684\uff0c\u591a\u4f59\u7684\u624b\u6307\uff0c\u753b\u5f97\u4e0d\u597d\u7684\u624b\u90e8\uff0c\u753b\u5f97\u4e0d\u597d\u7684\u8138\u90e8\uff0c\u7578\u5f62\u7684\uff0c\u6bc1\u5bb9\u7684\uff0c\u5f62\u6001\u7578\u5f62\u7684\u80a2\u4f53\uff0c\u624b\u6307\u878d\u5408\uff0c\u9759\u6b62\u4e0d\u52a8\u7684\u753b\u9762\uff0c\u6742\u4e71\u7684\u80cc\u666f\uff0c\u4e09\u6761\u817f\uff0c\u80cc\u666f\u4eba\u5f88\u591a\uff0c\u5012\u7740\u8d70"
+    }
+  },
+  "39": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "58",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ]
+    }
+  },
+  "83": {
+    "class_type": "RIFE VFI",
+    "inputs": {
+      "frames": [
+        "8",
+        0
+      ],
+      "ckpt_name": "rife47.pth",
+      "clear_cache_after_n_frames": 10,
+      "multiplier": 2,
+      "fast_mode": true,
+      "ensemble": true,
+      "scale_factor": 1
+    }
+  },
+  "67": {
+    "class_type": "ModelSamplingSD3",
+    "inputs": {
+      "model": [
+        "64",
+        0
+      ],
+      "shift": 8.000000000000002
+    }
+  },
+  "68": {
+    "class_type": "ModelSamplingSD3",
+    "inputs": {
+      "model": [
+        "66",
+        0
+      ],
+      "shift": 8.000000000000002
+    }
+  },
+  "82": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "83",
+        0
+      ],
+      "frame_rate": 24,
+      "loop_count": 0,
+      "filename_prefix": "wan22",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 15,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "videopreview": {
+        "hidden": false,
+        "paused": false,
+        "params": {
+          "filename": "wan22_00008.mp4",
+          "subfolder": "",
+          "type": "output",
+          "format": "video/h264-mp4",
+          "frame_rate": 24,
+          "workflow": "wan22_00008.png",
+          "fullpath": "C:\\Users\\multi\\Documents\\ComfyUI\\output\\wan22_00008.mp4"
+        }
+      }
+    }
+  },
+  "50": {
+    "class_type": "WanImageToVideo",
+    "inputs": {
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ],
+      "start_image": [
+        "52",
+        0
+      ],
+      "width": 640,
+      "height": 640,
+      "length": 49,
+      "batch_size": 1
+    }
+  },
+  "63": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "8",
+        0
+      ],
+      "frame_rate": 16,
+      "loop_count": 0,
+      "filename_prefix": "wan22",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 15,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "videopreview": {
+        "hidden": false,
+        "paused": false,
+        "params": {
+          "filename": "wan22_00007.mp4",
+          "subfolder": "",
+          "type": "output",
+          "format": "video/h264-mp4",
+          "frame_rate": 16,
+          "workflow": "wan22_00007.png",
+          "fullpath": "C:\\Users\\multi\\Documents\\ComfyUI\\output\\wan22_00007.mp4"
+        }
+      }
+    }
+  },
+  "58": {
+    "class_type": "KSamplerAdvanced",
+    "inputs": {
+      "model": [
+        "68",
+        0
+      ],
+      "positive": [
+        "50",
+        0
+      ],
+      "negative": [
+        "50",
+        1
+      ],
+      "latent_image": [
+        "57",
+        0
+      ],
+      "add_noise": "disable",
+      "noise_seed": 0,
+      "steps": "fixed",
+      "cfg": 8,
+      "sampler_name": 1,
+      "scheduler": "uni_pc",
+      "start_at_step": "simple",
+      "end_at_step": 4,
+      "return_with_leftover_noise": 1000
+    }
+  },
+  "66": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "62",
+        0
+      ],
+      "lora_name": "Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+      "strength_model": 1
+    }
+  },
+  "61": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": {
+      "unet_name": "Wan2.2-I2V-A14B-HighNoise-Q4_K_S.gguf"
+    }
+  },
+  "62": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": {
+      "unet_name": "Wan2.2-I2V-A14B-LowNoise-Q4_0.gguf"
+    }
+  },
+  "64": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "61",
+        0
+      ],
+      "lora_name": "Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+      "strength_model": 1
+    }
+  },
+  "38": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    }
+  },
+  "57": {
+    "class_type": "KSamplerAdvanced",
+    "inputs": {
+      "model": [
+        "67",
+        0
+      ],
+      "positive": [
+        "50",
+        0
+      ],
+      "negative": [
+        "50",
+        1
+      ],
+      "latent_image": [
+        "50",
+        2
+      ],
+      "add_noise": "enable",
+      "noise_seed": 231105180328914,
+      "steps": "randomize",
+      "cfg": 8,
+      "sampler_name": 1,
+      "scheduler": "uni_pc",
+      "start_at_step": "simple",
+      "end_at_step": 0,
+      "return_with_leftover_noise": 4
+    }
+  },
+  "52": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "hidream_test_00088_.png",
+      "upload": "image"
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "38",
+        0
+      ],
+      "text": "The video opens on the still portrait. Over 5 seconds, introduce subtle, deeply human movements: the person takes a slow, deep breath - their shoulders rising and falling gently. Their eyes blink slowly, perhaps looking down and then gradually lifting toward the window light, as if drawing strength from it. One hand slowly raises the tea mug to their lips for a small sip, or they adjust their grip, fingers gently tightening around the warmth. A barely perceptible head tilt occurs, as if they're processing a thought or feeling. The morning light subtly intensifies and softens through the sheer curtains, suggesting a cloud passing. Very fine strands of hair move slightly near their face, catching the light. The camera performs an extremely slow, almost imperceptible push-in (dolly forward about 5%), drawing the viewer deeper into this intimate moment while maintaining the shallow depth of field. The overall emotional arc moves from stillness to a quiet, earned peace - not triumphant, but real and present. The atmosphere remains gentle, private, and reverent throughout.\n"
+    }
+  }
+}

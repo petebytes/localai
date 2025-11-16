@@ -1,0 +1,33 @@
+{
+  "test_date": "2025-11-16T22:05:32.424519",
+  "config": {
+    "resolution": {
+      "width": 640,
+      "height": 640
+    },
+    "frames": 49,
+    "seed": 12345,
+    "prompt": "A serene mountain landscape at sunset, gentle camera pan to the right, warm golden light",
+    "negative_prompt": "blurry, low quality, distorted, artifacts, static"
+  },
+  "results": [
+    {
+      "workflow": "5B_Full_Precision",
+      "description": "Wan 2.2 5B FP16 (Full Precision + SageAttention)",
+      "success": false,
+      "error": "Failed to queue prompt: {\"error\": {\"type\": \"invalid_prompt\", \"message\": \"Cannot execute because a node is missing the class_type property.\", \"details\": \"Node ID '#id'\", \"extra_info\": {}}, \"node_errors\": {}}"
+    },
+    {
+      "workflow": "14B_GGUF_Lightx2v",
+      "description": "Wan 2.2 14B GGUF Q4 + Lightx2v LoRA",
+      "success": false,
+      "error": "Failed to queue prompt: {\"error\": {\"type\": \"invalid_prompt\", \"message\": \"Cannot execute because a node is missing the class_type property.\", \"details\": \"Node ID '#id'\", \"extra_info\": {}}, \"node_errors\": {}}"
+    },
+    {
+      "workflow": "14B_GGUF_Olivio",
+      "description": "Wan 2.2 14B GGUF Q4 + Lightx2v LoRA (Olivio)",
+      "success": false,
+      "error": "Failed to queue prompt: {\"error\": {\"type\": \"invalid_prompt\", \"message\": \"Cannot execute because a node is missing the class_type property.\", \"details\": \"Node ID '#id'\", \"extra_info\": {}}, \"node_errors\": {}}"
+    }
+  ]
+}

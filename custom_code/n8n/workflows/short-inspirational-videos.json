@@ -1,0 +1,759 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ovi-api:8300/api/generate-video",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text_prompt",
+              "value": "={{ $('Parse Prompts').item.json.video_prompt }}"
+            },
+            {
+              "name": "image_path",
+              "value": "={{ '/mnt/raven-nas/inspirational-shorts/generated-images/' + $('ComfyUI: Generate Image').item.json.filename }}"
+            },
+            {
+              "name": "mode",
+              "value": "i2v"
+            },
+            {
+              "name": "preset",
+              "value": "youtube-shorts-optimized"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "df3fecaf-a771-479a-8ac8-d9a630802d62",
+      "name": "Ovi: Generate Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1456,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Capture execution context and image info before waiting\nconst imageData = $('ComfyUI: Generate Image').item.json;\nconst imagePrompt = $('Parse Prompts').item.json.image_prompt;\nconst executionId = $execution.id;\n\n// Log for debugging\nconsole.log('Image Approval - Execution ID:', executionId);\nconsole.log('Image filename:', imageData.filename);\n\nreturn {\n  json: {\n    image_filename: imageData.filename,\n    image_prompt: imagePrompt,\n    execution_id: executionId,\n    status: 'preparing_for_image_approval',\n    resumeUrl: $execution.resumeUrl\n  }\n};"
+      },
+      "id": "e2e678b2-fa96-42bb-888b-11fa7f3700a2",
+      "name": "Capture Image Resume URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3232,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "f4391d8f-6b43-45ab-a45e-1c1c3f5ba499",
+      "name": "Wait for Image Approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2992,
+        608
+      ],
+      "webhookId": "wait-image-approval"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process the image approval response from the webhook\nconst webhookData = $input.item.json;\nconst action = webhookData.body.action;\n\n// Get the original image prompt\nconst originalPrompt = $('Parse Prompts').item.json.image_prompt;\n\n// Determine the final prompt and approval status\nlet finalPrompt = originalPrompt;\nlet approved = false;\nlet needsRegeneration = false;\n\nif (action === 'approve') {\n  approved = true;\n  finalPrompt = originalPrompt;\n} else if (action === 'edit' && webhookData.body.edited_image_prompt) {\n  approved = true;\n  needsRegeneration = true;\n  finalPrompt = webhookData.body.edited_image_prompt;\n} else if (action === 'reject') {\n  approved = false;\n}\n\nreturn {\n  json: {\n    image_prompt: finalPrompt,\n    approved: approved,\n    needs_regeneration: needsRegeneration,\n    action: action,\n    original_image_prompt: originalPrompt\n  }\n};"
+      },
+      "id": "182914d6-260d-4a58-bf5b-fb601621ffca",
+      "name": "Handle Image Approval Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2736,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "is-image-approved",
+              "leftValue": "={{ $json.approved }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "no-regeneration-needed",
+              "leftValue": "={{ $json.needs_regeneration }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -2512,
+        608
+      ],
+      "id": "c87f235a-ff97-41ba-a0f9-db5d71969c35",
+      "name": "Check Image Approval Status"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://vibevoice-api:8100/api/models/VibeVoice-Large/unload",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "cab7affe-7f8f-4ac8-b44f-71708e21e872",
+      "name": "VoiceAPI: Unload Model",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2192,
+        416
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the JSON output from the AI agent\nconst output = $input.item.json.output;\nlet prompts;\n\ntry {\n  // Try to parse as JSON\n  prompts = JSON.parse(output);\n} catch (e) {\n  // If not valid JSON, try to extract JSON from the text\n  const jsonMatch = output.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    prompts = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('Could not parse JSON from AI output');\n  }\n}\n\n// Get the original quote from whichever path was taken\n// Try Quote writer first (AI-generated), then Format Custom Quote (user-provided)\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  originalQuote = $('Format Custom Quote').item.json.output;\n}\n\nreturn {\n  json: {\n    image_prompt: prompts.image_prompt,\n    video_prompt: prompts.video_prompt,\n    original_quote: originalQuote\n  }\n};"
+      },
+      "id": "1136001b-4185-4134-8c92-c562ea170282",
+      "name": "Parse Prompts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -1104,
+        112
+      ],
+      "id": "114617f2-b26b-49a7-9c52-02a96062bb28",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "9ITdZP15p3HH1JkB",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Generate image and video prompts for this quote: {{ $json.output }}",
+        "options": {
+          "systemMessage": "You are an artistic director tasked with creating both visual and animated content for reflective, emotionally grounded inspirational quotes.\n\nWhen provided with a quote, you must generate TWO prompts in JSON format:\n\n1. **image_prompt**: A detailed description of a photorealistic 9:16 portrait image that represents or supports the quote. Focus on composition, lighting, mood, subject, and environment.\n\n2. **video_prompt**: A description of how the image should be animated into a 5-second video. Describe subtle movements, camera motion, lighting changes, facial expressions, environmental elements (wind, light shifts), and emotional progression. Keep it natural and cinematic.\n\n** IMPORTANT ** Respond ONLY with valid JSON in this exact format:\n{\n  \"image_prompt\": \"detailed image description here\",\n  \"video_prompt\": \"detailed animation description here. Include the quote spoken: <S>quote text<E>\"\n}\n\nEnsure the video_prompt includes the quote wrapped in <S>quote<E> tags for speech generation."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -1072,
+        -64
+      ],
+      "id": "442093bf-66f6-4e90-b345-5fac54f82034",
+      "name": "Image & Video Prompt Generator"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "is-approved",
+              "leftValue": "={{ $json.approved }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1296,
+        -48
+      ],
+      "id": "9af38195-bd50-49d4-897c-a94de1585654",
+      "name": "Check Approval Status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Capture execution context and quote before waiting\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  try {\n    originalQuote = $('Format Custom Quote').item.json.output;\n  } catch (e2) {\n    originalQuote = 'No quote found';\n  }\n}\n\n// Get the execution context\nconst executionId = $execution.id;\n// Note: $execution.resumeUrl will have the full URL with UUID after Wait node starts\n// For now, just pass the execution ID\n\n// Log for debugging\nconsole.log('Execution ID:', executionId);\n\nreturn {\n  json: {\n    quote: originalQuote,\n    execution_id: executionId,\n    status: 'preparing_for_approval',\n    resumeUrl: $execution.resumeUrl\n  }\n};"
+      },
+      "id": "ff960291-b553-413d-8e36-8cba78ef2d33",
+      "name": "Capture Resume URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process the approval response from the webhook\nconst webhookData = $input.item.json;\nconst action = webhookData.body.action;  // Access from body\n\n// Get the original quote from previous nodes\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  try {\n    originalQuote = $('Format Custom Quote').item.json.output;\n  } catch (e2) {\n    throw new Error('Could not find original quote');\n  }\n}\n\n// Determine the final quote based on action\nlet finalQuote = originalQuote;\nlet approved = false;\n\nif (action === 'approve') {\n  approved = true;\n  finalQuote = originalQuote;\n} else if (action === 'edit' && webhookData.body.approved_quote) {  // Also from body\n  approved = true;\n  finalQuote = webhookData.body.approved_quote;  // Also from body\n} else if (action === 'reject') {\n  approved = false;\n}\n\nreturn {\n  json: {\n    output: finalQuote,\n    approved: approved,\n    action: action,\n    original_quote: originalQuote\n  }\n};"
+      },
+      "id": "e8cd6fd0-ed50-4f85-8d3b-b6711924efc0",
+      "name": "Handle Approval Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1504,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "c728c8cc-202e-4bb3-bb2e-132c509c9273",
+      "name": "Wait for Quote Approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1680,
+        -48
+      ],
+      "webhookId": "wait-quote-approval"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Generate a quote",
+        "options": {
+          "systemMessage": "You are a compassionate trauma-informed writer inspired by Peggy Oliveira, MSW — focusing on healing, self-trust, boundaries, emotional regulation, and recovery from shame. You generate original, reflective, and emotionally grounded inspirational quotes (not copied or cliché).\n\nTone: Gentle, validating, and empowering. Avoid toxic positivity. Each quote should sound like it could comfort someone healing from trauma or self-doubt.\n\nStyle guidelines:\nWrite in plain, accessible language.\nKeep each quote 1 sentence long no longer than 60 characters.\nAvoid \"you should\" or \"just do it\" advice.\nDo NOT use em dash or —\nUse metaphors of growth, safety, and light when natural.\nInclude variety: self-compassion, boundaries, grief, rest, resilience, embodiment, inner child work.\nEach quote should stand alone and feel sincere, not generic.\n\n** IMPORTANT ** generate only one short sentence\n** IMPORTANT **  Do NOT use em dash or — in the sentence\n** IMPORTANT ** sentence 60 characters max"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -2192,
+        16
+      ],
+      "id": "e6a36bda-e7ee-4986-897f-1b305c352b89",
+      "name": "Quote writer"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format custom quote to match Quote writer output structure\nconst customQuote = $('Webhook Trigger').first().json.body.custom_quote;\n\nreturn {\n  json: {\n    output: customQuote\n  }\n};"
+      },
+      "id": "6a0e74b1-8341-462d-9cfe-952eb86e92b6",
+      "name": "Format Custom Quote",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2192,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-custom-quote",
+              "leftValue": "={{ $('Webhook Trigger').item.json.body.custom_quote }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -2464,
+        -160
+      ],
+      "id": "f80c25ef-c120-4e7f-9bee-2c44763c06b2",
+      "name": "Check for Custom Quote"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -2208,
+        176
+      ],
+      "id": "10c92ffe-2a9c-4108-b538-8fd94a12512b",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "9ITdZP15p3HH1JkB",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"executionId\": $execution.id } }}",
+        "options": {}
+      },
+      "id": "c31b0c00-ccf9-40b0-b44e-6b2c36242ddf",
+      "name": "Respond with Execution ID",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -3056,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getSystemStats"
+      },
+      "id": "8468ab2e-0190-4fbe-85f8-7a7a6095ee5e",
+      "name": "ComfyUI: Get Stats Before",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -2880,
+        -160
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflow": "={\n  \"3\": {\n    \"inputs\": {\n      \"seed\": {{ $now.toMillis() }},\n      \"steps\": 10,\n      \"cfg\": 5,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1,\n      \"model\": [\"70\", 0],\n      \"positive\": [\"16\", 0],\n      \"negative\": [\"40\", 0],\n      \"latent_image\": [\"53\", 0]\n    },\n    \"class_type\": \"KSampler\"\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\"3\", 0],\n      \"vae\": [\"55\", 0]\n    },\n    \"class_type\": \"VAEDecode\"\n  },\n  \"9\": {\n    \"inputs\": {\n      \"filename_prefix\": \"hidream_test\",\n      \"images\": [\"8\", 0]\n    },\n    \"class_type\": \"SaveImage\"\n  },\n  \"16\": {\n    \"inputs\": {\n      \"text\": \"{{ $json.image_prompt }}\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"40\": {\n    \"inputs\": {\n      \"text\": \"blurry, low quality, distorted, bad ugly jpeg artifacts\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"53\": {\n    \"inputs\": {\n      \"width\": 576,\n      \"height\": 1024,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptySD3LatentImage\"\n  },\n  \"54\": {\n    \"inputs\": {\n      \"clip_name1\": \"clip_l_hidream.safetensors\",\n      \"clip_name2\": \"clip_g_hidream.safetensors\",\n      \"clip_name3\": \"t5xxl_fp8_e4m3fn_scaled.safetensors\",\n      \"clip_name4\": \"llama_3.1_8b_instruct_fp8_scaled.safetensors\"\n    },\n    \"class_type\": \"QuadrupleCLIPLoader\"\n  },\n  \"55\": {\n    \"inputs\": {\n      \"vae_name\": \"ae.safetensors\"\n    },\n    \"class_type\": \"VAELoader\"\n  },\n  \"70\": {\n    \"inputs\": {\n      \"shift\": 3.0,\n      \"model\": [\"76\", 0]\n    },\n    \"class_type\": \"ModelSamplingSD3\"\n  },\n  \"76\": {\n    \"inputs\": {\n      \"unet_name\": \"hidream_i1_full_fp8.safetensors\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\"\n  }\n}",
+        "jpegQuality": 90,
+        "timeout": 15,
+        "autoFreeVram": true
+      },
+      "id": "b033b642-2d13-408d-b10d-2efe09a8cc55",
+      "name": "ComfyUI: Generate Image",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        704
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "shorts-generate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "4a6fed3d-41ba-457c-83fc-039308a5b1e7",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -3248,
+        -160
+      ],
+      "webhookId": "shorts-generate"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "iJ6W1AV7yB03UJQj",
+          "mode": "list"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -1760,
+        416
+      ],
+      "name": "Call clear-vram",
+      "id": "8ed67d25-1e6c-4eb4-a291-9b40c77196de"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "iJ6W1AV7yB03UJQj",
+          "mode": "list"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -2672,
+        -160
+      ],
+      "name": "Call clear-vram1",
+      "id": "90d010c2-bead-49c4-a731-d0f45060d2a6"
+    }
+  ],
+  "connections": {
+    "Capture Image Resume URL": {
+      "main": [
+        [
+          {
+            "node": "Wait for Image Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Image Approval": {
+      "main": [
+        [
+          {
+            "node": "Handle Image Approval Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Image Approval Response": {
+      "main": [
+        [
+          {
+            "node": "Check Image Approval Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Image Approval Status": {
+      "main": [
+        [
+          {
+            "node": "VoiceAPI: Unload Model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ComfyUI: Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VoiceAPI: Unload Model": {
+      "main": [
+        [
+          {
+            "node": "Call clear-vram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Prompts": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image & Video Prompt Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image & Video Prompt Generator": {
+      "main": [
+        [
+          {
+            "node": "Parse Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Approval Status": {
+      "main": [
+        [
+          {
+            "node": "Image & Video Prompt Generator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quote writer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Resume URL": {
+      "main": [
+        [
+          {
+            "node": "Wait for Quote Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Approval Response": {
+      "main": [
+        [
+          {
+            "node": "Check Approval Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Quote Approval": {
+      "main": [
+        [
+          {
+            "node": "Handle Approval Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quote writer": {
+      "main": [
+        [
+          {
+            "node": "Capture Resume URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Custom Quote": {
+      "main": [
+        [
+          {
+            "node": "Capture Resume URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Custom Quote": {
+      "main": [
+        [
+          {
+            "node": "Format Custom Quote",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quote writer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Quote writer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond with Execution ID": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Get Stats Before",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Get Stats Before": {
+      "main": [
+        [
+          {
+            "node": "Call clear-vram1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Generate Image": {
+      "main": [
+        [
+          {
+            "node": "Capture Image Resume URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Respond with Execution ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call clear-vram": {
+      "main": [
+        [
+          {
+            "node": "Ovi: Generate Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call clear-vram1": {
+      "main": [
+        [
+          {
+            "node": "Check for Custom Quote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "99ff97a0c56026a2c1b3a849547491eb857e68a0b770f2b7c6688eea83f57eda"
+  }
+}
