@@ -249,26 +249,51 @@ def generate_and_poll(
     # Poll for completion
     max_attempts = 300  # 5 minutes with 1s intervals (videos take longer)
     attempt = 0
+    # Track current quote and image - start with user's input if provided
+    current_quote = custom_quote.strip() if custom_quote else ""
+    current_image_path = None
 
     while attempt < max_attempts:
         data = asyncio.run(poll_status(execution_id))
         status = data.get("status", "unknown")
 
+        # Update quote from API if available
+        if "quote" in data:
+            current_quote = str(data.get("quote", current_quote))
+
+        # Download and preserve image if available and not already downloaded
+        if not current_image_path and data.get("image_url"):
+            image_url = data.get("image_url", "")
+            if image_url:
+                filename = image_url.split("/")[-1]
+                current_image_path = download_file_from_api(filename, timeout=30.0)
+                print(f"📸 Downloaded and preserving image: {current_image_path}", file=sys.stderr)
+
         if status == "error":
             error_msg = data.get("error", "Unknown error")
-            yield (f"Error: {error_msg}", "", None, None, execution_id, "", False, False, "")
+            yield (
+                f"Error: {error_msg}",
+                current_quote,
+                current_image_path,
+                None,
+                execution_id,
+                "",
+                False,
+                False,
+                "",
+            )
             return
 
         if status == "waiting_for_approval":
-            quote = str(data.get("quote", ""))
+            current_quote = str(data.get("quote", ""))
             # Check both snake_case and camelCase field names
             resume_url_value = data.get("resume_url") or data.get("resumeUrl")
             resume_url = resume_url_value if resume_url_value is not None else ""
-            print(f"🔔 WAITING FOR APPROVAL! Quote: {quote[:50]}", file=sys.stderr)
+            print(f"🔔 WAITING FOR APPROVAL! Quote: {current_quote[:50]}", file=sys.stderr)
             print(f"📍 Resume URL extracted: {resume_url}", file=sys.stderr)
             yield (
                 "Waiting for approval",
-                quote,
+                current_quote,
                 None,
                 None,
                 execution_id,
@@ -281,15 +306,14 @@ def generate_and_poll(
             return  # Stop polling, wait for user action
 
         if status == "waiting_for_image_approval":
-            quote = str(data.get("quote", ""))
             image_prompt = str(data.get("image_prompt", ""))
             image_url = str(data.get("image_url", ""))
             resume_url_value = data.get("resume_url") or data.get("resumeUrl")
             resume_url = resume_url_value if resume_url_value is not None else ""
 
             # Download the generated image for preview
-            image_path = None
-            if image_url:
+            image_path = current_image_path
+            if not image_path and image_url:
                 filename = image_url.split("/")[-1]
                 image_path = download_file_from_api(filename, timeout=30.0)
 
@@ -297,7 +321,7 @@ def generate_and_poll(
             print(f"📍 Resume URL extracted: {resume_url}", file=sys.stderr)
             yield (
                 "Waiting for image approval",
-                quote,
+                current_quote,
                 image_path,
                 None,
                 execution_id,
@@ -310,13 +334,12 @@ def generate_and_poll(
             return  # Stop polling, wait for user action
 
         if status == "success":
-            quote = str(data.get("quote", ""))
             image_url = str(data.get("image_url", ""))
             video_url = str(data.get("video_url", ""))
 
-            # Download image
-            image_path = None
-            if image_url:
+            # Use preserved image or download if needed
+            image_path = current_image_path
+            if not image_path and image_url:
                 filename = image_url.split("/")[-1]
                 image_path = download_file_from_api(filename, timeout=30.0)
 
@@ -336,17 +359,27 @@ def generate_and_poll(
             else:
                 status_msg = "Success (but downloads failed)"
 
-            yield (status_msg, quote, image_path, video_path, execution_id, "", False, False, "")
+            yield (
+                status_msg,
+                current_quote,
+                image_path,
+                video_path,
+                execution_id,
+                "",
+                False,
+                False,
+                "",
+            )
             return
 
-        # Still running - provide more detailed status for long-running operations
+        # Still running - preserve both quote and image
         status_str = str(status) if status else "unknown"
         if attempt > 60:
             status_str = f"{status_str} (generating video...)"
         yield (
             f"{status_str.capitalize()}...",
-            "Processing...",
-            None,
+            current_quote,
+            current_image_path,
             None,
             execution_id,
             "",
@@ -358,7 +391,18 @@ def generate_and_poll(
         time.sleep(1)
         attempt += 1
 
-    yield ("Timeout", "Generation took too long", None, None, execution_id, "", False, False, "")
+    yield (
+        "Timeout",
+        "Generation took too long",
+        current_quote,
+        current_image_path,
+        None,
+        execution_id,
+        "",
+        False,
+        False,
+        "",
+    )
 
 
 def resume_polling(
@@ -392,23 +436,48 @@ def resume_polling(
     # Poll for completion (same logic as generate_and_poll but starting from resume)
     max_attempts = 300
     attempt = 0
+    # Track current quote and image as we poll
+    current_quote = ""
+    current_image_path = None
 
     while attempt < max_attempts:
         time.sleep(1)
         data = asyncio.run(poll_status(execution_id))
         status = data.get("status", "unknown")
 
+        # Update quote from API if available
+        if "quote" in data:
+            current_quote = str(data.get("quote", current_quote))
+
+        # Download and preserve image if available and not already downloaded
+        if not current_image_path and data.get("image_url"):
+            image_url = data.get("image_url", "")
+            if image_url:
+                filename = image_url.split("/")[-1]
+                current_image_path = download_file_from_api(filename, timeout=30.0)
+                print(f"📸 Downloaded and preserving image: {current_image_path}", file=sys.stderr)
+
         if status == "error":
             error_msg = data.get("error", "Unknown error")
-            yield (f"Error: {error_msg}", "", None, None, execution_id, "", False, False, "")
+            yield (
+                f"Error: {error_msg}",
+                current_quote,
+                current_image_path,
+                None,
+                execution_id,
+                "",
+                False,
+                False,
+                "",
+            )
             return
 
         if status == "waiting_for_approval":
-            quote = str(data.get("quote", ""))
+            current_quote = str(data.get("quote", ""))
             resume_url = str(data.get("resume_url", ""))
             yield (
                 "Waiting for approval",
-                quote,
+                current_quote,
                 None,
                 None,
                 execution_id,
@@ -420,20 +489,19 @@ def resume_polling(
             return
 
         if status == "waiting_for_image_approval":
-            quote = str(data.get("quote", ""))
             image_prompt = str(data.get("image_prompt", ""))
             image_url = str(data.get("image_url", ""))
             resume_url = str(data.get("resume_url", ""))
 
             # Download the generated image for preview
-            image_path = None
-            if image_url:
+            image_path = current_image_path
+            if not image_path and image_url:
                 filename = image_url.split("/")[-1]
                 image_path = download_file_from_api(filename, timeout=30.0)
 
             yield (
                 "Waiting for image approval",
-                quote,
+                current_quote,
                 image_path,
                 None,
                 execution_id,
@@ -445,12 +513,12 @@ def resume_polling(
             return
 
         if status == "success":
-            quote = str(data.get("quote", ""))
             image_url = str(data.get("image_url", ""))
             video_url = str(data.get("video_url", ""))
 
-            image_path = None
-            if image_url:
+            # Use preserved image or download if needed
+            image_path = current_image_path
+            if not image_path and image_url:
                 filename = image_url.split("/")[-1]
                 image_path = download_file_from_api(filename, timeout=30.0)
 
@@ -468,17 +536,27 @@ def resume_polling(
             else:
                 status_msg = "Success (but downloads failed)"
 
-            yield (status_msg, quote, image_path, video_path, execution_id, "", False, False, "")
+            yield (
+                status_msg,
+                current_quote,
+                image_path,
+                video_path,
+                execution_id,
+                "",
+                False,
+                False,
+                "",
+            )
             return
 
-        # Still running
+        # Still running - preserve both quote and image
         status_str = str(status) if status else "unknown"
         if attempt > 60:
             status_str = f"{status_str} (may take 3-5 min total...)"
         yield (
             f"{status_str.capitalize()}...",
-            "",
-            None,
+            current_quote,
+            current_image_path,
             None,
             execution_id,
             "",
@@ -491,8 +569,8 @@ def resume_polling(
 
     yield (
         f"Timeout: Execution may still be running. Use 'Resume Generation' with ID: {execution_id}",
-        "",
-        None,
+        current_quote,
+        current_image_path,
         None,
         execution_id,
         "",
@@ -517,19 +595,30 @@ def continue_after_approval(
         Tuples of (status, quote, image_path, video_path, execution_id,
             resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
+    quote_preview = quote[:50] if quote else "None"
     print(
-        f"🚀 continue_after_approval called: exec_id={execution_id}, action={action}",
+        f"🚀 continue_after_approval called: exec_id={execution_id}, "
+        f"action={action}, quote={quote_preview}",
         file=sys.stderr,
     )
 
+    # Clean up quote - handle None, empty string, or the string "None"
+    if quote and quote.strip() and quote.strip().lower() != "none":
+        clean_quote = quote.strip()
+    else:
+        clean_quote = ""
+        print("⚠️ Quote was None/empty/'None', will fetch from API", file=sys.stderr)
+
     # Send approval
-    success, message = asyncio.run(approve_quote(execution_id, action, resume_url, quote))
+    success, message = asyncio.run(
+        approve_quote(execution_id, action, resume_url, clean_quote if clean_quote else None)
+    )
     print(f"📡 Approval API response: success={success}, message={message}", file=sys.stderr)
 
     if not success:
         yield (
             f"Approval failed: {message}. Use 'Resume Generation' to retry if needed.",
-            "",
+            clean_quote,
             None,
             None,
             execution_id,
@@ -556,7 +645,7 @@ def continue_after_approval(
 
     yield (
         f"{message}, continuing...",
-        quote or "",
+        clean_quote,
         None,
         None,
         execution_id,
@@ -569,27 +658,56 @@ def continue_after_approval(
     # Continue polling for completion
     max_attempts = 300
     attempt = 0
+    # Preserve the quote and image throughout the polling process
+    current_quote = clean_quote
+    current_image_path = None
 
     while attempt < max_attempts:
         time.sleep(1)
         data = asyncio.run(poll_status(execution_id))
         status = data.get("status", "unknown")
 
+        # Update quote from API if available (especially important if we started with empty quote)
+        if "quote" in data and data.get("quote"):
+            api_quote = str(data.get("quote", ""))
+            if api_quote and api_quote.lower() != "none":
+                current_quote = api_quote
+                if not clean_quote:  # If we started with empty, log that we found it
+                    print(f"✅ Retrieved quote from API: {current_quote[:50]}...", file=sys.stderr)
+
+        # Download and preserve image if available and not already downloaded
+        if not current_image_path and data.get("image_url"):
+            image_url = data.get("image_url", "")
+            if image_url:
+                filename = image_url.split("/")[-1]
+                current_image_path = download_file_from_api(filename, timeout=30.0)
+                print(f"📸 Downloaded and preserving image: {current_image_path}", file=sys.stderr)
+
         if status == "error":
             error_msg = data.get("error", "Unknown error")
-            yield (f"Error: {error_msg}", "", None, None, execution_id, "", False, False, "")
+            yield (
+                f"Error: {error_msg}",
+                current_quote,
+                current_image_path,
+                None,
+                execution_id,
+                "",
+                False,
+                False,
+                "",
+            )
             return
 
         if status == "waiting_for_approval":
             # Quote was regenerated - show new quote and wait for approval again
-            quote = str(data.get("quote", ""))
+            current_quote = str(data.get("quote", ""))
             resume_url_value = data.get("resume_url") or data.get("resumeUrl")
             resume_url = resume_url_value if resume_url_value is not None else ""
-            print(f"🔄 Quote regenerated! New quote: {quote[:50]}...", file=sys.stderr)
+            print(f"🔄 Quote regenerated! New quote: {current_quote[:50]}...", file=sys.stderr)
             print(f"📍 Resume URL extracted: {resume_url}", file=sys.stderr)
             yield (
                 "Quote regenerated! Please review.",
-                quote,
+                current_quote,
                 None,
                 None,
                 execution_id,
@@ -601,20 +719,19 @@ def continue_after_approval(
             return  # Stop polling, wait for user action
 
         if status == "waiting_for_image_approval":
-            quote = str(data.get("quote", ""))
             image_prompt = str(data.get("image_prompt", ""))
             image_url = str(data.get("image_url", ""))
             resume_url_value = data.get("resume_url", "")
 
             # Download the generated image for preview
-            image_path = None
-            if image_url:
+            image_path = current_image_path
+            if not image_path and image_url:
                 filename = image_url.split("/")[-1]
                 image_path = download_file_from_api(filename, timeout=30.0)
 
             yield (
                 "Waiting for image approval",
-                quote,
+                current_quote,
                 image_path,
                 None,
                 execution_id,
@@ -626,13 +743,12 @@ def continue_after_approval(
             return
 
         if status == "success":
-            quote = str(data.get("quote", ""))
             image_url = str(data.get("image_url", ""))
             video_url = str(data.get("video_url", ""))
 
-            # Download image
-            image_path = None
-            if image_url:
+            # Use preserved image or download if needed
+            image_path = current_image_path
+            if not image_path and image_url:
                 filename = image_url.split("/")[-1]
                 image_path = download_file_from_api(filename, timeout=30.0)
 
@@ -652,17 +768,27 @@ def continue_after_approval(
             else:
                 status_msg = "Success (but downloads failed)"
 
-            yield (status_msg, quote, image_path, video_path, execution_id, "", False, False, "")
+            yield (
+                status_msg,
+                current_quote,
+                image_path,
+                video_path,
+                execution_id,
+                "",
+                False,
+                False,
+                "",
+            )
             return
 
-        # Still running
+        # Still running - preserve both quote and image
         status_str = str(status) if status else "unknown"
         if attempt > 60:
             status_str = f"{status_str} (generating video...)"
         yield (
             f"{status_str.capitalize()}...",
-            "Processing...",
-            None,
+            current_quote,
+            current_image_path,
             None,
             execution_id,
             "",
@@ -673,11 +799,26 @@ def continue_after_approval(
 
         attempt += 1
 
-    yield ("Timeout", "Generation took too long", None, None, execution_id, "", False, False, "")
+    yield (
+        "Timeout",
+        "Generation took too long",
+        current_quote,
+        current_image_path,
+        None,
+        execution_id,
+        "",
+        False,
+        False,
+        "",
+    )
 
 
 def continue_after_image_approval(
-    execution_id: str, resume_url: str, action: str, edited_image_prompt: str | None = None
+    execution_id: str,
+    resume_url: str,
+    action: str,
+    edited_image_prompt: str | None = None,
+    quote: str | None = None,
 ) -> Generator[tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None]:
     """Continue workflow after image approval.
 
@@ -686,15 +827,25 @@ def continue_after_image_approval(
         resume_url: Resume webhook URL from n8n
         action: Approval action (approve/edit/reject)
         edited_image_prompt: Optional edited image prompt
+        quote: Optional quote text to preserve
 
     Yields:
         Tuples of (status, quote, image_path, video_path, execution_id,
             resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
+    quote_preview = quote[:50] if quote else "None"
     print(
-        f"🚀 continue_after_image_approval called: exec_id={execution_id}, action={action}",
+        f"🚀 continue_after_image_approval called: exec_id={execution_id}, "
+        f"action={action}, quote={quote_preview}",
         file=sys.stderr,
     )
+
+    # Clean up quote - handle None, empty string, or the string "None"
+    if quote and quote.strip() and quote.strip().lower() != "none":
+        clean_quote = quote.strip()
+    else:
+        clean_quote = ""
+        print("⚠️ Quote was None/empty/'None', will fetch from API", file=sys.stderr)
 
     # Send approval
     success, message = asyncio.run(
@@ -734,7 +885,7 @@ def continue_after_image_approval(
     current_prompt = edited_image_prompt if action == "edit" and edited_image_prompt else ""
     yield (
         f"{message}, continuing...",
-        "",
+        clean_quote,
         None,
         None,
         execution_id,
@@ -747,6 +898,9 @@ def continue_after_image_approval(
     # Continue polling for completion
     max_attempts = 300
     attempt = 0
+    # Track the current quote and image to preserve them during polling
+    current_quote = clean_quote
+    current_image_path = None
 
     while attempt < max_attempts:
         time.sleep(1)
@@ -755,9 +909,36 @@ def continue_after_image_approval(
 
         print(f"📊 Polling status: {status} (attempt {attempt})", file=sys.stderr)
 
+        # Update quote from API if available
+        # (especially important if we started with empty quote)
+        if "quote" in data and data.get("quote"):
+            api_quote = str(data.get("quote", ""))
+            if api_quote and api_quote.lower() != "none":
+                current_quote = api_quote
+                if not clean_quote:  # If we started with empty, log that we found it
+                    print(f"✅ Retrieved quote from API: {current_quote[:50]}...", file=sys.stderr)
+
+        # Download and preserve image if available and not already downloaded
+        if not current_image_path and data.get("image_url"):
+            image_url = data.get("image_url", "")
+            if image_url:
+                filename = image_url.split("/")[-1]
+                current_image_path = download_file_from_api(filename, timeout=30.0)
+                print(f"📸 Downloaded and preserving image: {current_image_path}", file=sys.stderr)
+
         if status == "error":
             error_msg = data.get("error", "Unknown error")
-            yield (f"Error: {error_msg}", "", None, None, execution_id, "", False, False, "")
+            yield (
+                f"Error: {error_msg}",
+                current_quote,
+                current_image_path,
+                None,
+                execution_id,
+                "",
+                False,
+                False,
+                "",
+            )
             return
 
         # Handle regeneration - workflow looped back to image approval
@@ -785,7 +966,7 @@ def continue_after_image_approval(
             # Yield state showing the new image and waiting for approval
             yield (
                 "Regenerated! Please review the new image.",
-                data.get("quote", ""),
+                current_quote,
                 new_image_path,
                 None,  # no video yet
                 execution_id,
@@ -797,13 +978,12 @@ def continue_after_image_approval(
             return  # Exit polling loop - UI will handle the new approval cycle
 
         if status == "success":
-            quote = str(data.get("quote", ""))
             image_url = str(data.get("image_url", ""))
             video_url = str(data.get("video_url", ""))
 
-            # Download image
-            image_path = None
-            if image_url:
+            # Use preserved image or download if needed
+            image_path = current_image_path
+            if not image_path and image_url:
                 filename = image_url.split("/")[-1]
                 image_path = download_file_from_api(filename, timeout=30.0)
 
@@ -823,17 +1003,27 @@ def continue_after_image_approval(
             else:
                 status_msg = "Success (but downloads failed)"
 
-            yield (status_msg, quote, image_path, video_path, execution_id, "", False, False, "")
+            yield (
+                status_msg,
+                current_quote,
+                image_path,
+                video_path,
+                execution_id,
+                "",
+                False,
+                False,
+                "",
+            )
             return
 
-        # Still running
+        # Still running - preserve both quote and image
         status_str = str(status) if status else "unknown"
         if attempt > 60:
             status_str = f"{status_str} (generating video...)"
         yield (
             f"{status_str.capitalize()}...",
-            "Processing...",
-            None,
+            current_quote,
+            current_image_path,
             None,
             execution_id,
             "",
@@ -844,7 +1034,18 @@ def continue_after_image_approval(
 
         attempt += 1
 
-    yield ("Timeout", "Generation took too long", None, None, execution_id, "", False, False, "")
+    yield (
+        "Timeout",
+        "Generation took too long",
+        current_quote,
+        current_image_path,
+        None,
+        execution_id,
+        "",
+        False,
+        False,
+        "",
+    )
 
 
 def create_ui() -> Any:
@@ -853,12 +1054,6 @@ def create_ui() -> Any:
         gr.Markdown(
             """
             # Inspirational Shorts Generator
-            Generate trauma-informed inspirational quotes with AI-generated imagery and videos.
-
-            This workflow creates:
-            1. **Quote**: Compassionate, trauma-informed inspirational text
-            2. **Image**: Photorealistic 9:16 portrait (via ComfyUI + HiDream)
-            3. **Video**: 10-second animated video with synchronized audio (via Ovi 11B)
             """
         )
 
@@ -873,16 +1068,6 @@ def create_ui() -> Any:
 
                 with gr.Row():
                     with gr.Column():
-                        custom_quote_input = gr.Textbox(
-                            label="Custom Quote (Optional)",
-                            placeholder=(
-                                "Leave empty to generate an AI quote, "
-                                "or enter your own quote here..."
-                            ),
-                            lines=2,
-                            interactive=True,
-                        )
-
                         status_box = gr.Textbox(
                             label="Status",
                             value="Ready",
@@ -911,8 +1096,12 @@ def create_ui() -> Any:
 
                         quote_output = gr.Textbox(
                             label="Quote",
+                            placeholder=(
+                                "Leave empty to generate an AI quote, "
+                                "or enter your own quote here..."
+                            ),
                             lines=3,
-                            interactive=False,
+                            interactive=True,
                         )
 
                         # Approval buttons (initially hidden)
@@ -925,13 +1114,6 @@ def create_ui() -> Any:
 
                         # Image Approval section (initially hidden)
                         with gr.Column(visible=False) as image_approval_group:
-                            gr.Markdown(
-                                """
-                                ### Image Approval Required
-                                Please review the generated image on the right and choose an action:
-                                """
-                            )
-
                             edited_image_prompt_input = gr.Textbox(
                                 label="Edit Image Prompt (Optional)",
                                 placeholder=(
@@ -962,7 +1144,7 @@ def create_ui() -> Any:
                             )
 
                             video_output = gr.Video(
-                                label="Generated Video (10s with audio)",
+                                label="Generated Video",
                                 interactive=False,
                                 height=600,
                                 show_download_button=True,
@@ -1012,8 +1194,8 @@ def create_ui() -> Any:
                     # Update quote approval buttons visibility
                     approval_visible = waiting
 
-                    # Make quote_output editable when waiting for approval
-                    quote_interactive = waiting
+                    # Quote field is always editable (for initial input and approval editing)
+                    quote_interactive = True
 
                     # Update image approval group visibility
                     image_approval_visible = waiting_image
@@ -1105,30 +1287,34 @@ def create_ui() -> Any:
                     yield from continue_after_approval(exec_id, resume_url, "reject")
 
                 def image_approve_handler(
-                    exec_id: str, resume_url: str
+                    exec_id: str, resume_url: str, quote: str
                 ) -> Generator[
                     tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle image approve button click."""
-                    yield from continue_after_image_approval(exec_id, resume_url, "approve")
+                    yield from continue_after_image_approval(
+                        exec_id, resume_url, "approve", None, quote
+                    )
 
                 def image_regenerate_handler(
-                    exec_id: str, resume_url: str, edited_prompt: str
+                    exec_id: str, resume_url: str, edited_prompt: str, quote: str
                 ) -> Generator[
                     tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle image regenerate button click."""
                     yield from continue_after_image_approval(
-                        exec_id, resume_url, "edit", edited_prompt
+                        exec_id, resume_url, "edit", edited_prompt, quote
                     )
 
                 def image_reject_handler(
-                    exec_id: str, resume_url: str
+                    exec_id: str, resume_url: str, quote: str
                 ) -> Generator[
                     tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle image reject button click."""
-                    yield from continue_after_image_approval(exec_id, resume_url, "reject")
+                    yield from continue_after_image_approval(
+                        exec_id, resume_url, "reject", None, quote
+                    )
 
                 def disable_approval_buttons() -> tuple[Any, Any, Any]:
                     """Immediately disable approval buttons when any is clicked."""
@@ -1161,7 +1347,7 @@ def create_ui() -> Any:
                     outputs=[generate_btn],
                 ).then(
                     fn=generate_and_poll,
-                    inputs=[custom_quote_input],
+                    inputs=[quote_output],
                     outputs=[
                         status_box,
                         quote_output,
@@ -1449,7 +1635,7 @@ def create_ui() -> Any:
                     outputs=[image_approve_btn, image_regenerate_btn, image_reject_btn],
                 ).then(
                     fn=image_approve_handler,
-                    inputs=[execution_id_state, resume_url_state],
+                    inputs=[execution_id_state, resume_url_state, quote_output],
                     outputs=[
                         status_box,
                         quote_output,
@@ -1506,7 +1692,12 @@ def create_ui() -> Any:
                     outputs=[image_approve_btn, image_regenerate_btn, image_reject_btn],
                 ).then(
                     fn=image_regenerate_handler,
-                    inputs=[execution_id_state, resume_url_state, edited_image_prompt_input],
+                    inputs=[
+                        execution_id_state,
+                        resume_url_state,
+                        edited_image_prompt_input,
+                        quote_output,
+                    ],
                     outputs=[
                         status_box,
                         quote_output,
@@ -1563,7 +1754,7 @@ def create_ui() -> Any:
                     outputs=[image_approve_btn, image_regenerate_btn, image_reject_btn],
                 ).then(
                     fn=image_reject_handler,
-                    inputs=[execution_id_state, resume_url_state],
+                    inputs=[execution_id_state, resume_url_state, quote_output],
                     outputs=[
                         status_box,
                         quote_output,
@@ -1614,20 +1805,28 @@ def create_ui() -> Any:
                     ],
                 )
 
-                gr.Markdown(
-                    """
-                    ---
-                    **Note:** Generation typically takes 3-5 minutes.
-                    - **Custom Quote**: Optional - provide your own quote or leave empty
-                      for AI generation
-                    - **Quote generation**: ~5 seconds (Claude Sonnet 4.5) - skipped if
-                      custom quote provided
-                    - **Image generation**: ~30-60 seconds (ComfyUI + HiDream model)
-                    - **Video generation**: ~2-4 minutes (Ovi 11B 10-second video+audio model)
+                gr.Markdown("---")
 
-                    The video includes synchronized speech and ambient audio based on the quote.
-                    """
-                )
+                with gr.Row():
+                    with gr.Column():
+                        gr.Markdown(
+                            """
+                            **This workflow creates:**
+                            1. **Quote**: Compassionate, trauma-informed inspirational text
+                            2. **Image**: Photorealistic 9:16 portrait (via ComfyUI + HiDream)
+                            3. **Video**: 10-second video (via Ovi 11B)
+                            """
+                        )
+
+                    with gr.Column():
+                        gr.Markdown(
+                            """
+                            **Note:** Generation typically takes 30-40 minutes.
+                            - **Quote generation**: ~5 seconds (Claude Sonnet 4.5)
+                            - **Image generation**: ~20-30 seconds (ComfyUI + HiDream)
+                            - **Video generation**: ~20-30 minutes (Ovi 11B video+audio)
+                            """
+                        )
 
             with gr.Tab("Browse Previous"):
                 # Hidden state to store generations data
