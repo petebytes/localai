@@ -99,30 +99,27 @@ class ListGenerationsResponse(BaseModel):
 
 
 class ApprovalAction(str, Enum):
-    """Quote approval action."""
+    """Approval action for quotes and images."""
 
     APPROVE = "approve"
+    REGENERATE = "regenerate"
     EDIT = "edit"
     REJECT = "reject"
 
 
 class QuoteApprovalRequest(BaseModel):
-    """Request to approve, edit, or reject a generated quote."""
+    """Request to approve, regenerate, or reject a generated quote."""
 
     execution_id: str = Field(description="n8n workflow execution ID")
     action: ApprovalAction = Field(description="Approval action")
-    edited_quote: str | None = Field(
-        default=None, description="Edited quote text (required if action is 'edit')"
-    )
+    quote: str | None = Field(default=None, description="Quote text to use (for approve action)")
     resume_url: str | None = Field(
         default=None, description="Resume webhook URL from n8n (required for approval)"
     )
 
     @model_validator(mode="after")
-    def validate_edited_quote(self) -> "QuoteApprovalRequest":
-        """Validate that edited_quote is provided when action is 'edit'."""
-        if self.action == ApprovalAction.EDIT and not self.edited_quote:
-            raise ValueError("edited_quote is required when action is 'edit'")
+    def validate_request(self) -> "QuoteApprovalRequest":
+        """Validate the approval request."""
         if not self.resume_url:
             raise ValueError("resume_url is required for approval")
         return self

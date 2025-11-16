@@ -383,8 +383,7 @@ async def test_approve_quote_with_url_edit(
 
     request = QuoteApprovalRequest(
         execution_id="exec_123",
-        action=ApprovalAction.EDIT,
-        edited_quote="Modified quote text",
+        action=ApprovalAction.REGENERATE,
         resume_url="https://n8n.lan/webhook-waiting/exec_123",
     )
 
@@ -396,8 +395,6 @@ async def test_approve_quote_with_url_edit(
     assert call_args is not None
     json_data = call_args.kwargs.get("json", {})
     assert json_data["action"] == "edit"
-    assert json_data["approved"] is True
-    assert json_data["approved_quote"] == "Modified quote text"
 
 
 async def test_approve_quote_with_url_reject(

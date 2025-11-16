@@ -260,7 +260,7 @@ async def approve_quote(
 
         action_msg = {
             "approve": "Quote approved",
-            "edit": "Quote edited and approved",
+            "regenerate": "Regenerating quote",
             "reject": "Quote rejected",
         }
         message = action_msg.get(request.action.value, "Action processed")

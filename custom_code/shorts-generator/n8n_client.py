@@ -233,9 +233,10 @@ class N8nClient:
             resume_url = f"{base_url}/webhook-waiting/{execution_id}"
 
             # Extract quote from "Quote writer" or "Format Custom Quote" node
+            # Use [-1] to get the MOST RECENT execution (in case of regeneration)
             quote_node = run_data.get("Quote writer", []) or run_data.get("Format Custom Quote", [])
             if quote_node and len(quote_node) > 0:
-                quote_output = quote_node[0].get("data", {}).get("main", [[]])[0]
+                quote_output = quote_node[-1].get("data", {}).get("main", [[]])[0]
                 if quote_output:
                     quote_data = quote_output[0].get("json", {})
                     quote = quote_data.get("output")
@@ -251,9 +252,10 @@ class N8nClient:
             resume_url = f"{base_url}/webhook-waiting/{execution_id}"
 
             # Extract quote from previous nodes
+            # Use [-1] to get the MOST RECENT execution (in case of regeneration)
             quote_node = run_data.get("Quote writer", []) or run_data.get("Format Custom Quote", [])
             if quote_node and len(quote_node) > 0:
-                quote_output = quote_node[0].get("data", {}).get("main", [[]])[0]
+                quote_output = quote_node[-1].get("data", {}).get("main", [[]])[0]
                 if quote_output:
                     quote_data = quote_output[0].get("json", {})
                     quote = quote_data.get("output")
@@ -299,9 +301,10 @@ class N8nClient:
             run_data = exec_data.get("data", {}).get("resultData", {}).get("runData", {})
 
             # Extract quote from "Quote writer" node
+            # Use [-1] to get the MOST RECENT execution (in case of regeneration)
             quote_node = run_data.get("Quote writer", [])
             if quote_node and len(quote_node) > 0:
-                quote_output = quote_node[0].get("data", {}).get("main", [[]])[0]
+                quote_output = quote_node[-1].get("data", {}).get("main", [[]])[0]
                 if quote_output:
                     quote = quote_output[0].get("json", {}).get("output")
 
@@ -388,16 +391,19 @@ class N8nClient:
                 )
 
             # Prepare payload based on action
-            payload: dict[str, Any] = {"action": request.action.value}
+            payload: dict[str, Any] = {}
 
-            if request.action == ApprovalAction.EDIT and request.edited_quote:
-                payload["approved_quote"] = request.edited_quote
-                payload["approved"] = True  # EDIT action also means approved
-            elif request.action == ApprovalAction.APPROVE:
-                # The workflow will use the original quote
-                payload["approved"] = True
+            if request.action == ApprovalAction.APPROVE:
+                # Approve - workflow continues with the quote
+                payload["action"] = "approve"
+                if request.quote:
+                    payload["approved_quote"] = request.quote
+            elif request.action == ApprovalAction.REGENERATE:
+                # Regenerate - workflow loops back to Quote writer
+                payload["action"] = "edit"  # n8n workflow expects 'edit' action
             elif request.action == ApprovalAction.REJECT:
-                payload["approved"] = False
+                # Reject - workflow stops
+                payload["action"] = "reject"
 
             response = await client.post(url, json=payload)
 

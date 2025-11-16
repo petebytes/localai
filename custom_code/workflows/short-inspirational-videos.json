@@ -28,10 +28,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        2592,
-        672
+        2944,
+        64
       ],
-      "id": "32d2a134-edfc-4402-90da-1250d9cb6bd8",
+      "id": "8d3ac832-c639-43a5-ba95-7e669ecdb18d",
       "name": "Is Complete?"
     },
     {
@@ -63,26 +63,26 @@
           "timeout": 600000
         }
       },
-      "id": "45d3ea63-e4d6-4923-8e98-982ebafea0b7",
+      "id": "c1aeec7a-55c6-48d8-9c96-a21259a8c7e5",
       "name": "Ovi: Generate Video",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2832,
-        640
+        3184,
+        32
       ]
     },
     {
       "parameters": {
-        "amount": 2
+        "amount": 15
       },
-      "id": "4c4c250e-7f1b-4f5e-9d69-88c8b4b19224",
+      "id": "6983c2e1-cdcd-4677-9a16-dc4aed0fe500",
       "name": "Wait Before Retry",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        1744,
-        672
+        2080,
+        64
       ],
       "webhookId": "wait-vram-retry"
     },
@@ -90,26 +90,26 @@
       "parameters": {
         "jsCode": "// Parse VRAM info from ComfyUI stats\nconst stats = $input.item.json;\nconst attempt = $('Initialize Retry Counter').item.json.vram_check_attempt;\nconst maxAttempts = $('Initialize Retry Counter').item.json.max_attempts;\n\n// Get free VRAM from ComfyUI stats\nlet freeVramGB = 0;\n\n// ComfyUI provides vram_free directly in devices array\nif (stats.devices && stats.devices[0] && stats.devices[0].vram_free) {\n  freeVramGB = stats.devices[0].vram_free / (1024 * 1024 * 1024);\n} else if (stats.system && stats.system.vram_free) {\n  freeVramGB = stats.system.vram_free / (1024 * 1024 * 1024);\n}\n\n// We need at least 25GB free for Ovi (it uses ~28GB but with CPU offload)\nconst requiredVramGB = 25;\nconst isReady = freeVramGB >= requiredVramGB;\nconst maxAttemptsReached = attempt >= maxAttempts;\n\n// Log for debugging\nconsole.log(`VRAM Check - Attempt ${attempt}/${maxAttempts}: Free=${freeVramGB.toFixed(2)}GB, Required=${requiredVramGB}GB, Ready=${isReady}`);\n\n// Throw error if max attempts reached and still not ready\nif (maxAttemptsReached && !isReady) {\n  throw new Error(`VRAM timeout after ${attempt} attempts. Free: ${freeVramGB.toFixed(2)}GB, Required: ${requiredVramGB}GB. ComfyUI may still be holding memory.`);\n}\n\nreturn {\n  json: {\n    ...($('Initialize Retry Counter').item.json),\n    vram_free_gb: parseFloat(freeVramGB.toFixed(2)),\n    vram_required_gb: requiredVramGB,\n    is_vram_ready: isReady,\n    should_retry: !isReady && !maxAttemptsReached,\n    should_proceed: isReady,\n    debug_stats: {\n      attempt: attempt,\n      max_attempts: maxAttempts,\n      devices_found: stats.devices ? stats.devices.length : 0,\n      vram_free_bytes: stats.devices?.[0]?.vram_free || 0\n    }\n  }\n};\n"
       },
-      "id": "7a882321-5cb8-4fab-83eb-8365b56c2beb",
+      "id": "464bb624-de32-4729-b55a-b479f587f38c",
       "name": "Check if VRAM is Ready",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2400,
-        672
+        2752,
+        64
       ]
     },
     {
       "parameters": {
         "operation": "getSystemStats"
       },
-      "id": "254c5128-8f83-4ec5-ae58-822f20521743",
+      "id": "159a363c-4eaa-4e91-86ad-debf577dc297",
       "name": "ComfyUI: Check VRAM Status",
       "type": "CUSTOM.comfyui",
       "typeVersion": 1,
       "position": [
-        2176,
-        672
+        2528,
+        64
       ],
       "credentials": {
         "comfyUIApi": {
@@ -122,26 +122,26 @@
       "parameters": {
         "jsCode": "// Initialize retry counter on first run\nif (!$input.item.json.vram_check_attempt) {\n  return {\n    json: {\n      ...($input.item.json),\n      vram_check_attempt: 1,\n      max_attempts: 10,\n      vram_check_start: Date.now()\n    }\n  };\n}\n\n// Otherwise increment counter\nreturn {\n  json: {\n    ...($input.item.json),\n    vram_check_attempt: $input.item.json.vram_check_attempt + 1\n  }\n};"
       },
-      "id": "0ea08534-1f19-4762-bbc8-1cc520c05e43",
+      "id": "de3d7702-1b7c-464c-b0f1-36414a0594c2",
       "name": "Initialize Retry Counter",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1936,
-        672
+        2272,
+        64
       ]
     },
     {
       "parameters": {
         "jsCode": "// Capture execution context and image info before waiting\nconst imageData = $('ComfyUI: Generate Image').item.json;\nconst imagePrompt = $('Parse Prompts').item.json.image_prompt;\nconst executionId = $execution.id;\n\n// Log for debugging\nconsole.log('Image Approval - Execution ID:', executionId);\nconsole.log('Image filename:', imageData.filename);\n\nreturn {\n  json: {\n    image_filename: imageData.filename,\n    image_prompt: imagePrompt,\n    execution_id: executionId,\n    status: 'preparing_for_image_approval',\n    resumeUrl: $execution.resumeUrl\n  }\n};"
       },
-      "id": "f8d8c163-8ac2-4bf9-9ae6-32f846984117",
+      "id": "b448fdbb-5933-4579-8c54-bae5b427ac14",
       "name": "Capture Image Resume URL",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        496,
-        656
+        592,
+        240
       ]
     },
     {
@@ -150,13 +150,13 @@
         "httpMethod": "POST",
         "options": {}
       },
-      "id": "be66d9ba-2bc5-450e-bb0b-6b6b20b6258e",
+      "id": "0cb90475-1588-4b68-bebe-f518d00744f0",
       "name": "Wait for Image Approval",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        736,
-        672
+        832,
+        256
       ],
       "webhookId": "wait-image-approval"
     },
@@ -164,13 +164,13 @@
       "parameters": {
         "jsCode": "// Process the image approval response from the webhook\nconst webhookData = $input.item.json;\nconst action = webhookData.body.action;\n\n// Get the original image prompt\nconst originalPrompt = $('Parse Prompts').item.json.image_prompt;\n\n// Determine the final prompt and approval status\nlet finalPrompt = originalPrompt;\nlet approved = false;\nlet needsRegeneration = false;\n\nif (action === 'approve') {\n  approved = true;\n  finalPrompt = originalPrompt;\n} else if (action === 'edit' && webhookData.body.edited_image_prompt) {\n  approved = true;\n  needsRegeneration = true;\n  finalPrompt = webhookData.body.edited_image_prompt;\n} else if (action === 'reject') {\n  approved = false;\n}\n\nreturn {\n  json: {\n    image_prompt: finalPrompt,\n    approved: approved,\n    needs_regeneration: needsRegeneration,\n    action: action,\n    original_image_prompt: originalPrompt\n  }\n};"
       },
-      "id": "dcaf7558-af56-44d1-b4ac-4748313a9be9",
+      "id": "ce2f6d18-f284-4af6-95ab-05958f95bb6c",
       "name": "Handle Image Approval Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        992,
-        656
+        1088,
+        240
       ]
     },
     {
@@ -211,23 +211,40 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1200,
-        672
+        1312,
+        256
       ],
-      "id": "0f9ce8a2-f913-486f-82e9-e869bf226706",
+      "id": "da73b3b4-8b19-4a56-9772-e164c8521149",
       "name": "Check Image Approval Status"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://vibevoice-api:8100/api/models/VibeVoice-Large/unload",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "c0e69d84-bda3-4c61-b47c-e259f3b0a355",
+      "name": "VoiceAPI: Unload Model",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1632,
+        64
+      ]
     },
     {
       "parameters": {
         "operation": "freeVram"
       },
-      "id": "3b168b9f-f1c8-4a67-b246-f9d375173bb8",
+      "id": "b781f321-fab8-4ffc-b36e-4e804daf3a2d",
       "name": "ComfyUI: Free VRAM Before Video",
       "type": "CUSTOM.comfyui",
       "typeVersion": 1,
       "position": [
-        1488,
-        656
+        1856,
+        64
       ],
       "credentials": {
         "comfyUIApi": {
@@ -240,13 +257,13 @@
       "parameters": {
         "jsCode": "// Parse the JSON output from the AI agent\nconst output = $input.item.json.output;\nlet prompts;\n\ntry {\n  // Try to parse as JSON\n  prompts = JSON.parse(output);\n} catch (e) {\n  // If not valid JSON, try to extract JSON from the text\n  const jsonMatch = output.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    prompts = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('Could not parse JSON from AI output');\n  }\n}\n\n// Get the original quote from whichever path was taken\n// Try Quote writer first (AI-generated), then Format Custom Quote (user-provided)\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  originalQuote = $('Format Custom Quote').item.json.output;\n}\n\nreturn {\n  json: {\n    image_prompt: prompts.image_prompt,\n    video_prompt: prompts.video_prompt,\n    original_quote: originalQuote\n  }\n};"
       },
-      "id": "fa9667b6-08a3-46c0-8719-df75aacfaedb",
+      "id": "f3da15b9-10dd-4bfb-969b-96dcd943a981",
       "name": "Parse Prompts",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1552,
-        224
+        3392,
+        -192
       ]
     },
     {
@@ -262,10 +279,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.3,
       "position": [
-        1232,
-        400
+        2720,
+        -240
       ],
-      "id": "2e34e89d-f8c4-45e7-97df-dbe2bef10d4f",
+      "id": "e7b40143-d66f-44cf-8c12-068e8a7e4bf5",
       "name": "Anthropic Chat Model1",
       "credentials": {
         "anthropicApi": {
@@ -285,10 +302,10 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3,
       "position": [
-        1264,
-        224
+        2752,
+        -416
       ],
-      "id": "440eccb3-01b7-4f89-aab0-09c2d4750048",
+      "id": "73891284-a1b4-4c04-aece-233e9a5cc0c1",
       "name": "Image & Video Prompt Generator"
     },
     {
@@ -319,36 +336,36 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1040,
-        240
+        2528,
+        -400
       ],
-      "id": "ee39cb34-43ac-4a6a-b9d3-911207937186",
+      "id": "8a75e452-bc81-4af3-b80d-cf156da37486",
       "name": "Check Approval Status"
     },
     {
       "parameters": {
         "jsCode": "// Capture execution context and quote before waiting\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  try {\n    originalQuote = $('Format Custom Quote').item.json.output;\n  } catch (e2) {\n    originalQuote = 'No quote found';\n  }\n}\n\n// Get the execution context\nconst executionId = $execution.id;\n// Note: $execution.resumeUrl will have the full URL with UUID after Wait node starts\n// For now, just pass the execution ID\n\n// Log for debugging\nconsole.log('Execution ID:', executionId);\n\nreturn {\n  json: {\n    quote: originalQuote,\n    execution_id: executionId,\n    status: 'preparing_for_approval',\n    resumeUrl: $execution.resumeUrl\n  }\n};"
       },
-      "id": "ea8b6a0d-2f87-481f-96c2-6d7fc46fb766",
+      "id": "57fc9c2e-b41e-49ed-8350-621e7b3010cb",
       "name": "Capture Resume URL",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        496,
-        240
+        1968,
+        -400
       ]
     },
     {
       "parameters": {
         "jsCode": "// Process the approval response from the webhook\nconst webhookData = $input.item.json;\nconst action = webhookData.body.action;  // Access from body\n\n// Get the original quote from previous nodes\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  try {\n    originalQuote = $('Format Custom Quote').item.json.output;\n  } catch (e2) {\n    throw new Error('Could not find original quote');\n  }\n}\n\n// Determine the final quote based on action\nlet finalQuote = originalQuote;\nlet approved = false;\n\nif (action === 'approve') {\n  approved = true;\n  finalQuote = originalQuote;\n} else if (action === 'edit' && webhookData.body.approved_quote) {  // Also from body\n  approved = true;\n  finalQuote = webhookData.body.approved_quote;  // Also from body\n} else if (action === 'reject') {\n  approved = false;\n}\n\nreturn {\n  json: {\n    output: finalQuote,\n    approved: approved,\n    action: action,\n    original_quote: originalQuote\n  }\n};"
       },
-      "id": "6f404c91-4745-4db9-a137-fb89820bc838",
+      "id": "fbad49eb-42bf-49a4-98eb-547064655413",
       "name": "Handle Approval Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        848,
-        240
+        2320,
+        -400
       ]
     },
     {
@@ -357,13 +374,13 @@
         "httpMethod": "POST",
         "options": {}
       },
-      "id": "740ec7c7-6e4d-45cf-bbe0-6c046561d991",
+      "id": "3a1db085-f77c-48f0-ba2b-0c8c6927c28f",
       "name": "Wait for Quote Approval",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        640,
-        240
+        2144,
+        -400
       ],
       "webhookId": "wait-quote-approval"
     },
@@ -378,23 +395,23 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3,
       "position": [
-        160,
-        304
+        1632,
+        -336
       ],
-      "id": "4d04eb09-beee-409d-b9e7-b6dc9bf25f6e",
+      "id": "fdfc363a-4403-4bb0-8b7d-5d4dfb8aa1d8",
       "name": "Quote writer"
     },
     {
       "parameters": {
         "jsCode": "// Format custom quote to match Quote writer output structure\nconst customQuote = $('Webhook Trigger').first().json.body.custom_quote;\n\nreturn {\n  json: {\n    output: customQuote\n  }\n};"
       },
-      "id": "cb066681-6d4c-4439-9031-38ef66ae4c28",
+      "id": "5a2fbf9b-f440-4870-baa1-ba07d01e34d2",
       "name": "Format Custom Quote",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        160,
-        112
+        1632,
+        -528
       ]
     },
     {
@@ -424,10 +441,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -112,
-        128
+        1360,
+        -512
       ],
-      "id": "571ce7f4-c395-4096-9714-c80bc516545f",
+      "id": "34953509-5d67-4ce4-9571-e097fb0d9628",
       "name": "Check for Custom Quote"
     },
     {
@@ -443,10 +460,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.3,
       "position": [
-        144,
-        464
+        1616,
+        -176
       ],
-      "id": "f0c9f8f8-06d4-4cf5-8226-ed8a052e5519",
+      "id": "2a53a352-b5bd-4ab9-8d86-6c1b25254ce0",
       "name": "Anthropic Chat Model",
       "credentials": {
         "anthropicApi": {
@@ -459,13 +476,13 @@
       "parameters": {
         "operation": "freeVram"
       },
-      "id": "8638fc93-868d-460c-b473-abfba3a09372",
+      "id": "92127678-6a02-410c-9099-166e87a5502f",
       "name": "ComfyUI: Free VRAM",
       "type": "CUSTOM.comfyui",
       "typeVersion": 1,
       "position": [
-        448,
-        -112
+        1136,
+        -512
       ],
       "credentials": {
         "comfyUIApi": {
@@ -480,26 +497,26 @@
         "responseBody": "={{ { \"executionId\": $execution.id } }}",
         "options": {}
       },
-      "id": "a3d07746-6243-4bf6-9beb-f9c26aa6559b",
+      "id": "3d36a19c-781d-4f3a-82d9-4426993f90c2",
       "name": "Respond with Execution ID",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        80,
-        -112
+        768,
+        -512
       ]
     },
     {
       "parameters": {
         "operation": "getSystemStats"
       },
-      "id": "e9b1445c-946a-4edc-8d5d-6d4f91d7fa46",
+      "id": "7d88207c-2622-41a8-9053-d9f810b5e213",
       "name": "ComfyUI: Get Stats Before",
       "type": "CUSTOM.comfyui",
       "typeVersion": 1,
       "position": [
-        256,
-        -112
+        944,
+        -512
       ],
       "credentials": {
         "comfyUIApi": {
@@ -515,13 +532,13 @@
         "timeout": 15,
         "autoFreeVram": true
       },
-      "id": "f7bc0d81-fcda-4cd7-8667-c20018d6cc95",
+      "id": "2c1ba443-d7cf-4b01-95d3-d414429f5f18",
       "name": "ComfyUI: Generate Image",
       "type": "CUSTOM.comfyui",
       "typeVersion": 1,
       "position": [
-        1792,
-        400
+        3648,
+        352
       ],
       "credentials": {
         "comfyUIApi": {
@@ -537,13 +554,13 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "2555c579-cf4f-46e0-b871-57dd8c9fa920",
+      "id": "fb102adb-89a5-4f93-86cf-44ac28d23f1d",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -112,
-        -112
+        576,
+        -512
       ],
       "webhookId": "shorts-generate"
     }
@@ -560,7 +577,7 @@
         ],
         [
           {
-            "node": "ComfyUI: Free VRAM Before Video",
+            "node": "Wait Before Retry",
             "type": "main",
             "index": 0
           }
@@ -648,7 +665,7 @@
       "main": [
         [
           {
-            "node": "ComfyUI: Free VRAM Before Video",
+            "node": "VoiceAPI: Unload Model",
             "type": "main",
             "index": 0
           }
@@ -656,6 +673,17 @@
         [
           {
             "node": "ComfyUI: Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VoiceAPI: Unload Model": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Free VRAM Before Video",
             "type": "main",
             "index": 0
           }
@@ -711,6 +739,13 @@
         [
           {
             "node": "Image & Video Prompt Generator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quote writer",
             "type": "main",
             "index": 0
           }

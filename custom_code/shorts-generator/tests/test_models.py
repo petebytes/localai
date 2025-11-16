@@ -142,7 +142,7 @@ def test_quote_approval_request_approve() -> None:
     )
     assert request.execution_id == "exec_123"
     assert request.action == ApprovalAction.APPROVE
-    assert request.edited_quote is None
+    assert request.quote is None
     assert request.resume_url == "https://n8n.lan/webhook-waiting/exec_123"
 
 
@@ -154,31 +154,33 @@ def test_quote_approval_request_reject() -> None:
         resume_url="https://n8n.lan/webhook-waiting/exec_123",
     )
     assert request.action == ApprovalAction.REJECT
-    assert request.edited_quote is None
+    assert request.quote is None
     assert request.resume_url == "https://n8n.lan/webhook-waiting/exec_123"
 
 
-def test_quote_approval_request_edit_with_quote() -> None:
-    """Test QuoteApprovalRequest with edit action and edited quote."""
+def test_quote_approval_request_regenerate() -> None:
+    """Test QuoteApprovalRequest with regenerate action."""
     request = QuoteApprovalRequest(
         execution_id="exec_123",
-        action=ApprovalAction.EDIT,
-        edited_quote="Modified quote text",
+        action=ApprovalAction.REGENERATE,
         resume_url="https://n8n.lan/webhook-waiting/exec_123",
     )
-    assert request.action == ApprovalAction.EDIT
-    assert request.edited_quote == "Modified quote text"
+    assert request.action == ApprovalAction.REGENERATE
+    assert request.quote is None
     assert request.resume_url == "https://n8n.lan/webhook-waiting/exec_123"
 
 
-def test_quote_approval_request_edit_without_quote_fails() -> None:
-    """Test QuoteApprovalRequest with edit action but no edited_quote raises error."""
-    with pytest.raises(ValidationError, match="edited_quote is required"):
-        QuoteApprovalRequest(
-            execution_id="exec_123",
-            action=ApprovalAction.EDIT,
-            resume_url="https://n8n.lan/webhook-waiting/exec_123",
-        )
+def test_quote_approval_request_approve_with_quote() -> None:
+    """Test QuoteApprovalRequest with approve action and custom quote."""
+    request = QuoteApprovalRequest(
+        execution_id="exec_123",
+        action=ApprovalAction.APPROVE,
+        quote="Modified quote text",
+        resume_url="https://n8n.lan/webhook-waiting/exec_123",
+    )
+    assert request.action == ApprovalAction.APPROVE
+    assert request.quote == "Modified quote text"
+    assert request.resume_url == "https://n8n.lan/webhook-waiting/exec_123"
 
 
 def test_quote_approval_request_without_resume_url_fails() -> None:

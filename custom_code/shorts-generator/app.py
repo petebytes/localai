@@ -35,6 +35,7 @@ def main() -> None:
 
     # Launch Gradio in main thread (blocking)
     ui = create_ui()
+    ui.queue()  # Enable queuing for progress indicators
     ui.launch(
         server_name="0.0.0.0",
         server_port=7860,
