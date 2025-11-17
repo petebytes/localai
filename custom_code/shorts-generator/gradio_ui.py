@@ -48,11 +48,14 @@ def download_file_from_api(filename: str, timeout: float = 30.0) -> str | None:
         return None
 
 
-async def trigger_generation(custom_quote: str | None = None) -> tuple[str, str]:
+async def trigger_generation(
+    custom_quote: str | None = None, video_backend: str = "wan22"
+) -> tuple[str, str]:
     """Trigger workflow generation via API.
 
     Args:
         custom_quote: Optional custom quote to use instead of AI-generated
+        video_backend: Video generation backend to use (wan22 or ovi)
 
     Returns:
         Tuple of (execution_id, status_message)
@@ -60,7 +63,7 @@ async def trigger_generation(custom_quote: str | None = None) -> tuple[str, str]
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             # Prepare request payload
-            payload = {}
+            payload = {"video_backend": video_backend}
             if custom_quote and custom_quote.strip():
                 payload["custom_quote"] = custom_quote.strip()
 
@@ -217,18 +220,20 @@ def load_previous_generation(
 
 def generate_and_poll(
     custom_quote: str | None = None,
+    video_backend: str = "wan22",
 ) -> Generator[tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None]:
     """Generate and poll for results with streaming updates.
 
     Args:
         custom_quote: Optional custom quote to use
+        video_backend: Video generation backend to use (wan22 or ovi)
 
     Yields:
         Tuples of (status, quote, image_path, video_path, execution_id,
             resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
     # Trigger generation
-    execution_id, status_msg = asyncio.run(trigger_generation(custom_quote))
+    execution_id, status_msg = asyncio.run(trigger_generation(custom_quote, video_backend))
 
     if not execution_id:
         yield ("Error", status_msg, None, None, "", "", False, False, "")
@@ -1106,6 +1111,17 @@ def create_ui() -> Any:
                             interactive=True,
                         )
 
+                        video_backend_selector = gr.Radio(
+                            choices=[
+                                ("Wan 2.2 (fast, no audio)", "wan22"),
+                                ("Ovi (with audio, slower)", "ovi"),
+                            ],
+                            value="wan22",
+                            label="Video Generation Method",
+                            info="Wan 2.2: 720x1280, ~8 min | Ovi: 1080x1920, ~25 min",
+                            interactive=True,
+                        )
+
                         # Approval buttons (initially hidden)
                         with gr.Row(visible=False) as approval_group:
                             approve_btn = gr.Button("✓ Approve", variant="primary", scale=1)
@@ -1353,7 +1369,7 @@ def create_ui() -> Any:
                     outputs=[generate_btn],
                 ).then(
                     fn=generate_and_poll,
-                    inputs=[quote_output],
+                    inputs=[quote_output, video_backend_selector],
                     outputs=[
                         status_box,
                         quote_output,
@@ -1821,17 +1837,21 @@ def create_ui() -> Any:
                             **This workflow creates:**
                             1. **Quote**: Compassionate, trauma-informed inspirational text
                             2. **Image**: Photorealistic 9:16 portrait (via ComfyUI + HiDream)
-                            3. **Video**: 10-second video (via Ovi 11B)
+                            3. **Video**: 5-second video
+                               - Wan 2.2: Faster generation, no audio
+                               - Ovi 11B: Slower, includes audio
                             """
                         )
 
                     with gr.Column():
                         gr.Markdown(
                             """
-                            **Note:** Generation typically takes 30-40 minutes.
+                            **Note:** Generation time depends on video backend.
                             - **Quote generation**: ~5 seconds (Claude Sonnet 4.5)
                             - **Image generation**: ~20-30 seconds (ComfyUI + HiDream)
-                            - **Video generation**: ~20-30 minutes (Ovi 11B video+audio)
+                            - **Video generation**:
+                              - Wan 2.2: ~8 minutes (720x1280, no audio)
+                              - Ovi 11B: ~25 minutes (1080x1920, with audio)
                             """
                         )
 

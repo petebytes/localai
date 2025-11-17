@@ -13,7 +13,7 @@
             },
             {
               "name": "image_path",
-              "value": "={{ '/mnt/raven-nas/inspirational-shorts/generated-images/' + $('ComfyUI: Generate Image').item.json.filename }}"
+              "value": "={{ '/mnt/raven-nas/inspirational-shorts/generated-content/' + $('ComfyUI: Generate Image').item.json.filename }}"
             },
             {
               "name": "mode",
@@ -29,26 +29,26 @@
           "timeout": 600000
         }
       },
-      "id": "df3fecaf-a771-479a-8ac8-d9a630802d62",
+      "id": "36a775ea-4d11-46e9-ac5f-3f6c76e7c249",
       "name": "Ovi: Generate Video",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1456,
-        416
+        -1376,
+        480
       ]
     },
     {
       "parameters": {
         "jsCode": "// Capture execution context and image info before waiting\nconst imageData = $('ComfyUI: Generate Image').item.json;\nconst imagePrompt = $('Parse Prompts').item.json.image_prompt;\nconst executionId = $execution.id;\n\n// Log for debugging\nconsole.log('Image Approval - Execution ID:', executionId);\nconsole.log('Image filename:', imageData.filename);\n\nreturn {\n  json: {\n    image_filename: imageData.filename,\n    image_prompt: imagePrompt,\n    execution_id: executionId,\n    status: 'preparing_for_image_approval',\n    resumeUrl: $execution.resumeUrl\n  }\n};"
       },
-      "id": "e2e678b2-fa96-42bb-888b-11fa7f3700a2",
+      "id": "84a6ae8e-a6d7-402c-8926-b6c61b71c4a4",
       "name": "Capture Image Resume URL",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3232,
-        592
+        -3280,
+        720
       ]
     },
     {
@@ -57,13 +57,13 @@
         "httpMethod": "POST",
         "options": {}
       },
-      "id": "f4391d8f-6b43-45ab-a45e-1c1c3f5ba499",
+      "id": "ac48e549-479f-4f78-ac0f-7e222c2a12e8",
       "name": "Wait for Image Approval",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -2992,
-        608
+        -3040,
+        736
       ],
       "webhookId": "wait-image-approval"
     },
@@ -71,13 +71,13 @@
       "parameters": {
         "jsCode": "// Process the image approval response from the webhook\nconst webhookData = $input.item.json;\nconst action = webhookData.body.action;\n\n// Get the original image prompt\nconst originalPrompt = $('Parse Prompts').item.json.image_prompt;\n\n// Determine the final prompt and approval status\nlet finalPrompt = originalPrompt;\nlet approved = false;\nlet needsRegeneration = false;\n\nif (action === 'approve') {\n  approved = true;\n  finalPrompt = originalPrompt;\n} else if (action === 'edit' && webhookData.body.edited_image_prompt) {\n  approved = true;\n  needsRegeneration = true;\n  finalPrompt = webhookData.body.edited_image_prompt;\n} else if (action === 'reject') {\n  approved = false;\n}\n\nreturn {\n  json: {\n    image_prompt: finalPrompt,\n    approved: approved,\n    needs_regeneration: needsRegeneration,\n    action: action,\n    original_image_prompt: originalPrompt\n  }\n};"
       },
-      "id": "182914d6-260d-4a58-bf5b-fb601621ffca",
+      "id": "9aba7c4a-23d2-4dd1-a546-f921124ae475",
       "name": "Handle Image Approval Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2736,
-        592
+        -2784,
+        720
       ]
     },
     {
@@ -118,10 +118,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -2512,
-        608
+        -2560,
+        736
       ],
-      "id": "c87f235a-ff97-41ba-a0f9-db5d71969c35",
+      "id": "57db5394-3b1f-4c8f-81a8-3f208f892110",
       "name": "Check Image Approval Status"
     },
     {
@@ -132,13 +132,13 @@
           "timeout": 30000
         }
       },
-      "id": "cab7affe-7f8f-4ac8-b44f-71708e21e872",
+      "id": "6caa2a45-ebe6-43ba-b868-b15e1fe770c0",
       "name": "VoiceAPI: Unload Model",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -2192,
-        416
+        -2240,
+        544
       ],
       "onError": "continueRegularOutput"
     },
@@ -146,13 +146,13 @@
       "parameters": {
         "jsCode": "// Parse the JSON output from the AI agent\nconst output = $input.item.json.output;\nlet prompts;\n\ntry {\n  // Try to parse as JSON\n  prompts = JSON.parse(output);\n} catch (e) {\n  // If not valid JSON, try to extract JSON from the text\n  const jsonMatch = output.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    prompts = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('Could not parse JSON from AI output');\n  }\n}\n\n// Get the original quote from whichever path was taken\n// Try Quote writer first (AI-generated), then Format Custom Quote (user-provided)\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  originalQuote = $('Format Custom Quote').item.json.output;\n}\n\nreturn {\n  json: {\n    image_prompt: prompts.image_prompt,\n    video_prompt: prompts.video_prompt,\n    original_quote: originalQuote\n  }\n};"
       },
-      "id": "1136001b-4185-4134-8c92-c562ea170282",
+      "id": "deee9e1a-2de8-4da2-9a40-8913eadff846",
       "name": "Parse Prompts",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -432,
-        160
+        -480,
+        288
       ]
     },
     {
@@ -168,10 +168,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.3,
       "position": [
-        -1104,
-        112
+        -1152,
+        240
       ],
-      "id": "114617f2-b26b-49a7-9c52-02a96062bb28",
+      "id": "36aa6e21-1f00-47a1-9188-69b59953dae4",
       "name": "Anthropic Chat Model1",
       "credentials": {
         "anthropicApi": {
@@ -191,10 +191,10 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3,
       "position": [
-        -1072,
-        -64
+        -1120,
+        64
       ],
-      "id": "442093bf-66f6-4e90-b345-5fac54f82034",
+      "id": "27ff831a-1d68-49d0-a8fb-606e0b9df9d1",
       "name": "Image & Video Prompt Generator"
     },
     {
@@ -225,36 +225,36 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -1296,
-        -48
+        -1344,
+        80
       ],
-      "id": "9af38195-bd50-49d4-897c-a94de1585654",
+      "id": "906fefed-80f2-44b5-8f97-ec845e107e14",
       "name": "Check Approval Status"
     },
     {
       "parameters": {
         "jsCode": "// Capture execution context and quote before waiting\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  try {\n    originalQuote = $('Format Custom Quote').item.json.output;\n  } catch (e2) {\n    originalQuote = 'No quote found';\n  }\n}\n\n// Get the execution context\nconst executionId = $execution.id;\n// Note: $execution.resumeUrl will have the full URL with UUID after Wait node starts\n// For now, just pass the execution ID\n\n// Log for debugging\nconsole.log('Execution ID:', executionId);\n\nreturn {\n  json: {\n    quote: originalQuote,\n    execution_id: executionId,\n    status: 'preparing_for_approval',\n    resumeUrl: $execution.resumeUrl\n  }\n};"
       },
-      "id": "ff960291-b553-413d-8e36-8cba78ef2d33",
+      "id": "fe0a9f35-2053-498d-8e8a-f36abafe69ff",
       "name": "Capture Resume URL",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1856,
-        -48
+        -1904,
+        80
       ]
     },
     {
       "parameters": {
         "jsCode": "// Process the approval response from the webhook\nconst webhookData = $input.item.json;\nconst action = webhookData.body.action;  // Access from body\n\n// Get the original quote from previous nodes\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  try {\n    originalQuote = $('Format Custom Quote').item.json.output;\n  } catch (e2) {\n    throw new Error('Could not find original quote');\n  }\n}\n\n// Determine the final quote based on action\nlet finalQuote = originalQuote;\nlet approved = false;\n\nif (action === 'approve') {\n  approved = true;\n  finalQuote = originalQuote;\n} else if (action === 'edit' && webhookData.body.approved_quote) {  // Also from body\n  approved = true;\n  finalQuote = webhookData.body.approved_quote;  // Also from body\n} else if (action === 'reject') {\n  approved = false;\n}\n\nreturn {\n  json: {\n    output: finalQuote,\n    approved: approved,\n    action: action,\n    original_quote: originalQuote\n  }\n};"
       },
-      "id": "e8cd6fd0-ed50-4f85-8d3b-b6711924efc0",
+      "id": "6e6cc474-a1ad-4118-94b3-5c37ce88c5ca",
       "name": "Handle Approval Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1504,
-        -48
+        -1552,
+        80
       ]
     },
     {
@@ -263,13 +263,13 @@
         "httpMethod": "POST",
         "options": {}
       },
-      "id": "c728c8cc-202e-4bb3-bb2e-132c509c9273",
+      "id": "9f351ca4-8091-4ed7-906b-e785c109d44e",
       "name": "Wait for Quote Approval",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -1680,
-        -48
+        -1728,
+        80
       ],
       "webhookId": "wait-quote-approval"
     },
@@ -284,23 +284,23 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3,
       "position": [
-        -2192,
-        16
+        -2240,
+        144
       ],
-      "id": "e6a36bda-e7ee-4986-897f-1b305c352b89",
+      "id": "64c175d1-a06a-4cea-a4be-9928a0640bfa",
       "name": "Quote writer"
     },
     {
       "parameters": {
         "jsCode": "// Format custom quote to match Quote writer output structure\nconst customQuote = $('Webhook Trigger').first().json.body.custom_quote;\n\nreturn {\n  json: {\n    output: customQuote\n  }\n};"
       },
-      "id": "6a0e74b1-8341-462d-9cfe-952eb86e92b6",
+      "id": "b5ad210d-a1ea-4e93-8fc1-e19798a0f644",
       "name": "Format Custom Quote",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2192,
-        -176
+        -2240,
+        -48
       ]
     },
     {
@@ -330,10 +330,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -2464,
-        -160
+        -2512,
+        -32
       ],
-      "id": "f80c25ef-c120-4e7f-9bee-2c44763c06b2",
+      "id": "e5af02bc-afc9-495a-8fa6-0fb2848e6fa6",
       "name": "Check for Custom Quote"
     },
     {
@@ -349,10 +349,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.3,
       "position": [
-        -2208,
-        176
+        -2256,
+        304
       ],
-      "id": "10c92ffe-2a9c-4108-b538-8fd94a12512b",
+      "id": "f7bfef79-aa39-4944-8d9e-71e1f3a454a9",
       "name": "Anthropic Chat Model",
       "credentials": {
         "anthropicApi": {
@@ -367,26 +367,26 @@
         "responseBody": "={{ { \"executionId\": $execution.id } }}",
         "options": {}
       },
-      "id": "c31b0c00-ccf9-40b0-b44e-6b2c36242ddf",
+      "id": "956964e1-6c15-4162-a2f1-4b4c3b5c6c2f",
       "name": "Respond with Execution ID",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        -3056,
-        -160
+        -3104,
+        -32
       ]
     },
     {
       "parameters": {
         "operation": "getSystemStats"
       },
-      "id": "8468ab2e-0190-4fbe-85f8-7a7a6095ee5e",
+      "id": "12896c57-9e52-4ed4-94ec-e577bfc5e2a7",
       "name": "ComfyUI: Get Stats Before",
       "type": "CUSTOM.comfyui",
       "typeVersion": 1,
       "position": [
-        -2880,
-        -160
+        -2928,
+        -32
       ],
       "credentials": {
         "comfyUIApi": {
@@ -402,13 +402,13 @@
         "timeout": 15,
         "autoFreeVram": true
       },
-      "id": "b033b642-2d13-408d-b10d-2efe09a8cc55",
+      "id": "202c1693-d2e2-49c2-a614-4f7dabeab629",
       "name": "ComfyUI: Generate Image",
       "type": "CUSTOM.comfyui",
       "typeVersion": 1,
       "position": [
-        -176,
-        704
+        -224,
+        832
       ],
       "credentials": {
         "comfyUIApi": {
@@ -424,13 +424,13 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "4a6fed3d-41ba-457c-83fc-039308a5b1e7",
+      "id": "dc76e763-fb35-4feb-8e17-782fd2f7944f",
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -3248,
-        -160
+        -3296,
+        -32
       ],
       "webhookId": "shorts-generate"
     },
@@ -454,11 +454,77 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -1760,
-        416
+        -1808,
+        544
       ],
       "name": "Call clear-vram",
-      "id": "8ed67d25-1e6c-4eb4-a291-9b40c77196de"
+      "id": "aad5b92b-5581-4fc6-8668-d6defd27057b"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "use-ovi-backend",
+              "leftValue": "={{ $('Webhook Trigger').item.json.body.video_backend }}",
+              "rightValue": "ovi",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1616,
+        544
+      ],
+      "id": "fe2a01a6-c9f8-4733-a034-de3a2ca367f9",
+      "name": "Check Video Backend"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Find the most recent wan22 video in generated-content\nconst fs = require('fs');\nconst path = require('path');\n\nconst contentDir = '/mnt/raven-nas/inspirational-shorts/generated-content';\n\n// Find the most recent wan22 video\nconst files = fs.readdirSync(contentDir)\n  .filter(f => f.startsWith('wan22_') && f.endsWith('.mp4'))\n  .map(f => ({\n    name: f,\n    time: fs.statSync(path.join(contentDir, f)).mtime.getTime()\n  }))\n  .sort((a, b) => b.time - a.time);\n\nconst newestVideo = files[0]?.name || null;\n\nif (!newestVideo) {\n  throw new Error('No wan22 video found in generated-content directory');\n}\n\nconst videoPath = path.join(contentDir, newestVideo);\n\nreturn {\n  json: {\n    filename: newestVideo,\n    video_path: videoPath\n  }\n};"
+      },
+      "id": "find-wan22-video",
+      "name": "Find Wan22 Video File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "workflow": "={\n  \"6\": {\n    \"inputs\": {\n      \"text\": \"{{ $('Parse Prompts').item.json.video_prompt }}\",\n      \"clip\": [\"38\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"7\": {\n    \"inputs\": {\n      \"text\": \"色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走\",\n      \"clip\": [\"38\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\"58\", 0],\n      \"vae\": [\"39\", 0]\n    },\n    \"class_type\": \"VAEDecode\"\n  },\n  \"38\": {\n    \"inputs\": {\n      \"clip_name\": \"umt5_xxl_fp8_e4m3fn_scaled.safetensors\",\n      \"type\": \"wan\",\n      \"device\": \"default\"\n    },\n    \"class_type\": \"CLIPLoader\"\n  },\n  \"39\": {\n    \"inputs\": {\n      \"vae_name\": \"wan_2.1_vae.safetensors\"\n    },\n    \"class_type\": \"VAELoader\"\n  },\n  \"50\": {\n    \"inputs\": {\n      \"positive\": [\"6\", 0],\n      \"negative\": [\"7\", 0],\n      \"vae\": [\"39\", 0],\n      \"start_image\": [\"52\", 0],\n      \"width\": 720,\n      \"height\": 1280,\n      \"length\": 49,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"WanImageToVideo\"\n  },\n  \"52\": {\n    \"inputs\": {\n      \"image\": \"/mnt/raven-nas/inspirational-shorts/generated-content/{{ $('ComfyUI: Generate Image').item.json.filename }}\"\n    },\n    \"class_type\": \"LoadImage\"\n  },\n  \"57\": {\n    \"inputs\": {\n      \"model\": [\"67\", 0],\n      \"positive\": [\"50\", 0],\n      \"negative\": [\"50\", 1],\n      \"latent_image\": [\"50\", 2],\n      \"add_noise\": \"enable\",\n      \"noise_seed\": {{ $now.toMillis() }},\n      \"steps\": 8,\n      \"cfg\": 1,\n      \"sampler_name\": \"uni_pc\",\n      \"scheduler\": \"simple\",\n      \"start_at_step\": 0,\n      \"end_at_step\": 4,\n      \"return_with_leftover_noise\": \"enable\"\n    },\n    \"class_type\": \"KSamplerAdvanced\"\n  },\n  \"58\": {\n    \"inputs\": {\n      \"model\": [\"68\", 0],\n      \"positive\": [\"50\", 0],\n      \"negative\": [\"50\", 1],\n      \"latent_image\": [\"57\", 0],\n      \"add_noise\": \"disable\",\n      \"noise_seed\": 0,\n      \"steps\": 8,\n      \"cfg\": 1,\n      \"sampler_name\": \"uni_pc\",\n      \"scheduler\": \"simple\",\n      \"start_at_step\": 4,\n      \"end_at_step\": 1000,\n      \"return_with_leftover_noise\": \"disable\"\n    },\n    \"class_type\": \"KSamplerAdvanced\"\n  },\n  \"61\": {\n    \"inputs\": {\n      \"unet_name\": \"Wan2.2-I2V-A14B-HighNoise-Q4_K_S.gguf\"\n    },\n    \"class_type\": \"UnetLoaderGGUF\"\n  },\n  \"62\": {\n    \"inputs\": {\n      \"unet_name\": \"Wan2.2-I2V-A14B-LowNoise-Q4_0.gguf\"\n    },\n    \"class_type\": \"UnetLoaderGGUF\"\n  },\n  \"64\": {\n    \"inputs\": {\n      \"model\": [\"61\", 0],\n      \"lora_name\": \"Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors\",\n      \"strength_model\": 1\n    },\n    \"class_type\": \"LoraLoaderModelOnly\"\n  },\n  \"66\": {\n    \"inputs\": {\n      \"model\": [\"62\", 0],\n      \"lora_name\": \"Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors\",\n      \"strength_model\": 1\n    },\n    \"class_type\": \"LoraLoaderModelOnly\"\n  },\n  \"67\": {\n    \"inputs\": {\n      \"model\": [\"64\", 0],\n      \"shift\": 8.0\n    },\n    \"class_type\": \"ModelSamplingSD3\"\n  },\n  \"68\": {\n    \"inputs\": {\n      \"model\": [\"66\", 0],\n      \"shift\": 8.0\n    },\n    \"class_type\": \"ModelSamplingSD3\"\n  },\n  \"82\": {\n    \"inputs\": {\n      \"images\": [\"83\", 0],\n      \"frame_rate\": 24,\n      \"loop_count\": 0,\n      \"filename_prefix\": \"wan22\",\n      \"format\": \"video/h264-mp4\",\n      \"pix_fmt\": \"yuv420p\",\n      \"crf\": 15,\n      \"save_metadata\": true,\n      \"pingpong\": false,\n      \"save_output\": true\n    },\n    \"class_type\": \"VHS_VideoCombine\"\n  },\n  \"83\": {\n    \"inputs\": {\n      \"frames\": [\"8\", 0],\n      \"ckpt_name\": \"rife47.pth\",\n      \"clear_cache_after_n_frames\": 10,\n      \"multiplier\": 2,\n      \"fast_mode\": true,\n      \"ensemble\": true,\n      \"scale_factor\": 1\n    },\n    \"class_type\": \"RIFE VFI\"\n  }\n}",
+        "autoFreeVram": true
+      },
+      "id": "ff6b87fb-f51a-4ba2-859e-bb16ed1d2be8",
+      "name": "ComfyUI: Generate Video (Wan 2.2)",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -1376,
+        656
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
     },
     {
       "parameters": {
@@ -480,11 +546,11 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -2672,
-        -160
+        -2720,
+        -32
       ],
       "name": "Call clear-vram1",
-      "id": "90d010c2-bead-49c4-a731-d0f45060d2a6"
+      "id": "3eb6777c-b2a9-4984-a795-8f0551bcc7d6"
     }
   ],
   "connections": {
@@ -733,7 +799,25 @@
       "main": [
         [
           {
+            "node": "Check Video Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Video Backend": {
+      "main": [
+        [
+          {
             "node": "Ovi: Generate Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ComfyUI: Generate Video (Wan 2.2)",
             "type": "main",
             "index": 0
           }
