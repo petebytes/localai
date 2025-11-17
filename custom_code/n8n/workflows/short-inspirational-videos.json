@@ -834,6 +834,17 @@
           }
         ]
       ]
+    },
+    "ComfyUI: Generate Video (Wan 2.2)": {
+      "main": [
+        [
+          {
+            "node": "Find Wan22 Video File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
