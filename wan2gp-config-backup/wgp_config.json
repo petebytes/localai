@@ -37,10 +37,10 @@
     "queue_color_scheme": "pastel",
     "embed_source_images": false,
     "video_container": "mp4",
-    "last_model_type": "i2v_2_2",
+    "last_model_type": "ti2v_2_2",
     "last_model_per_family": {
         "wan": "mocha",
-        "wan2_2": "i2v_2_2",
+        "wan2_2": "ti2v_2_2",
         "ltxv": "ltxv_13B",
         "hunyuan": "hunyuan"
     },
@@ -58,12 +58,13 @@
         "ltxv_13B": "ltxv_13B",
         "hunyuan_avatar": "hunyuan_avatar",
         "hunyuan": "hunyuan",
-        "i2v_2_2": "i2v_2_2"
+        "i2v_2_2": "i2v_2_2",
+        "ti2v_2_2": "ti2v_2_2"
     },
     "last_advanced_choice": true,
-    "last_resolution_choice": "720x1280",
+    "last_resolution_choice": "1280x720",
     "last_resolution_per_group": {
-        "720p": "720x1280",
+        "720p": "1280x720",
         "480p": "832x480",
         "1080p": "1088x1920"
     }

@@ -48,6 +48,32 @@ def download_file_from_api(filename: str, timeout: float = 30.0) -> str | None:
         return None
 
 
+def download_overlay_video(video_path: str | None) -> str | None:
+    """Download the overlay version of a video if it exists.
+
+    Args:
+        video_path: Path to the original video (or filename)
+
+    Returns:
+        Path to downloaded overlay video, or None if not found
+    """
+    if not video_path:
+        return None
+
+    from pathlib import Path
+    # Extract filename and create overlay filename
+    if "/" in video_path:
+        filename = video_path.split("/")[-1]
+    else:
+        filename = video_path
+
+    # Create overlay filename by replacing .mp4 with _overlay.mp4
+    overlay_filename = filename.replace(".mp4", "_overlay.mp4")
+
+    # Try to download the overlay video
+    return download_file_from_api(overlay_filename, timeout=60.0)
+
+
 async def trigger_generation(
     custom_quote: str | None = None, video_backend: str = "wan22"
 ) -> tuple[str, str]:
@@ -221,7 +247,7 @@ def load_previous_generation(
 def generate_and_poll(
     custom_quote: str | None = None,
     video_backend: str = "wan22",
-) -> Generator[tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None]:
+) -> Generator[tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None]:
     """Generate and poll for results with streaming updates.
 
     Args:
@@ -229,19 +255,20 @@ def generate_and_poll(
         video_backend: Video generation backend to use (wan22 or ovi)
 
     Yields:
-        Tuples of (status, quote, image_path, video_path, execution_id,
+        Tuples of (status, quote, image_path, video_path, video_overlay_path, execution_id,
             resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
     # Trigger generation
     execution_id, status_msg = asyncio.run(trigger_generation(custom_quote, video_backend))
 
     if not execution_id:
-        yield ("Error", status_msg, None, None, "", "", False, False, "")
+        yield ("Error", status_msg, None, None, None, "", "", False, False, "")
         return
 
     yield (
         f"Started (ID: {execution_id})",
         "Generating...",
+        None,
         None,
         None,
         execution_id,
@@ -281,6 +308,7 @@ def generate_and_poll(
                 current_quote,
                 current_image_path,
                 None,
+                None,
                 execution_id,
                 "",
                 False,
@@ -299,6 +327,7 @@ def generate_and_poll(
             yield (
                 "Waiting for approval",
                 current_quote,
+                None,
                 None,
                 None,
                 execution_id,
@@ -329,6 +358,7 @@ def generate_and_poll(
                 current_quote,
                 image_path,
                 None,
+                None,
                 execution_id,
                 resume_url,
                 False,  # Not waiting for quote approval
@@ -354,6 +384,9 @@ def generate_and_poll(
                 filename = video_url.split("/")[-1]
                 video_path = download_file_from_api(filename, timeout=60.0)
 
+            # Download overlay video
+            video_overlay_path = download_overlay_video(video_path)
+
             # Determine final status message
             if image_path and video_path:
                 status_msg = "Success! Image and video generated."
@@ -369,6 +402,7 @@ def generate_and_poll(
                 current_quote,
                 image_path,
                 video_path,
+                video_overlay_path,
                 execution_id,
                 "",
                 False,
@@ -386,6 +420,7 @@ def generate_and_poll(
             current_quote,
             current_image_path,
             None,
+            None,
             execution_id,
             "",
             False,
@@ -398,9 +433,10 @@ def generate_and_poll(
 
     yield (
         "Timeout",
-        "Generation took too long",
         current_quote,
         current_image_path,
+        None,
+        None,
         execution_id,
         "",
         False,
@@ -411,23 +447,24 @@ def generate_and_poll(
 
 def resume_polling(
     execution_id: str,
-) -> Generator[tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None]:
+) -> Generator[tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None]:
     """Resume polling for an existing execution.
 
     Args:
         execution_id: Execution ID to resume polling for
 
     Yields:
-        Tuples of (status, quote, image_path, video_path, execution_id,
+        Tuples of (status, quote, image_path, video_path, video_overlay_path, execution_id,
             resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
     if not execution_id or not execution_id.strip():
-        yield ("Error: Please enter a valid execution ID", "", None, None, "", "", False, False, "")
+        yield ("Error: Please enter a valid execution ID", "", None, None, None, "", "", False, False, "")
         return
 
     yield (
         f"Resuming polling for {execution_id}...",
         "",
+        None,
         None,
         None,
         execution_id,
@@ -468,6 +505,7 @@ def resume_polling(
                 current_quote,
                 current_image_path,
                 None,
+                None,
                 execution_id,
                 "",
                 False,
@@ -482,6 +520,7 @@ def resume_polling(
             yield (
                 "Waiting for approval",
                 current_quote,
+                None,
                 None,
                 None,
                 execution_id,
@@ -508,6 +547,7 @@ def resume_polling(
                 current_quote,
                 image_path,
                 None,
+                None,
                 execution_id,
                 resume_url,
                 False,
@@ -531,6 +571,9 @@ def resume_polling(
                 filename = video_url.split("/")[-1]
                 video_path = download_file_from_api(filename, timeout=60.0)
 
+            # Download overlay video
+            video_overlay_path = download_overlay_video(video_path)
+
             if image_path and video_path:
                 status_msg = "Success! Image and video generated."
             elif image_path:
@@ -545,6 +588,7 @@ def resume_polling(
                 current_quote,
                 image_path,
                 video_path,
+                video_overlay_path,
                 execution_id,
                 "",
                 False,
@@ -562,6 +606,7 @@ def resume_polling(
             current_quote,
             current_image_path,
             None,
+            None,
             execution_id,
             "",
             False,
@@ -576,6 +621,7 @@ def resume_polling(
         current_quote,
         current_image_path,
         None,
+        None,
         execution_id,
         "",
         False,
@@ -586,7 +632,7 @@ def resume_polling(
 
 def continue_after_approval(
     execution_id: str, resume_url: str, action: str, quote: str | None = None
-) -> Generator[tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None]:
+) -> Generator[tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None]:
     """Continue workflow after quote approval.
 
     Args:
@@ -596,7 +642,7 @@ def continue_after_approval(
         quote: Optional quote text
 
     Yields:
-        Tuples of (status, quote, image_path, video_path, execution_id,
+        Tuples of (status, quote, image_path, video_path, video_overlay_path, execution_id,
             resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
     quote_preview = quote[:50] if quote else "None"
@@ -625,6 +671,7 @@ def continue_after_approval(
             clean_quote,
             None,
             None,
+            None,
             execution_id,
             "",
             False,
@@ -639,6 +686,7 @@ def continue_after_approval(
             "Quote rejected by user",
             None,
             None,
+            None,
             execution_id,
             "",
             False,
@@ -650,6 +698,7 @@ def continue_after_approval(
     yield (
         f"{message}, continuing...",
         clean_quote,
+        None,
         None,
         None,
         execution_id,
@@ -694,6 +743,7 @@ def continue_after_approval(
                 current_quote,
                 current_image_path,
                 None,
+                None,
                 execution_id,
                 "",
                 False,
@@ -712,6 +762,7 @@ def continue_after_approval(
             yield (
                 "Quote regenerated! Please review.",
                 current_quote,
+                None,
                 None,
                 None,
                 execution_id,
@@ -738,6 +789,7 @@ def continue_after_approval(
                 current_quote,
                 image_path,
                 None,
+                None,
                 execution_id,
                 resume_url_value,
                 False,
@@ -762,6 +814,9 @@ def continue_after_approval(
                 filename = video_url.split("/")[-1]
                 video_path = download_file_from_api(filename, timeout=60.0)
 
+            # Download overlay video
+            video_overlay_path = download_overlay_video(video_path)
+
             # Determine final status message
             if image_path and video_path:
                 status_msg = "Success! Image and video generated."
@@ -777,6 +832,7 @@ def continue_after_approval(
                 current_quote,
                 image_path,
                 video_path,
+                video_overlay_path,
                 execution_id,
                 "",
                 False,
@@ -794,6 +850,7 @@ def continue_after_approval(
             current_quote,
             current_image_path,
             None,
+            None,
             execution_id,
             "",
             False,
@@ -805,9 +862,10 @@ def continue_after_approval(
 
     yield (
         "Timeout",
-        "Generation took too long",
         current_quote,
         current_image_path,
+        None,
+        None,
         execution_id,
         "",
         False,
@@ -823,7 +881,7 @@ def continue_after_image_approval(
     edited_image_prompt: str | None = None,
     quote: str | None = None,
     image_path: str | None = None,
-) -> Generator[tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None]:
+) -> Generator[tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None]:
     """Continue workflow after image approval.
 
     Args:
@@ -835,7 +893,7 @@ def continue_after_image_approval(
         image_path: Optional current image path to preserve
 
     Yields:
-        Tuples of (status, quote, image_path, video_path, execution_id,
+        Tuples of (status, quote, image_path, video_path, video_overlay_path, execution_id,
             resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
     quote_preview = quote[:50] if quote else "None"
@@ -864,6 +922,7 @@ def continue_after_image_approval(
             "",
             None,
             None,
+            None,
             execution_id,
             "",
             False,
@@ -876,6 +935,7 @@ def continue_after_image_approval(
         yield (
             "Workflow cancelled",
             "Image rejected by user",
+            None,
             None,
             None,
             execution_id,
@@ -892,6 +952,7 @@ def continue_after_image_approval(
         f"{message}, continuing...",
         clean_quote,
         image_path,  # Preserve the current image
+        None,
         None,
         execution_id,
         "",
@@ -938,6 +999,7 @@ def continue_after_image_approval(
                 current_quote,
                 current_image_path,
                 None,
+                None,
                 execution_id,
                 "",
                 False,
@@ -974,6 +1036,7 @@ def continue_after_image_approval(
                 current_quote,
                 new_image_path,
                 None,  # no video yet
+                None,  # no overlay video yet
                 execution_id,
                 resume_url,
                 False,  # not waiting for quote approval
@@ -998,6 +1061,9 @@ def continue_after_image_approval(
                 filename = video_url.split("/")[-1]
                 video_path = download_file_from_api(filename, timeout=60.0)
 
+            # Download overlay video
+            video_overlay_path = download_overlay_video(video_path)
+
             # Determine final status message
             if image_path and video_path:
                 status_msg = "Success! Image and video generated."
@@ -1013,6 +1079,7 @@ def continue_after_image_approval(
                 current_quote,
                 image_path,
                 video_path,
+                video_overlay_path,
                 execution_id,
                 "",
                 False,
@@ -1030,6 +1097,7 @@ def continue_after_image_approval(
             current_quote,
             current_image_path,
             None,
+            None,
             execution_id,
             "",
             False,
@@ -1041,9 +1109,10 @@ def continue_after_image_approval(
 
     yield (
         "Timeout",
-        "Generation took too long",
         current_quote,
         current_image_path,
+        None,
+        None,
         execution_id,
         "",
         False,
@@ -1165,12 +1234,20 @@ def create_ui() -> Any:
                                 show_download_button=True,
                             )
 
+                            video_overlay_output = gr.Video(
+                                label="Video with Text Overlay",
+                                interactive=False,
+                                height=600,
+                                show_download_button=True,
+                            )
+
                 # Helper function to show/hide approval groups and resume accordion based on status
                 def update_approval_visibility(
                     status: str,
                     quote: str,
                     image: str | None,
                     video: str | None,
+                    video_overlay: str | None,
                     exec_id: str,
                     resume_url: str,
                     waiting: bool,
@@ -1179,6 +1256,7 @@ def create_ui() -> Any:
                 ) -> tuple[
                     str,
                     gr.Textbox,
+                    str | None,
                     str | None,
                     str | None,
                     str,
@@ -1255,6 +1333,7 @@ def create_ui() -> Any:
                         gr.Textbox(value=quote, interactive=quote_interactive),
                         image,
                         video,
+                        video_overlay,
                         exec_id,
                         resume_url,
                         waiting,
@@ -1279,7 +1358,7 @@ def create_ui() -> Any:
                 def approve_handler(
                     exec_id: str, resume_url: str, quote: str
                 ) -> Generator[
-                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle approve button click."""
                     yield from continue_after_approval(exec_id, resume_url, "approve", quote)
@@ -1287,7 +1366,7 @@ def create_ui() -> Any:
                 def regenerate_handler(
                     exec_id: str, resume_url: str
                 ) -> Generator[
-                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle regenerate button click - triggers new quote generation."""
                     # Send regenerate action without quote - workflow loops back to Quote writer
@@ -1296,7 +1375,7 @@ def create_ui() -> Any:
                 def reject_handler(
                     exec_id: str, resume_url: str
                 ) -> Generator[
-                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle reject button click."""
                     yield from continue_after_approval(exec_id, resume_url, "reject")
@@ -1304,7 +1383,7 @@ def create_ui() -> Any:
                 def image_approve_handler(
                     exec_id: str, resume_url: str, quote: str, current_image: str | None
                 ) -> Generator[
-                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle image approve button click."""
                     yield from continue_after_image_approval(
@@ -1318,7 +1397,7 @@ def create_ui() -> Any:
                     quote: str,
                     current_image: str | None,
                 ) -> Generator[  # noqa: E501
-                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle image regenerate button click."""
                     yield from continue_after_image_approval(
@@ -1328,7 +1407,7 @@ def create_ui() -> Any:
                 def image_reject_handler(
                     exec_id: str, resume_url: str, quote: str, current_image: str | None
                 ) -> Generator[
-                    tuple[str, str, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
                 ]:
                     """Handle image reject button click."""
                     yield from continue_after_image_approval(
@@ -1372,6 +1451,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1385,6 +1465,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1396,6 +1477,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1430,6 +1512,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1443,6 +1526,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1454,6 +1538,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1488,6 +1573,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1501,6 +1587,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1512,6 +1599,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1545,6 +1633,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1558,6 +1647,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1569,6 +1659,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1602,6 +1693,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1615,6 +1707,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1626,6 +1719,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1660,6 +1754,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1673,6 +1768,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1684,6 +1780,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1723,6 +1820,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1736,6 +1834,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1747,6 +1846,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1780,6 +1880,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1793,6 +1894,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
@@ -1804,6 +1906,7 @@ def create_ui() -> Any:
                         quote_output,
                         image_output,
                         video_output,
+                        video_overlay_output,
                         execution_id_state,
                         resume_url_state,
                         waiting_for_approval_state,
