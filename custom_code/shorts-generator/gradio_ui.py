@@ -720,13 +720,13 @@ def continue_after_approval(
         data = asyncio.run(poll_status(execution_id))
         status = data.get("status", "unknown")
 
-        # Update quote from API if available (especially important if we started with empty quote)
-        if "quote" in data and data.get("quote"):
+        # Update quote from API ONLY if we started with empty quote (user didn't edit)
+        # This preserves user edits while still fetching the quote when needed
+        if not clean_quote and "quote" in data and data.get("quote"):
             api_quote = str(data.get("quote", ""))
             if api_quote and api_quote.lower() != "none":
                 current_quote = api_quote
-                if not clean_quote:  # If we started with empty, log that we found it
-                    print(f"✅ Retrieved quote from API: {current_quote[:50]}...", file=sys.stderr)
+                print(f"✅ Retrieved quote from API: {current_quote[:50]}...", file=sys.stderr)
 
         # Download and preserve image if available and not already downloaded
         if not current_image_path and data.get("image_url"):
@@ -975,14 +975,13 @@ def continue_after_image_approval(
 
         print(f"📊 Polling status: {status} (attempt {attempt})", file=sys.stderr)
 
-        # Update quote from API if available
-        # (especially important if we started with empty quote)
-        if "quote" in data and data.get("quote"):
+        # Update quote from API ONLY if we started with empty quote (user didn't edit)
+        # This preserves user edits while still fetching the quote when needed
+        if not clean_quote and "quote" in data and data.get("quote"):
             api_quote = str(data.get("quote", ""))
             if api_quote and api_quote.lower() != "none":
                 current_quote = api_quote
-                if not clean_quote:  # If we started with empty, log that we found it
-                    print(f"✅ Retrieved quote from API: {current_quote[:50]}...", file=sys.stderr)
+                print(f"✅ Retrieved quote from API: {current_quote[:50]}...", file=sys.stderr)
 
         # Download and preserve image if available and not already downloaded
         if not current_image_path and data.get("image_url"):
