@@ -22,8 +22,10 @@ from n8n_client import N8nClient, N8nError
 N8N_API_URL = os.getenv("N8N_API_URL", "http://n8n:5678")
 N8N_WEBHOOK_PATH = os.getenv("N8N_WEBHOOK_PATH", "/webhook/shorts-generate")
 N8N_API_KEY = os.getenv("N8N_API_KEY")
-COMFYUI_OUTPUT_PATH = Path(os.getenv("COMFYUI_OUTPUT_PATH", "/workspace/ComfyUI/output"))
-OVI_OUTPUT_PATH = Path(os.getenv("OVI_OUTPUT_PATH", "/output"))
+# Unified content path - both ComfyUI and Ovi save to the same location
+GENERATED_CONTENT_PATH = Path(
+    os.getenv("GENERATED_CONTENT_PATH", "/mnt/raven-nas/inspirational-shorts/generated-content")
+)
 
 app = FastAPI(title="Shorts Generator API")
 
@@ -114,23 +116,19 @@ async def download_file(filename: str) -> FileResponse:
     if not all(c.isalnum() or c in "._-" for c in filename):
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    # Try ComfyUI output path first (for images)
-    file_path = COMFYUI_OUTPUT_PATH / filename
-    media_type = "image/png"
-
-    # If not found, try Ovi output path (for videos)
-    if not file_path.exists() or not file_path.is_file():
-        file_path = OVI_OUTPUT_PATH / filename
-        media_type = "video/mp4"
+    # Look in unified generated-content path
+    file_path = GENERATED_CONTENT_PATH / filename
 
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
 
-    # Determine media type from extension if possible
+    # Determine media type from extension
     if filename.endswith(".mp4"):
         media_type = "video/mp4"
     elif filename.endswith((".png", ".jpg", ".jpeg")):
         media_type = "image/png"
+    else:
+        media_type = "application/octet-stream"
 
     return FileResponse(
         path=str(file_path),
@@ -157,19 +155,28 @@ async def list_generations(limit: int = 50) -> ListGenerationsResponse:
 
         # Collect all video files with their timestamps
         video_files: list[tuple[str, str, float]] = []  # (timestamp, filename, mtime)
-        if OVI_OUTPUT_PATH.exists():
-            for video_file in OVI_OUTPUT_PATH.glob("*.mp4"):
-                # Extract timestamp from filename (e.g., ovi_i2v_..._20251115_033415.mp4)
-                parts = video_file.stem.split("_")
-                if len(parts) >= 2:
-                    timestamp = f"{parts[-2]}_{parts[-1]}"
-                    mtime = video_file.stat().st_mtime
+        if GENERATED_CONTENT_PATH.exists():
+            # Collect both Ovi videos and Wan22 videos
+            for video_file in GENERATED_CONTENT_PATH.glob("*.mp4"):
+                mtime = video_file.stat().st_mtime
+
+                # Extract timestamp from filename
+                if video_file.name.startswith("ovi_"):
+                    # Ovi format: ovi_i2v_..._20251115_033415.mp4
+                    parts = video_file.stem.split("_")
+                    if len(parts) >= 2:
+                        timestamp = f"{parts[-2]}_{parts[-1]}"
+                        video_files.append((timestamp, video_file.name, mtime))
+                elif video_file.name.startswith("wan22_"):
+                    # Wan22 format: wan22_00012.mp4 - use modification time for timestamp
+                    dt = datetime.fromtimestamp(mtime)
+                    timestamp = dt.strftime("%Y%m%d_%H%M%S")
                     video_files.append((timestamp, video_file.name, mtime))
 
         # Collect all image files with their modification times
         image_files: list[tuple[str, float]] = []  # (filename, mtime)
-        if COMFYUI_OUTPUT_PATH.exists():
-            for image_file in COMFYUI_OUTPUT_PATH.glob("hidream_test_*.png"):
+        if GENERATED_CONTENT_PATH.exists():
+            for image_file in GENERATED_CONTENT_PATH.glob("hidream_test_*.png"):
                 mtime = image_file.stat().st_mtime
                 image_files.append((image_file.name, mtime))
 

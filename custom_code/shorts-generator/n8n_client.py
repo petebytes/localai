@@ -298,7 +298,12 @@ class N8nClient:
                         image_url = f"/download/{image_filename}"
 
         if status == ExecutionStatus.SUCCESS:
+            # Try both possible paths for runData (depends on n8n version/config)
             run_data = exec_data.get("data", {}).get("resultData", {}).get("runData", {})
+            if not run_data:
+                # Fallback: try the same path as waiting executions
+                run_data = exec_data.get("resultData", {}).get("runData", {})
+            print(f"DEBUG SUCCESS: Run data keys: {list(run_data.keys())}", file=sys.stderr)
 
             # Extract quote from "Quote writer" node
             # Use [-1] to get the MOST RECENT execution (in case of regeneration)
@@ -347,6 +352,45 @@ class N8nClient:
                         # Extract filename from path for download URL
                         video_filename = os.path.basename(video_path)
                         video_url = f"/download/{video_filename}"
+
+            # Also check ComfyUI Wan 2.2 video generation node
+            if not video_url:
+                # First try reading directly from ComfyUI node output
+                wan22_node = run_data.get("ComfyUI: Generate Video (Wan 2.2)", [])
+                if wan22_node and len(wan22_node) > 0:
+                    wan22_output = wan22_node[0].get("data", {}).get("main", [[]])[0]
+                    if wan22_output:
+                        wan22_data = wan22_output[0].get("json", {})
+                        # ComfyUI node returns filename, filePath, fileType, etc
+                        video_filename = wan22_data.get("filename")
+                        if not video_filename:
+                            # Try filePath as fallback
+                            file_path = wan22_data.get("filePath")
+                            if file_path:
+                                video_filename = os.path.basename(file_path)
+
+                        if video_filename:
+                            video_url = f"/download/{video_filename}"
+                            print(
+                                f"DEBUG: Found wan22 video from ComfyUI node: {video_url}",
+                                file=sys.stderr,
+                            )
+
+                # Fallback: Try the "Extract Wan22 Video Filename" node if direct read didn't work
+                if not video_url:
+                    wan22_find_node = run_data.get("Extract Wan22 Video Filename", [])
+                    if wan22_find_node and len(wan22_find_node) > 0:
+                        find_output = wan22_find_node[0].get("data", {}).get("main", [[]])[0]
+                        if find_output:
+                            find_data = find_output[0].get("json", {})
+                            video_filename = find_data.get("filename")
+                            video_path = find_data.get("video_path")
+                            if video_filename:
+                                video_url = f"/download/{video_filename}"
+                                print(
+                                    f"DEBUG: Found wan22 video from Extract node: {video_url}",
+                                    file=sys.stderr,
+                                )
 
         return GenerateResponse(
             execution_id=execution_id,

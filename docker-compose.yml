@@ -242,7 +242,7 @@ services:
       - ./ComfyUI/models:/workspace/ComfyUI/models
       - ./ComfyUI/custom_nodes:/workspace/ComfyUI/custom_nodes
       - ./custom_code/comfyui/workflows:/workspace/ComfyUI/user/default/workflows
-      - /mnt/raven-nas/inspirational-shorts/generated-images:/workspace/ComfyUI/output
+      - /mnt/raven-nas/inspirational-shorts/generated-content:/workspace/ComfyUI/output
       - /mnt/raven-nas:/mnt/raven-nas
       - hf-cache:/data/.huggingface
       - torch-cache:/data/.torch
@@ -273,8 +273,6 @@ services:
       - 7860  # Gradio UI
       - 8000  # FastAPI
     volumes:
-      - /mnt/raven-nas/inspirational-shorts/generated-images:/workspace/ComfyUI/output:ro
-      - /mnt/raven-nas/inspirational-shorts/generated-videos:/output:ro  # Ovi video outputs
       - /mnt/raven-nas:/mnt/raven-nas
       # Mount source code for development (no rebuild needed for code changes)
       - ./custom_code/shorts-generator:/app
@@ -284,8 +282,6 @@ services:
       - N8N_API_URL=http://n8n:5678
       - N8N_WEBHOOK_PATH=/webhook/shorts-generate
       - N8N_API_KEY=${N8N_API_KEY}
-      - COMFYUI_OUTPUT_PATH=/workspace/ComfyUI/output
-      - OVI_OUTPUT_PATH=/output
       - API_BASE_URL=http://localhost:8000
     depends_on:
       - n8n
@@ -626,8 +622,8 @@ services:
       - ./ovi:/workspace/ovi
       # Shared model storage with Ovi Gradio UI
       - ./ovi/ckpts:/workspace/ckpts
-      # Output directory for generated videos (workflow stage 4)
-      - /mnt/raven-nas/inspirational-shorts/generated-videos:/output
+      # Output directory for generated videos - unified with ComfyUI
+      - /mnt/raven-nas/inspirational-shorts/generated-content:/output
       # Shared NAS storage for cross-container file access
       - /mnt/raven-nas:/mnt/raven-nas
       # Shared cache volumes
