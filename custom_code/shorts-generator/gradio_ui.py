@@ -279,7 +279,7 @@ def generate_and_poll(
     )
 
     # Poll for completion
-    max_attempts = 300  # 5 minutes with 1s intervals (videos take longer)
+    max_attempts = 1800  # 30 minutes with 1s intervals (Ovi video takes ~25 min)
     attempt = 0
     # Track current quote and image - start with user's input if provided
     current_quote = custom_quote.strip() if custom_quote else ""
@@ -475,7 +475,7 @@ def resume_polling(
     )
 
     # Poll for completion (same logic as generate_and_poll but starting from resume)
-    max_attempts = 300
+    max_attempts = 1800  # 30 minutes with 1s intervals (Ovi video takes ~25 min)
     attempt = 0
     # Track current quote and image as we poll
     current_quote = ""
@@ -709,7 +709,7 @@ def continue_after_approval(
     )
 
     # Continue polling for completion
-    max_attempts = 300
+    max_attempts = 1800  # 30 minutes with 1s intervals (Ovi video takes ~25 min)
     attempt = 0
     # Preserve the quote and image throughout the polling process
     current_quote = clean_quote
@@ -962,7 +962,7 @@ def continue_after_image_approval(
     )
 
     # Continue polling for completion
-    max_attempts = 300
+    max_attempts = 1800  # 30 minutes with 1s intervals (Ovi video takes ~25 min)
     attempt = 0
     # Track the current quote and image to preserve them during polling
     current_quote = clean_quote
