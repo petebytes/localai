@@ -20,8 +20,9 @@
 # Build base images first: ./scripts/build-cuda-base.sh all-versions
 
 ARG CUDA_VERSION=12.8
-# Use official NVIDIA CUDA runtime with cuDNN
-FROM nvidia/cuda:${CUDA_VERSION}.0-cudnn-runtime-ubuntu22.04
+# Use official NVIDIA CUDA runtime with cuDNN 9
+# Changed from cudnn-runtime to cudnn9-runtime to match PyTorch 2.8.0 cuDNN 9.8.0 requirement
+FROM nvidia/cuda:${CUDA_VERSION}.0-cudnn9-runtime-ubuntu22.04
 
 LABEL maintainer="Local AI Packaged"
 LABEL description="WhisperX transcription service - flexible CUDA testing"
@@ -45,12 +46,10 @@ ENV HF_HOME=/data/.huggingface
 ENV TRANSFORMERS_CACHE=/data/.huggingface/transformers
 ENV TORCH_HOME=/data/.torch
 
-# Install WhisperX from git with cache mount - pinned to v3.7.2 (last working version)
-# v3.7.2 (Oct 12, 2024) is compatible with transformers 4.57.1 and PyTorch 2.7.1
-# Later versions have breaking changes with Pipeline imports
+# Install WhisperX from PyPI with cache mount
 # Use shared cache ID to share pip cache with Kokoro and other services
 RUN --mount=type=cache,id=pip-cache-shared,target=/root/.cache/pip,sharing=shared \
-    pip3 install "git+https://github.com/m-bain/whisperx.git@v3.7.2"
+    pip3 install whisperx
 
 # Install FastAPI and related web server dependencies with cache mount
 RUN --mount=type=cache,id=pip-cache-shared,target=/root/.cache/pip,sharing=shared \

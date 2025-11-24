@@ -128,7 +128,7 @@
     },
     {
       "parameters": {
-        "fileName": "=/nas/PeggysExtraStorage/videos-to-process/processed/{{ $json.filename }}.txt",
+        "fileName": "=/mnt/raven-nas/videos-to-process/processed/{{ $json.filename }}.txt",
         "options": {}
       },
       "type": "n8n-nodes-base.writeBinaryFile",
@@ -142,7 +142,7 @@
     },
     {
       "parameters": {
-        "fileName": "=/nas/PeggysExtraStorage/videos-to-process/processed/{{ $json.filename }}.srt",
+        "fileName": "=/mnt/raven-nas/videos-to-process/processed/{{ $json.filename }}.srt",
         "options": {}
       },
       "type": "n8n-nodes-base.writeBinaryFile",
@@ -156,7 +156,7 @@
     },
     {
       "parameters": {
-        "fileName": "=/nas/PeggysExtraStorage/videos-to-process/processed/{{ $json.filename }}.json",
+        "fileName": "=/mnt/raven-nas/videos-to-process/processed/{{ $json.filename }}.json",
         "options": {}
       },
       "type": "n8n-nodes-base.writeBinaryFile",

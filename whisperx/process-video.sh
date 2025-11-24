@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: ./process-video.sh <video_file_path>
 
 readonly WHISPER_URL="https://whisper.lan/transcribe-large"
-readonly OUTPUT_DIR="/mnt/nas/PeggysExtraStorage/videos-to-process/processed"
+readonly OUTPUT_DIR="/mnt/raven-nas/videos-to-process/processed"
 
 # Helper function to format time as HH:MM:SS,mmm for SRT
 format_srt_time() {
@@ -23,7 +23,7 @@ format_srt_time() {
 # Validate input
 if [[ $# -ne 1 ]]; then
     echo "Usage: $0 <video_file_path>" >&2
-    echo "Example: $0 /mnt/nas/PeggysExtraStorage/videos-to-process/myvideo.mp4" >&2
+    echo "Example: $0 /mnt/raven-nas/videos-to-process/myvideo.mp4" >&2
     exit 1
 fi
 
