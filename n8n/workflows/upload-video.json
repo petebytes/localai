@@ -1,0 +1,102 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload-video",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        -224
+      ],
+      "id": "9f8a59fc-f21b-4808-8516-b4866a9b8831",
+      "name": "Upload Video Webhook",
+      "webhookId": "upload-video-webhook-id"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract uploaded file data from webhook\nconst item = $input.first();\n\n// Check if we have binary data OR body data (for form uploads)\nlet binaryData = item.binary;\nlet bodyData = item.json.body;\n\n// For large files, n8n might store data differently\n// First, try to get binary data keys\nconst binaryKeys = Object.keys(binaryData || {});\n\n// If no binary data, check if the webhook received form data in body\nif (binaryKeys.length === 0) {\n  // Check if body contains file reference\n  if (bodyData && bodyData.file) {\n    console.log('File data found in body.file');\n    // This shouldn't happen with proper webhook config, but handle it\n    throw new Error('File upload configuration issue - binary data not accessible');\n  }\n  throw new Error('No file uploaded - no binary data found');\n}\n\n// Use the first binary key (should be 'file' or 'data')\nconst fileKey = binaryKeys[0];\nconst fileData = binaryData[fileKey];\n\nif (!fileData) {\n  throw new Error(`No file data found for key: ${fileKey}`);\n}\n\n// Get original filename\nconst fileName = fileData.fileName || 'uploaded-video.mp4';\n\n// Sanitize filename to prevent directory traversal\nconst sanitizedFileName = fileName.replace(/[\\/\\\\]/g, '_').replace(/[^a-zA-Z0-9._-]/g, '_');\nconst timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);\nconst finalFileName = `${timestamp}_${sanitizedFileName}`;\n\n// Log file info for debugging\nconsole.log(`Processing upload: ${fileName} -> ${finalFileName}`);\nconsole.log(`File size: ${fileData.fileSize || 'unknown'} bytes`);\nconsole.log(`MIME type: ${fileData.mimeType || 'unknown'}`);\n\nreturn [{\n  json: {\n    fileName: finalFileName,\n    originalName: fileName,\n    uploadTime: new Date().toISOString(),\n    binaryKey: fileKey,\n    fileSize: fileData.fileSize || 0,\n    mimeType: fileData.mimeType || 'video/mp4'\n  },\n  binary: {\n    data: fileData\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        -224
+      ],
+      "id": "e2f6ddc1-e6b7-4755-b0cc-3356723f4f69",
+      "name": "Process Upload"
+    },
+    {
+      "parameters": {
+        "fileName": "=/mnt/raven-nas/videos-to-process/{{ $json.fileName }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -224
+      ],
+      "id": "83930916-328e-4a34-bf72-cf7e57808d9f",
+      "name": "Save to NAS"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"File uploaded successfully\", \"fileName\": $json.fileName, \"originalName\": $json.originalName, \"uploadTime\": $json.uploadTime, \"fileSize\": $json.fileSize } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        -224
+      ],
+      "id": "cb760d2d-56d6-4890-b20a-917985f4883c",
+      "name": "Respond Success"
+    }
+  ],
+  "connections": {
+    "Upload Video Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Upload": {
+      "main": [
+        [
+          {
+            "node": "Save to NAS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to NAS": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "99ff97a0c56026a2c1b3a849547491eb857e68a0b770f2b7c6688eea83f57eda"
+  }
+}

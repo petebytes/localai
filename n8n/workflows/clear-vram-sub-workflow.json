@@ -1,0 +1,213 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "is-complete",
+              "leftValue": "={{ $json.is_vram_ready }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        416
+      ],
+      "id": "21cf41bb-2917-4844-b2ad-f42eb3e55d1e",
+      "name": "Is Complete?"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "id": "d31dc454-48e1-485a-a764-36906ab7f8fc",
+      "name": "Wait Before Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1744,
+        416
+      ],
+      "webhookId": "wait-vram-retry"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse VRAM info from ComfyUI stats\nconst stats = $input.item.json;\nconst attempt = $('Initialize Retry Counter').item.json.vram_check_attempt;\nconst maxAttempts = $('Initialize Retry Counter').item.json.max_attempts;\n\n// Get free VRAM from ComfyUI stats\nlet freeVramGB = 0;\n\n// ComfyUI provides vram_free directly in devices array\nif (stats.devices && stats.devices[0] && stats.devices[0].vram_free) {\n  freeVramGB = stats.devices[0].vram_free / (1024 * 1024 * 1024);\n} else if (stats.system && stats.system.vram_free) {\n  freeVramGB = stats.system.vram_free / (1024 * 1024 * 1024);\n}\n\n// We need at least 25GB free for Ovi (it uses ~28GB but with CPU offload)\nconst requiredVramGB = 25;\nconst isReady = freeVramGB >= requiredVramGB;\nconst maxAttemptsReached = attempt >= maxAttempts;\n\n// Log for debugging\nconsole.log(`VRAM Check - Attempt ${attempt}/${maxAttempts}: Free=${freeVramGB.toFixed(2)}GB, Required=${requiredVramGB}GB, Ready=${isReady}`);\n\n// Throw error if max attempts reached and still not ready\nif (maxAttemptsReached && !isReady) {\n  throw new Error(`VRAM timeout after ${attempt} attempts. Free: ${freeVramGB.toFixed(2)}GB, Required: ${requiredVramGB}GB. ComfyUI may still be holding memory.`);\n}\n\nreturn {\n  json: {\n    ...($('Initialize Retry Counter').item.json),\n    vram_free_gb: parseFloat(freeVramGB.toFixed(2)),\n    vram_required_gb: requiredVramGB,\n    is_vram_ready: isReady,\n    should_retry: !isReady && !maxAttemptsReached,\n    should_proceed: isReady,\n    debug_stats: {\n      attempt: attempt,\n      max_attempts: maxAttempts,\n      devices_found: stats.devices ? stats.devices.length : 0,\n      vram_free_bytes: stats.devices?.[0]?.vram_free || 0\n    }\n  }\n};\n"
+      },
+      "id": "be819ab7-378d-45fe-adbd-5af916dc7cef",
+      "name": "Check if VRAM is Ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1072,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getSystemStats"
+      },
+      "id": "3dd98043-9be4-4ce2-893c-0f8ca6094958",
+      "name": "ComfyUI: Check VRAM Status",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -1296,
+        416
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Initialize retry counter on first run\nif (!$input.item.json.vram_check_attempt) {\n  return {\n    json: {\n      ...($input.item.json),\n      vram_check_attempt: 1,\n      max_attempts: 10,\n      vram_check_start: Date.now()\n    }\n  };\n}\n\n// Otherwise increment counter\nreturn {\n  json: {\n    ...($input.item.json),\n    vram_check_attempt: $input.item.json.vram_check_attempt + 1\n  }\n};"
+      },
+      "id": "759963a9-92b5-467f-b5bd-ebf6300a45ee",
+      "name": "Initialize Retry Counter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1552,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "freeVram"
+      },
+      "id": "c54ce01c-f8a7-4644-8bbc-7f762d69cf0c",
+      "name": "ComfyUI: Free VRAM Before Video",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -1968,
+        416
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "78c7164b-321d-4a48-a162-626d539e3759",
+      "typeVersion": 1.1,
+      "name": "Start",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        -2176,
+        416
+      ]
+    }
+  ],
+  "connections": {
+    "Is Complete?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait Before Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Retry": {
+      "main": [
+        [
+          {
+            "node": "Initialize Retry Counter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if VRAM is Ready": {
+      "main": [
+        [
+          {
+            "node": "Is Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Check VRAM Status": {
+      "main": [
+        [
+          {
+            "node": "Check if VRAM is Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Retry Counter": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Check VRAM Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Free VRAM Before Video": {
+      "main": [
+        [
+          {
+            "node": "Wait Before Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Free VRAM Before Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "99ff97a0c56026a2c1b3a849547491eb857e68a0b770f2b7c6688eea83f57eda"
+  }
+}

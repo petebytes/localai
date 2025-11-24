@@ -1,0 +1,1010 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ovi-api:8300/api/generate-video",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text_prompt",
+              "value": "={{ $('Parse Prompts').item.json.video_prompt }}"
+            },
+            {
+              "name": "image_path",
+              "value": "={{ '/mnt/raven-nas/inspirational-shorts/generated-content/' + $('ComfyUI: Generate Image').item.json.filename }}"
+            },
+            {
+              "name": "mode",
+              "value": "i2v"
+            },
+            {
+              "name": "preset",
+              "value": "youtube-shorts-optimized"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "adcd831e-5ba7-4f07-87e1-8ad779cb81ca",
+      "name": "Ovi: Generate Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1632,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract video path from Ovi response\nconst oviResponse = $input.item.json;\nconst videoPath = oviResponse.video_path || oviResponse.output_path;\nconst filename = videoPath.split('/').pop();\n\nif (!videoPath) {\n  throw new Error('No video path found in Ovi response');\n}\n\nconsole.log(`Ovi video path: ${videoPath}`);\n\nreturn {\n  json: {\n    filename: filename,\n    video_path: videoPath\n  }\n};"
+      },
+      "id": "f82c4868-63a4-4ab8-a06a-e16942a25f0d",
+      "name": "Extract Ovi Video Path",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Capture execution context and image info before waiting\nconst imageData = $('ComfyUI: Generate Image').item.json;\nconst imagePrompt = $('Parse Prompts').item.json.image_prompt;\nconst executionId = $execution.id;\n\n// Log for debugging\nconsole.log('Image Approval - Execution ID:', executionId);\nconsole.log('Image filename:', imageData.filename);\n\nreturn {\n  json: {\n    image_filename: imageData.filename,\n    image_prompt: imagePrompt,\n    execution_id: executionId,\n    status: 'preparing_for_image_approval',\n    resumeUrl: $execution.resumeUrl\n  }\n};"
+      },
+      "id": "a8476d18-96cf-46ad-b1d2-dad89b3545d6",
+      "name": "Capture Image Resume URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3552,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "c3750781-65b6-4ca7-ac51-708e404cac40",
+      "name": "Wait for Image Approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -3312,
+        256
+      ],
+      "webhookId": "wait-image-approval"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process the image approval response from the webhook\nconst webhookData = $input.item.json;\nconst action = webhookData.body.action;\n\n// Get the original image prompt\nconst originalPrompt = $('Parse Prompts').item.json.image_prompt;\n\n// Determine the final prompt and approval status\nlet finalPrompt = originalPrompt;\nlet approved = false;\nlet needsRegeneration = false;\n\nif (action === 'approve') {\n  approved = true;\n  finalPrompt = originalPrompt;\n} else if (action === 'edit' && webhookData.body.edited_image_prompt) {\n  approved = true;\n  needsRegeneration = true;\n  finalPrompt = webhookData.body.edited_image_prompt;\n} else if (action === 'reject') {\n  approved = false;\n}\n\nreturn {\n  json: {\n    image_prompt: finalPrompt,\n    approved: approved,\n    needs_regeneration: needsRegeneration,\n    action: action,\n    original_image_prompt: originalPrompt\n  }\n};"
+      },
+      "id": "7768e48b-95dc-43ac-8d26-e102b0704d47",
+      "name": "Handle Image Approval Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3056,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "is-image-approved",
+              "leftValue": "={{ $json.approved }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "no-regeneration-needed",
+              "leftValue": "={{ $json.needs_regeneration }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -2832,
+        256
+      ],
+      "id": "f2bfb48c-fffe-44cd-9b2e-54abc680a0c6",
+      "name": "Check Image Approval Status"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://vibevoice-api:8100/api/models/VibeVoice-Large/unload",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "88ccd1b9-436b-44d1-a540-4a5c46e17ce8",
+      "name": "VoiceAPI: Unload Model",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2512,
+        64
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the JSON output from the AI agent\nconst output = $input.item.json.output;\nlet prompts;\n\ntry {\n  // Try to parse as JSON\n  prompts = JSON.parse(output);\n} catch (e) {\n  // If not valid JSON, try to extract JSON from the text\n  const jsonMatch = output.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    prompts = JSON.parse(jsonMatch[0]);\n  } else {\n    throw new Error('Could not parse JSON from AI output');\n  }\n}\n\n// Get the approved quote from the approval handler\n// This will be the user-edited version if they edited it, or the original if they approved as-is\nlet approvedQuote;\ntry {\n  approvedQuote = $('Handle Approval Response').item.json.output;\n} catch (e) {\n  // Fallback: if approval handler isn't available, use original quote\n  try {\n    approvedQuote = $('Quote writer').item.json.output;\n  } catch (e2) {\n    approvedQuote = $('Format Custom Quote').item.json.output;\n  }\n}\n\nreturn {\n  json: {\n    image_prompt: prompts.image_prompt,\n    video_prompt: prompts.video_prompt,\n    original_quote: approvedQuote,\n    approved_quote: approvedQuote\n  }\n};"
+      },
+      "id": "03e20aa0-4f3a-42ad-bc2a-f2358570bf07",
+      "name": "Parse Prompts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -736,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -1408,
+        -240
+      ],
+      "id": "d1bb3dab-c575-4eb3-b99a-26230a09e91e",
+      "name": "Anthropic Chat Model1",
+      "credentials": {
+        "anthropicApi": {
+          "id": "9ITdZP15p3HH1JkB",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Generate image and video prompts for this quote: {{ $json.output }}",
+        "options": {
+          "systemMessage": "=You are an artistic director tasked with creating both visual and animated content for reflective, emotionally grounded inspirational quotes.\n\nWhen provided with a quote, you must generate TWO prompts in JSON format:\n\n1. **image_prompt**: A detailed description of a photorealistic 9:16 portrait image that represents or supports the quote. Focus on composition, lighting, mood, subject, and environment.\n\n2. **video_prompt**: A description of how the image should be animated into a 10-second video.\nThe prompt should follow this format [Prevent camera movement] + [Setting or Object] + [Mood or Atmosphere] + [Lighting Style] + [Subtle Movement of Object]\nExamples:\n\"lock-off shot of a cozy cabin living room, calm and warm, soft firelight glow, gentle flickering flames in the fireplace.\"\n\"Static shot of a rainy city street viewed from a New York apartment balcony at night, soft ambient glow, steam rising from a cup of tea on the table.\"\n\n\n** IMPORTANT ** Respond ONLY with valid JSON in this exact format:\n{\n  \"image_prompt\": \"detailed image description here\",\n  \"video_prompt\": \"detailed animation description here.\"\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -1376,
+        -416
+      ],
+      "id": "aa3b2d08-8ac7-4fc9-a205-0801cbd7f637",
+      "name": "Image & Video Prompt Generator"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "is-approved",
+              "leftValue": "={{ $json.approved }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        -400
+      ],
+      "id": "c85140a3-b129-45c6-a05c-e57fc240cd74",
+      "name": "Check Approval Status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Capture execution context and quote before waiting\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  try {\n    originalQuote = $('Format Custom Quote').item.json.output;\n  } catch (e2) {\n    originalQuote = 'No quote found';\n  }\n}\n\n// Get the execution context\nconst executionId = $execution.id;\n// Note: $execution.resumeUrl will have the full URL with UUID after Wait node starts\n// For now, just pass the execution ID\n\n// Log for debugging\nconsole.log('Execution ID:', executionId);\n\nreturn {\n  json: {\n    quote: originalQuote,\n    execution_id: executionId,\n    status: 'preparing_for_approval',\n    resumeUrl: $execution.resumeUrl\n  }\n};"
+      },
+      "id": "800b0e48-080e-4118-9166-bc7d845427ed",
+      "name": "Capture Resume URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2176,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process the approval response from the webhook\nconst webhookData = $input.item.json;\nconst action = webhookData.body.action;  // Access from body\n\n// Get the original quote from previous nodes\nlet originalQuote;\ntry {\n  originalQuote = $('Quote writer').item.json.output;\n} catch (e) {\n  try {\n    originalQuote = $('Format Custom Quote').item.json.output;\n  } catch (e2) {\n    throw new Error('Could not find original quote');\n  }\n}\n\n// Determine the final quote based on action\nlet finalQuote = originalQuote;\nlet approved = false;\n\nif (action === 'approve') {\n  approved = true;\n  // User may have edited the quote in the UI before clicking approve\n  // Use the quote from the webhook if provided, otherwise use original\n  finalQuote = webhookData.body.approved_quote || originalQuote;  // Changed from 'quote' to 'approved_quote'\n} else if (action === 'regenerate') {\n  approved = false;\n  // Will loop back to generate a new quote\n} else if (action === 'reject') {\n  approved = false;\n}\n\nreturn {\n  json: {\n    output: finalQuote,\n    approved: approved,\n    action: action,\n    original_quote: originalQuote\n  }\n};"
+      },
+      "id": "413383cb-dece-429d-90da-f32ad210cb67",
+      "name": "Handle Approval Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1824,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "341d1d63-40dc-42ab-9d94-632ed3033739",
+      "name": "Wait for Quote Approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2000,
+        -400
+      ],
+      "webhookId": "wait-quote-approval"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Generate a quote",
+        "options": {
+          "systemMessage": "You are a compassionate trauma-informed writer inspired by Peggy Oliveira, MSW — focusing on healing, self-trust, boundaries, emotional regulation, and recovery from shame. You generate original, reflective, and emotionally grounded inspirational quotes.\n\nTone: Gentle, validating, and empowering. Avoid toxic positivity. Each quote should sound like it could comfort someone healing from trauma or self-doubt.\n\nStyle guidelines:\nWrite in plain, accessible language.\nKeep each quote 1 sentence long no longer than 60 characters.\nAvoid \"you should\" or \"just do it\" advice.\nDo NOT use em dash or —\nUse metaphors of growth, safety, and light when natural.\nInclude variety: self-compassion, boundaries, grief, rest, resilience, embodiment, inner child work.\nEach quote should stand alone and feel sincere, not generic.\n\n** IMPORTANT ** generate only one short sentence\n** IMPORTANT **  Do NOT use em dash or — in the sentence\n** IMPORTANT ** sentence 60 characters max"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -2512,
+        -336
+      ],
+      "id": "bbcedfc2-00c3-4a5c-958b-91d4794bf58f",
+      "name": "Quote writer"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format custom quote to match Quote writer output structure\nconst customQuote = $('Webhook Trigger').first().json.body.custom_quote;\n\nreturn {\n  json: {\n    output: customQuote\n  }\n};"
+      },
+      "id": "1b6cd2ec-9820-4b34-8b95-54706eb86902",
+      "name": "Format Custom Quote",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2512,
+        -528
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-custom-quote",
+              "leftValue": "={{ $('Webhook Trigger').item.json.body.custom_quote }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -2784,
+        -512
+      ],
+      "id": "ea28a3f0-1751-432c-9088-3387b2e604f6",
+      "name": "Check for Custom Quote"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -2528,
+        -176
+      ],
+      "id": "091c06da-53b8-4a07-80eb-3904a8a6543d",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "9ITdZP15p3HH1JkB",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"executionId\": $execution.id } }}",
+        "options": {}
+      },
+      "id": "aeaa38db-9e8d-4d81-891d-7a0d19609a7f",
+      "name": "Respond with Execution ID",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -3376,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getSystemStats"
+      },
+      "id": "078315eb-ad94-4171-bde5-a3a1554a0901",
+      "name": "ComfyUI: Get Stats Before",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -3200,
+        -512
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflow": "={\n  \"3\": {\n    \"inputs\": {\n      \"seed\": {{ $now.toMillis() }},\n      \"steps\": 20,\n      \"cfg\": 5,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1,\n      \"model\": [\"70\", 0],\n      \"positive\": [\"16\", 0],\n      \"negative\": [\"40\", 0],\n      \"latent_image\": [\"53\", 0]\n    },\n    \"class_type\": \"KSampler\"\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\"3\", 0],\n      \"vae\": [\"55\", 0]\n    },\n    \"class_type\": \"VAEDecode\"\n  },\n  \"9\": {\n    \"inputs\": {\n      \"filename_prefix\": \"hidream_test\",\n      \"images\": [\"8\", 0]\n    },\n    \"class_type\": \"SaveImage\"\n  },\n  \"16\": {\n    \"inputs\": {\n      \"text\": \"{{ $json.image_prompt }}\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"40\": {\n    \"inputs\": {\n      \"text\": \"blurry, low quality, distorted, bad ugly jpeg artifacts\",\n      \"clip\": [\"54\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"53\": {\n    \"inputs\": {\n      \"width\": 720,\n      \"height\": 1280,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptySD3LatentImage\"\n  },\n  \"54\": {\n    \"inputs\": {\n      \"clip_name1\": \"clip_l_hidream.safetensors\",\n      \"clip_name2\": \"clip_g_hidream.safetensors\",\n      \"clip_name3\": \"t5xxl_fp8_e4m3fn_scaled.safetensors\",\n      \"clip_name4\": \"llama_3.1_8b_instruct_fp8_scaled.safetensors\"\n    },\n    \"class_type\": \"QuadrupleCLIPLoader\"\n  },\n  \"55\": {\n    \"inputs\": {\n      \"vae_name\": \"ae.safetensors\"\n    },\n    \"class_type\": \"VAELoader\"\n  },\n  \"70\": {\n    \"inputs\": {\n      \"shift\": 3.0,\n      \"model\": [\"76\", 0]\n    },\n    \"class_type\": \"ModelSamplingSD3\"\n  },\n  \"76\": {\n    \"inputs\": {\n      \"unet_name\": \"hidream_i1_full_fp8.safetensors\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\"\n  }\n}",
+        "jpegQuality": 90,
+        "timeout": 15,
+        "autoFreeVram": true
+      },
+      "id": "3ab6cafb-b2ad-49de-b6e3-bcaf58e178dd",
+      "name": "ComfyUI: Generate Image",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        352
+      ],
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "shorts-generate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "02b01a2b-f838-45f4-80de-69738ae26685",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -3568,
+        -512
+      ],
+      "webhookId": "shorts-generate"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "iJ6W1AV7yB03UJQj",
+          "mode": "list"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -2080,
+        64
+      ],
+      "name": "Call clear-vram",
+      "id": "798833b8-9c99-42d8-a6a5-cc833ff6d5e2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "use-ovi-backend",
+              "leftValue": "={{ $('Webhook Trigger').item.json.body.video_backend }}",
+              "rightValue": "ovi",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1888,
+        64
+      ],
+      "id": "9af1d71f-f297-43d2-acfc-2e149983aea5",
+      "name": "Check Video Backend"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract video filename from ComfyUI outputs\n// The updated ComfyUI node now returns both images and videos\nconst items = $input.all();\n\n// Find the first video output (fileType: 'video')\nconst videoItem = items.find(item => item.json.fileType === 'video');\n\nif (!videoItem) {\n  throw new Error('No video output found from ComfyUI workflow');\n}\n\nconst filename = videoItem.json.filename;\nconst videoPath = `/mnt/raven-nas/inspirational-shorts/generated-content/${filename}`;\n\nconsole.log(`Found video: ${filename}`);\n\nreturn {\n  json: {\n    filename: filename,\n    video_path: videoPath,\n    subfolder: videoItem.json.subfolder || '',\n    format: videoItem.json.format || 'video/mp4'\n  }\n};"
+      },
+      "id": "cb4aa972-bcbd-4683-83d1-eb8216618d5d",
+      "name": "Extract Wan22 Video Filename",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare data for FFmpeg overlay with text wrapping\n// Use the approved quote (which includes user edits) instead of the original\nconst quote = $('Parse Prompts').item.json.approved_quote || $('Parse Prompts').item.json.original_quote;\nconst videoPath = $input.item.json.video_path;\nconst inputFilename = $input.item.json.filename;\n\n// Wrap text to fit within video width (720px - 200px padding = 520px max width)\n// At 55px font size with more padding, approximately 20 characters per line is safe\nconst maxCharsPerLine = 20;\nfunction wrapText(text, maxChars) {\n  const words = text.split(' ');\n  const lines = [];\n  let currentLine = '';\n  \n  for (const word of words) {\n    const testLine = currentLine ? `${currentLine} ${word}` : word;\n    if (testLine.length <= maxChars) {\n      currentLine = testLine;\n    } else {\n      if (currentLine) lines.push(currentLine);\n      currentLine = word;\n    }\n  }\n  if (currentLine) lines.push(currentLine);\n  \n  return lines.join('\\\\n');\n}\n\nconst wrappedQuote = wrapText(quote, maxCharsPerLine);\n\n// Generate paths\nconst timestamp = Date.now();\nconst textFilePath = `/tmp/quote_${timestamp}.txt`;\nconst outputFilename = inputFilename.replace(/\\.mp4$/, '_overlay.mp4');\nconst outputPath = `/mnt/raven-nas/inspirational-shorts/generated-content/${outputFilename}`;\n\nconsole.log('Input video:', videoPath);\nconsole.log('Quote (approved/edited):', quote);\nconsole.log('Wrapped quote:', wrappedQuote);\nconsole.log('Text file:', textFilePath);\nconsole.log('Output:', outputPath);\n\nreturn {\n  json: {\n    quote: quote,\n    wrapped_quote: wrappedQuote,\n    text_file: textFilePath,\n    input_video: videoPath,\n    output_video: outputPath,\n    output_filename: outputFilename\n  }\n};"
+      },
+      "id": "e975447d-ca4c-4db4-8191-b566d6bb1cee",
+      "name": "Prepare FFmpeg Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=printf \"{{ $json.wrapped_quote }}\" > \"{{ $json.text_file }}\""
+      },
+      "id": "d4d91a94-85ca-4eb7-b110-a97257ab864d",
+      "name": "Create Text File",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -944,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through data from Prepare FFmpeg Data node\nconst prepareData = $('Prepare FFmpeg Data').item.json;\n\nreturn {\n  json: {\n    input_video: prepareData.input_video,\n    output_video: prepareData.output_video,\n    text_file: prepareData.text_file,\n    output_filename: prepareData.output_filename,\n    quote: prepareData.quote\n  }\n};"
+      },
+      "id": "4fd27c4c-37fc-4cb4-aa97-953693551a62",
+      "name": "Pass Data Through",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -704,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=ffmpeg -i \"{{ $json.input_video }}\" -vf \"drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:textfile='{{ $json.text_file }}':fontsize=55:fontcolor=0xD4C5A9:line_spacing=10:x=(w-text_w)/2:y=h*2/3-(text_h/2):borderw=3:bordercolor=black\" -c:a copy \"{{ $json.output_video }}\" -y -loglevel error -stats"
+      },
+      "id": "ab81d8e3-d4f9-4f02-904b-a0a77f47b256",
+      "name": "FFmpeg: Burn Quote Overlay",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Return the final video with overlay\nconst outputFilename = $('Prepare FFmpeg Data').item.json.output_filename;\nconst outputPath = $('Prepare FFmpeg Data').item.json.output_video;\n\nreturn {\n  json: {\n    filename: outputFilename,\n    video_path: outputPath,\n    original_filename: $('Extract Wan22 Video Filename').item.json.filename\n  }\n};"
+      },
+      "id": "6de02f52-ac78-4b79-8f34-0019ef6bce96",
+      "name": "Return Final Video Path",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "workflow": "={\n  \"6\": {\n    \"inputs\": {\n      \"text\": \"{{ $('Parse Prompts').item.json.video_prompt }}\",\n      \"clip\": [\"38\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"7\": {\n    \"inputs\": {\n      \"text\": \"色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走\",\n      \"clip\": [\"38\", 0]\n    },\n    \"class_type\": \"CLIPTextEncode\"\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\"58\", 0],\n      \"vae\": [\"39\", 0]\n    },\n    \"class_type\": \"VAEDecode\"\n  },\n  \"38\": {\n    \"inputs\": {\n      \"clip_name\": \"umt5_xxl_fp8_e4m3fn_scaled.safetensors\",\n      \"type\": \"wan\",\n      \"device\": \"default\"\n    },\n    \"class_type\": \"CLIPLoader\"\n  },\n  \"39\": {\n    \"inputs\": {\n      \"vae_name\": \"wan_2.1_vae.safetensors\"\n    },\n    \"class_type\": \"VAELoader\"\n  },\n  \"50\": {\n    \"inputs\": {\n      \"positive\": [\"6\", 0],\n      \"negative\": [\"7\", 0],\n      \"vae\": [\"39\", 0],\n      \"start_image\": [\"52\", 0],\n      \"width\": 720,\n      \"height\": 1280,\n      \"length\": 98,\n      \"batch_size\": 1\n    },\n    \"class_type\": \"WanImageToVideo\"\n  },\n  \"52\": {\n    \"inputs\": {\n      \"image\": \"/mnt/raven-nas/inspirational-shorts/generated-content/{{ $('ComfyUI: Generate Image').item.json.filename }}\"\n    },\n    \"class_type\": \"LoadImage\"\n  },\n  \"57\": {\n    \"inputs\": {\n      \"model\": [\"67\", 0],\n      \"positive\": [\"50\", 0],\n      \"negative\": [\"50\", 1],\n      \"latent_image\": [\"50\", 2],\n      \"add_noise\": \"enable\",\n      \"noise_seed\": {{ $now.toMillis() }},\n      \"steps\": 8,\n      \"cfg\": 1,\n      \"sampler_name\": \"uni_pc\",\n      \"scheduler\": \"simple\",\n      \"start_at_step\": 0,\n      \"end_at_step\": 4,\n      \"return_with_leftover_noise\": \"enable\"\n    },\n    \"class_type\": \"KSamplerAdvanced\"\n  },\n  \"58\": {\n    \"inputs\": {\n      \"model\": [\"68\", 0],\n      \"positive\": [\"50\", 0],\n      \"negative\": [\"50\", 1],\n      \"latent_image\": [\"57\", 0],\n      \"add_noise\": \"disable\",\n      \"noise_seed\": 0,\n      \"steps\": 8,\n      \"cfg\": 1,\n      \"sampler_name\": \"uni_pc\",\n      \"scheduler\": \"simple\",\n      \"start_at_step\": 4,\n      \"end_at_step\": 1000,\n      \"return_with_leftover_noise\": \"disable\"\n    },\n    \"class_type\": \"KSamplerAdvanced\"\n  },\n  \"61\": {\n    \"inputs\": {\n      \"unet_name\": \"Wan2.2-I2V-A14B-HighNoise-Q4_K_S.gguf\"\n    },\n    \"class_type\": \"UnetLoaderGGUF\"\n  },\n  \"62\": {\n    \"inputs\": {\n      \"unet_name\": \"Wan2.2-I2V-A14B-LowNoise-Q4_0.gguf\"\n    },\n    \"class_type\": \"UnetLoaderGGUF\"\n  },\n  \"64\": {\n    \"inputs\": {\n      \"model\": [\"61\", 0],\n      \"lora_name\": \"Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors\",\n      \"strength_model\": 1\n    },\n    \"class_type\": \"LoraLoaderModelOnly\"\n  },\n  \"66\": {\n    \"inputs\": {\n      \"model\": [\"62\", 0],\n      \"lora_name\": \"Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors\",\n      \"strength_model\": 1\n    },\n    \"class_type\": \"LoraLoaderModelOnly\"\n  },\n  \"67\": {\n    \"inputs\": {\n      \"model\": [\"64\", 0],\n      \"shift\": 8.0\n    },\n    \"class_type\": \"ModelSamplingSD3\"\n  },\n  \"68\": {\n    \"inputs\": {\n      \"model\": [\"66\", 0],\n      \"shift\": 8.0\n    },\n    \"class_type\": \"ModelSamplingSD3\"\n  },\n  \"82\": {\n    \"inputs\": {\n      \"images\": [\"83\", 0],\n      \"frame_rate\": 24,\n      \"loop_count\": 0,\n      \"filename_prefix\": \"wan22\",\n      \"format\": \"video/h264-mp4\",\n      \"pix_fmt\": \"yuv420p\",\n      \"crf\": 15,\n      \"save_metadata\": true,\n      \"pingpong\": false,\n      \"save_output\": true\n    },\n    \"class_type\": \"VHS_VideoCombine\"\n  },\n  \"83\": {\n    \"inputs\": {\n      \"frames\": [\"8\", 0],\n      \"ckpt_name\": \"rife47.pth\",\n      \"clear_cache_after_n_frames\": 10,\n      \"multiplier\": 2,\n      \"fast_mode\": true,\n      \"ensemble\": true,\n      \"scale_factor\": 1\n    },\n    \"class_type\": \"RIFE VFI\"\n  }\n}",
+        "autoFreeVram": true
+      },
+      "id": "6171831f-0403-4134-80a4-5e076424c83e",
+      "name": "ComfyUI: Generate Video (Wan 2.2)",
+      "type": "CUSTOM.comfyui",
+      "typeVersion": 1,
+      "position": [
+        -1632,
+        176
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "comfyUIApi": {
+          "id": "4TD2TD57KGdNRCVT",
+          "name": "ComfyUI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "iJ6W1AV7yB03UJQj",
+          "mode": "list"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -2992,
+        -512
+      ],
+      "name": "Call clear-vram1",
+      "id": "d5dddf8f-8f96-48f4-9885-19a7a5f05897"
+    }
+  ],
+  "connections": {
+    "Ovi: Generate Video": {
+      "main": [
+        [
+          {
+            "node": "Extract Ovi Video Path",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Ovi Video Path": {
+      "main": [
+        [
+          {
+            "node": "Prepare FFmpeg Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Image Resume URL": {
+      "main": [
+        [
+          {
+            "node": "Wait for Image Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Image Approval": {
+      "main": [
+        [
+          {
+            "node": "Handle Image Approval Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Image Approval Response": {
+      "main": [
+        [
+          {
+            "node": "Check Image Approval Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Image Approval Status": {
+      "main": [
+        [
+          {
+            "node": "VoiceAPI: Unload Model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ComfyUI: Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VoiceAPI: Unload Model": {
+      "main": [
+        [
+          {
+            "node": "Call clear-vram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Prompts": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Image & Video Prompt Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image & Video Prompt Generator": {
+      "main": [
+        [
+          {
+            "node": "Parse Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Approval Status": {
+      "main": [
+        [
+          {
+            "node": "Image & Video Prompt Generator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quote writer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Resume URL": {
+      "main": [
+        [
+          {
+            "node": "Wait for Quote Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Approval Response": {
+      "main": [
+        [
+          {
+            "node": "Check Approval Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Quote Approval": {
+      "main": [
+        [
+          {
+            "node": "Handle Approval Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quote writer": {
+      "main": [
+        [
+          {
+            "node": "Capture Resume URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Custom Quote": {
+      "main": [
+        [
+          {
+            "node": "Capture Resume URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Custom Quote": {
+      "main": [
+        [
+          {
+            "node": "Format Custom Quote",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quote writer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Quote writer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond with Execution ID": {
+      "main": [
+        [
+          {
+            "node": "ComfyUI: Get Stats Before",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Get Stats Before": {
+      "main": [
+        [
+          {
+            "node": "Call clear-vram1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Generate Image": {
+      "main": [
+        [
+          {
+            "node": "Capture Image Resume URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Respond with Execution ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call clear-vram": {
+      "main": [
+        [
+          {
+            "node": "Check Video Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Video Backend": {
+      "main": [
+        [
+          {
+            "node": "Ovi: Generate Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ComfyUI: Generate Video (Wan 2.2)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Wan22 Video Filename": {
+      "main": [
+        [
+          {
+            "node": "Prepare FFmpeg Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare FFmpeg Data": {
+      "main": [
+        [
+          {
+            "node": "Create Text File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Text File": {
+      "main": [
+        [
+          {
+            "node": "Pass Data Through",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pass Data Through": {
+      "main": [
+        [
+          {
+            "node": "FFmpeg: Burn Quote Overlay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FFmpeg: Burn Quote Overlay": {
+      "main": [
+        [
+          {
+            "node": "Return Final Video Path",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ComfyUI: Generate Video (Wan 2.2)": {
+      "main": [
+        [
+          {
+            "node": "Extract Wan22 Video Filename",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call clear-vram1": {
+      "main": [
+        [
+          {
+            "node": "Check for Custom Quote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "99ff97a0c56026a2c1b3a849547491eb857e68a0b770f2b7c6688eea83f57eda"
+  }
+}

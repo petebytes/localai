@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="llamaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7B68EE;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Llama body/head stylized as GPU/chip -->
+  <rect x="20" y="30" width="60" height="50" rx="5" fill="url(#llamaGrad)" />
+  <!-- Circuit lines representing AI/GPU -->
+  <line x1="30" y1="45" x2="70" y2="45" stroke="white" stroke-width="2" opacity="0.8" />
+  <line x1="30" y1="55" x2="70" y2="55" stroke="white" stroke-width="2" opacity="0.8" />
+  <line x1="30" y1="65" x2="70" y2="65" stroke="white" stroke-width="2" opacity="0.8" />
+  <!-- GPU memory indicator -->
+  <circle cx="50" cy="55" r="8" fill="white" opacity="0.9" />
+  <text x="50" y="59" font-family="Arial" font-size="10" font-weight="bold" fill="#4A90E2" text-anchor="middle">M</text>
+  <!-- Connection dots -->
+  <circle cx="25" y="35" r="2" fill="white" />
+  <circle cx="75" y="35" r="2" fill="white" />
+  <circle cx="25" y="75" r="2" fill="white" />
+  <circle cx="75" y="75" r="2" fill="white" />
+</svg>

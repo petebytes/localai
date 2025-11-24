@@ -1,0 +1,7 @@
+{
+  "type": "comfyui_workflow_reference",
+  "title": "RunComfy workflow catalog (FLF2V sample page)",
+  "reference_url": "https://www.runcomfy.com/comfyui-workflows/wan-2-1-flf2v-first-last-frame-video-generation",
+  "how_to_use_in_t2i_or_i2i": "Use a T2V workflow and set frames=1 (or extract first frame).",
+  "note": "This is a link stub to the original (official/community) ComfyUI workflow. Open the URL to download the workflow JSON. For still images, set total frames to 1 or export the first frame."
+}

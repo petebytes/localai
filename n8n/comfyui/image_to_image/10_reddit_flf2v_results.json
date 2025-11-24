@@ -1,0 +1,7 @@
+{
+  "type": "comfyui_workflow_reference",
+  "title": "Reddit: FLF2V usage impressions",
+  "reference_url": "https://www.reddit.com/r/comfyui/comments/1ko6y2b/tried_wan21flf2v14b720p_for_the_first_time/",
+  "how_to_use_in_t2i_or_i2i": "Use I2V/VACE/Fun/FLF2V workflows; supply a source image; set frames=1 for a single image.",
+  "note": "This is a link stub to the original (official/community) ComfyUI workflow. Open the URL to download the workflow JSON. For still images, set total frames to 1 or export the first frame."
+}

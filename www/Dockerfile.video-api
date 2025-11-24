@@ -1,0 +1,12 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir fastapi uvicorn[standard] python-multipart
+
+# Copy API script
+COPY video_upload_api.py .
+
+# Run the API
+CMD ["python", "video_upload_api.py"]

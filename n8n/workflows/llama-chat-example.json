@@ -1,0 +1,203 @@
+{
+  "name": "Llama Chat with Orchestrator Example",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://model-orchestrator:8000/models/status",
+        "options": {}
+      },
+      "id": "check-gpu",
+      "name": "Check GPU Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.free_mb }}",
+              "operation": "smaller",
+              "value2": 18000
+            }
+          ]
+        }
+      },
+      "id": "check-vram",
+      "name": "VRAM < 18GB?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://model-orchestrator:8000/models/unload",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\n  \"model\": \"wan2.1-14b\",\n  \"force\": false\n}"
+      },
+      "id": "unload-other",
+      "name": "Unload Heavy Model",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [910, 190]
+    },
+    {
+      "parameters": {
+        "url": "http://model-orchestrator:8000/models/load",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\n  \"model\": \"qwen3-vl-30b\",\n  \"service\": \"llama-cpp\",\n  \"priority\": 10\n}"
+      },
+      "id": "load-model",
+      "name": "Load Qwen3-VL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1130, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://llama-cpp:8000/v1/chat/completions",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\n  \"model\": \"qwen3-vl-30b\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a helpful AI assistant.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.query || 'Explain quantum computing in simple terms' }}\"\n    }\n  ],\n  \"temperature\": 0.7,\n  \"max_tokens\": 500\n}"
+      },
+      "id": "chat-request",
+      "name": "Chat with Qwen3-VL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the assistant's response\nconst response = $input.item.json;\nconst message = response.choices[0].message.content;\nconst usage = response.usage;\n\nreturn {\n  answer: message,\n  prompt_tokens: usage.prompt_tokens,\n  completion_tokens: usage.completion_tokens,\n  total_tokens: usage.total_tokens,\n  model: response.model\n};"
+      },
+      "id": "process-response",
+      "name": "Process Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1570, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://model-orchestrator:8000/models/unload",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\n  \"model\": \"qwen3-vl-30b\",\n  \"force\": false\n}"
+      },
+      "id": "unload-model",
+      "name": "Unload Model (Optional)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1790, 300],
+      "notes": "Optional: Unload model to free VRAM.\nSkip if you want to keep it hot for next request."
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Check GPU Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check GPU Status": {
+      "main": [
+        [
+          {
+            "node": "VRAM < 18GB?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VRAM < 18GB?": {
+      "main": [
+        [
+          {
+            "node": "Unload Heavy Model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Load Qwen3-VL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unload Heavy Model": {
+      "main": [
+        [
+          {
+            "node": "Load Qwen3-VL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Qwen3-VL": {
+      "main": [
+        [
+          {
+            "node": "Chat with Qwen3-VL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat with Qwen3-VL": {
+      "main": [
+        [
+          {
+            "node": "Process Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Response": {
+      "main": [
+        [
+          {
+            "node": "Unload Model (Optional)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-15T10:00:00.000Z",
+  "versionId": "1"
+}
