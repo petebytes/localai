@@ -31,9 +31,16 @@ backups/service-state-*.json
 **/pnpm-lock.yaml
 **/.pnpm-debug.log
 n8n-data/
+peggy_oliveira_chatbot/
+dr-tulu/
 
 # Python artifacts
 **/__pycache__/
 **/*.pyc
 **/*.pyo
 **/downloads/
+**/.venv/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.coverage
+**/htmlcov/
