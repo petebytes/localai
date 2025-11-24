@@ -146,9 +146,9 @@ Insert HTTP Request nodes at key points in the workflow:
     "result": {
       "filename": "={{ $('Process Transcription Data').item.json.filename }}",
       "files": {
-        "txt": "/nas/PeggysExtraStorage/videos-to-process/processed/{{ $('Process Transcription Data').item.json.filename }}.txt",
-        "srt": "/nas/PeggysExtraStorage/videos-to-process/processed/{{ $('Process Transcription Data').item.json.filename }}.srt",
-        "json": "/nas/PeggysExtraStorage/videos-to-process/processed/{{ $('Process Transcription Data').item.json.filename }}.json"
+        "txt": "/mnt/raven-nas/videos-to-process/processed/{{ $('Process Transcription Data').item.json.filename }}.txt",
+        "srt": "/mnt/raven-nas/videos-to-process/processed/{{ $('Process Transcription Data').item.json.filename }}.srt",
+        "json": "/mnt/raven-nas/videos-to-process/processed/{{ $('Process Transcription Data').item.json.filename }}.json"
       }
     }
   }

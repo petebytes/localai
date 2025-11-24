@@ -977,11 +977,11 @@
                     name: 'TrueNAS SCALE',
                     description: 'Manage storage, shares, and network-attached storage.',
                     detailedDescription: '<p>TrueNAS SCALE is a powerful open-source storage platform that provides enterprise-grade features for file sharing, data protection, and storage management. Built on Debian Linux with ZFS for data integrity.</p><h3>Key Features</h3><ul><li>ZFS file system with snapshot and replication</li><li>SMB, NFS, iSCSI, and S3 protocol support</li><li>Data deduplication and compression</li><li>RAID-Z configuration for redundancy</li><li>Kubernetes-based app platform</li><li>Web-based management interface</li><li>Automated backup and sync</li><li>Active Directory integration</li></ul>',
-                    url: 'https://san.lan',
+                    url: 'https://nas.lan',
                     port: '443',
                     githubUrl: 'https://github.com/truenas/scale',
                     links: [
-                        { text: 'Access TrueNAS', url: 'https://san.lan', primary: true }
+                        { text: 'Access TrueNAS', url: 'https://nas.lan', primary: true }
                     ]
                 },
                 {
@@ -1004,6 +1004,18 @@
                     githubUrl: 'https://github.com/portainer/portainer',
                     links: [
                         { text: 'Access Portainer', url: 'https://portainer.lan', primary: true }
+                    ]
+                },
+                {
+                    name: 'Peggy Oliveira AI Chatbot',
+                    description: 'Privacy-first RAG chatbot for trauma healing education.',
+                    detailedDescription: '<p>The Peggy Oliveira AI Chatbot is a privacy-focused conversational AI trained on trauma healing educational content. All processing happens locally with no external API calls, ensuring complete privacy and data sovereignty.</p><h3>Key Features</h3><ul><li><strong>100% Local Processing</strong>: No external API calls, all LLM inference via LM Studio</li><li><strong>Multi-Layer Safety</strong>: Crisis detection, content filtering, therapeutic boundaries</li><li><strong>Hybrid RAG</strong>: Vector similarity + full-text search via Supabase pgvector</li><li><strong>Educational Focus</strong>: Specialized in trauma healing and therapeutic concepts</li><li><strong>Privacy First</strong>: No tracking, no logging, no analytics</li><li><strong>Source Citations</strong>: All responses include source references</li></ul><h3>Architecture</h3><p>The chatbot uses a Retrieval-Augmented Generation (RAG) approach combining:</p><ul><li>Semantic search with vector embeddings (all-MiniLM-L6-v2)</li><li>Full-text search for keyword matching</li><li>Local LLM inference (Qwen 3 VL 30B via LM Studio)</li><li>PostgreSQL + pgvector for knowledge base</li></ul>',
+                    url: 'https://aipeggy.lan',
+                    internalPort: '8989',
+                    externalPort: 'internal only',
+                    links: [
+                        { text: 'Access Chatbot', url: 'https://aipeggy.lan', primary: true },
+                        { text: 'API Documentation', url: 'https://aipeggy.lan/docs', primary: false }
                     ]
                 }
             ],
