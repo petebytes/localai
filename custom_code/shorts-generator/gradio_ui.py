@@ -16,6 +16,84 @@ import httpx
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 
+def format_status_html(status_text: str) -> str:
+    """Generate prominent HTML-styled status display with color coding.
+
+    Args:
+        status_text: The status message to display
+
+    Returns:
+        HTML string with styled status display
+    """
+    # Determine status type and styling
+    status_lower = status_text.lower()
+
+    if any(word in status_lower for word in ["success", "completed"]):
+        # Success - Earthy forest green gradient
+        border_color = "#556b2f"
+    elif any(word in status_lower for word in ["error", "failed"]):
+        # Error - Earthy terracotta/clay gradient
+        border_color = "#a0522d"
+    elif any(word in status_lower for word in ["timeout", "cancelled"]):
+        # Warning/Timeout - Warm amber/ochre gradient
+        border_color = "#b8860b"
+    elif any(word in status_lower for word in ["waiting", "approval"]):
+        # Waiting for user - Slate blue/grey gradient
+        border_color = "#556b7d"
+    elif any(
+        word in status_lower
+        for word in [
+            "running",
+            "generating",
+            "started",
+            "polling",
+            "continuing",
+            "processing",
+        ]
+    ):
+        # Processing - Earthy sage/olive gradient
+        border_color = "#6b8e6b"
+    elif "ready" in status_lower:
+        # Ready - Muted teal/moss gradient
+        border_color = "#4a7d7f"
+    else:
+        # Default - Warm brown/taupe gradient
+        border_color = "#6b5644"
+
+    return f"""
+    <style>
+    /* Remove all Gradio default padding/styling from HTML component */
+    .html-container.padding {{
+        padding: 0 !important;
+    }}
+    .prose {{
+        padding: 0 !important;
+        margin: 0 !important;
+    }}
+    .status-container {{
+        padding: 0 !important;
+        margin: 0 !important;
+    }}
+    </style>
+    <div class="status-container">
+        <div style="
+            padding: 10px 18px;
+            border-radius: 5px;
+            border: 2px solid {border_color};
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            text-align: center;
+        ">
+            <div style="
+                font-size: 18px;
+                font-weight: 700;
+                color: #ffffff;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            ">{status_text}</div>
+        </div>
+    </div>
+    """
+
+
 def download_file_from_api(filename: str, timeout: float = 30.0) -> str | None:
     """Download a file from the API and save to temp directory.
 
@@ -60,7 +138,6 @@ def download_overlay_video(video_path: str | None) -> str | None:
     if not video_path:
         return None
 
-    from pathlib import Path
     # Extract filename and create overlay filename
     if "/" in video_path:
         filename = video_path.split("/")[-1]
@@ -214,7 +291,7 @@ async def list_previous_generations(limit: int = 50) -> list[dict[str, Any]]:
 
 def load_previous_generation(
     selected_index: int, generations_data: list[dict[str, Any]]
-) -> tuple[str | None, str | None]:
+) -> tuple[str | None, str | None, str | None]:
     """Load a previous generation for display.
 
     Args:
@@ -222,32 +299,45 @@ def load_previous_generation(
         generations_data: List of generation data
 
     Returns:
-        Tuple of (image_path, video_path)
+        Tuple of (image_path, video_path, video_overlay_path)
     """
     if selected_index < 0 or selected_index >= len(generations_data):
-        return None, None
+        return None, None, None
 
     gen = generations_data[selected_index]
+    print(f"🔍 Loading generation at index {selected_index}: {gen}", file=sys.stderr)
 
     # Download image if available
     image_path: str | None = None
     if gen.get("has_image") and gen.get("image_url"):
         filename = gen["image_url"].split("/")[-1]
         image_path = download_file_from_api(filename, timeout=30.0)
+        print(f"📸 Image downloaded: {image_path}", file=sys.stderr)
 
     # Download video if available
     video_path: str | None = None
     if gen.get("has_video") and gen.get("video_url"):
         filename = gen["video_url"].split("/")[-1]
         video_path = download_file_from_api(filename, timeout=60.0)
+        print(f"🎥 Video downloaded: {video_path}", file=sys.stderr)
 
-    return image_path, video_path
+    # Download overlay video if available
+    video_overlay_path = download_overlay_video(video_path)
+    print(f"🎬 Overlay video downloaded: {video_overlay_path}", file=sys.stderr)
+
+    print(
+        f"✅ Returning: image={image_path}, video={video_path}, overlay={video_overlay_path}",
+        file=sys.stderr,
+    )
+    return image_path, video_path, video_overlay_path
 
 
 def generate_and_poll(
     custom_quote: str | None = None,
     video_backend: str = "wan22",
-) -> Generator[tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None]:
+) -> Generator[
+    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
+]:
     """Generate and poll for results with streaming updates.
 
     Args:
@@ -255,19 +345,19 @@ def generate_and_poll(
         video_backend: Video generation backend to use (wan22 or ovi)
 
     Yields:
-        Tuples of (status, quote, image_path, video_path, video_overlay_path, execution_id,
+        Tuples of (status_html, quote, image_path, video_path, video_overlay_path, execution_id,
             resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
     # Trigger generation
     execution_id, status_msg = asyncio.run(trigger_generation(custom_quote, video_backend))
 
     if not execution_id:
-        yield ("Error", status_msg, None, None, None, "", "", False, False, "")
+        yield (format_status_html("Error"), status_msg, None, None, None, "", "", False, False, "")
         return
 
     yield (
-        f"Started (ID: {execution_id})",
-        "Generating...",
+        format_status_html(f"Started (ID: {execution_id})"),
+        "",
         None,
         None,
         None,
@@ -291,7 +381,10 @@ def generate_and_poll(
 
         # Update quote from API if available
         if "quote" in data:
-            current_quote = str(data.get("quote", current_quote))
+            api_quote = data.get("quote", current_quote)
+            current_quote = (
+                str(api_quote) if api_quote and str(api_quote).lower() != "none" else current_quote
+            )
 
         # Download and preserve image if available and not already downloaded
         if not current_image_path and data.get("image_url"):
@@ -304,7 +397,7 @@ def generate_and_poll(
         if status == "error":
             error_msg = data.get("error", "Unknown error")
             yield (
-                f"Error: {error_msg}",
+                format_status_html(f"Error: {error_msg}"),
                 current_quote,
                 current_image_path,
                 None,
@@ -318,14 +411,19 @@ def generate_and_poll(
             return
 
         if status == "waiting_for_approval":
-            current_quote = str(data.get("quote", ""))
+            api_quote = data.get("quote", "")
+            current_quote = str(api_quote) if api_quote and str(api_quote).lower() != "none" else ""
             # Check both snake_case and camelCase field names
             resume_url_value = data.get("resume_url") or data.get("resumeUrl")
             resume_url = resume_url_value if resume_url_value is not None else ""
-            print(f"🔔 WAITING FOR APPROVAL! Quote: {current_quote[:50]}", file=sys.stderr)
-            print(f"📍 Resume URL extracted: {resume_url}", file=sys.stderr)
+            quote_preview = current_quote[:50] if current_quote else "(empty)"
+            print(
+                f"WAITING FOR APPROVAL! Quote: {quote_preview}",
+                file=sys.stderr,
+            )
+            print(f"Resume URL extracted: {resume_url}", file=sys.stderr)
             yield (
-                "Waiting for approval",
+                format_status_html("Waiting for approval"),
                 current_quote,
                 None,
                 None,
@@ -336,7 +434,7 @@ def generate_and_poll(
                 False,  # Not waiting for image approval
                 "",  # No image prompt yet
             )
-            print("✅ Yielded approval state: waiting=True", file=sys.stderr)
+            print("Yielded approval state: waiting=True", file=sys.stderr)
             return  # Stop polling, wait for user action
 
         if status == "waiting_for_image_approval":
@@ -351,10 +449,10 @@ def generate_and_poll(
                 filename = image_url.split("/")[-1]
                 image_path = download_file_from_api(filename, timeout=30.0)
 
-            print(f"🖼️ WAITING FOR IMAGE APPROVAL! Image: {image_path}", file=sys.stderr)
-            print(f"📍 Resume URL extracted: {resume_url}", file=sys.stderr)
+            print(f"WAITING FOR IMAGE APPROVAL! Image: {image_path}", file=sys.stderr)
+            print(f"Resume URL extracted: {resume_url}", file=sys.stderr)
             yield (
-                "Waiting for image approval",
+                format_status_html("Waiting for image approval"),
                 current_quote,
                 image_path,
                 None,
@@ -365,7 +463,7 @@ def generate_and_poll(
                 True,  # Signal that we need image approval
                 image_prompt,  # Provide image prompt for editing
             )
-            print("✅ Yielded image approval state: waiting_for_image=True", file=sys.stderr)
+            print("Yielded image approval state: waiting_for_image=True", file=sys.stderr)
             return  # Stop polling, wait for user action
 
         if status == "success":
@@ -398,7 +496,7 @@ def generate_and_poll(
                 status_msg = "Success (but downloads failed)"
 
             yield (
-                status_msg,
+                format_status_html(status_msg),
                 current_quote,
                 image_path,
                 video_path,
@@ -416,7 +514,7 @@ def generate_and_poll(
         if attempt > 60:
             status_str = f"{status_str} (generating video...)"
         yield (
-            f"{status_str.capitalize()}...",
+            format_status_html(f"{status_str.capitalize()}..."),
             current_quote,
             current_image_path,
             None,
@@ -432,7 +530,7 @@ def generate_and_poll(
         attempt += 1
 
     yield (
-        "Timeout",
+        format_status_html("Timeout"),
         current_quote,
         current_image_path,
         None,
@@ -447,7 +545,9 @@ def generate_and_poll(
 
 def resume_polling(
     execution_id: str,
-) -> Generator[tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None]:
+) -> Generator[
+    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
+]:
     """Resume polling for an existing execution.
 
     Args:
@@ -458,11 +558,22 @@ def resume_polling(
             resume_url, waiting_for_approval, waiting_for_image_approval, image_prompt)
     """
     if not execution_id or not execution_id.strip():
-        yield ("Error: Please enter a valid execution ID", "", None, None, None, "", "", False, False, "")
+        yield (
+            format_status_html("Error: Please enter a valid execution ID"),
+            "",
+            None,
+            None,
+            None,
+            "",
+            "",
+            False,
+            False,
+            "",
+        )
         return
 
     yield (
-        f"Resuming polling for {execution_id}...",
+        format_status_html(f"Resuming polling for {execution_id}..."),
         "",
         None,
         None,
@@ -488,7 +599,10 @@ def resume_polling(
 
         # Update quote from API if available
         if "quote" in data:
-            current_quote = str(data.get("quote", current_quote))
+            api_quote = data.get("quote", current_quote)
+            current_quote = (
+                str(api_quote) if api_quote and str(api_quote).lower() != "none" else current_quote
+            )
 
         # Download and preserve image if available and not already downloaded
         if not current_image_path and data.get("image_url"):
@@ -501,7 +615,7 @@ def resume_polling(
         if status == "error":
             error_msg = data.get("error", "Unknown error")
             yield (
-                f"Error: {error_msg}",
+                format_status_html(f"Error: {error_msg}"),
                 current_quote,
                 current_image_path,
                 None,
@@ -515,10 +629,11 @@ def resume_polling(
             return
 
         if status == "waiting_for_approval":
-            current_quote = str(data.get("quote", ""))
+            api_quote = data.get("quote", "")
+            current_quote = str(api_quote) if api_quote and str(api_quote).lower() != "none" else ""
             resume_url = str(data.get("resume_url", ""))
             yield (
-                "Waiting for approval",
+                format_status_html("Waiting for approval"),
                 current_quote,
                 None,
                 None,
@@ -543,7 +658,7 @@ def resume_polling(
                 image_path = download_file_from_api(filename, timeout=30.0)
 
             yield (
-                "Waiting for image approval",
+                format_status_html("Waiting for image approval"),
                 current_quote,
                 image_path,
                 None,
@@ -584,7 +699,7 @@ def resume_polling(
                 status_msg = "Success (but downloads failed)"
 
             yield (
-                status_msg,
+                format_status_html(status_msg),
                 current_quote,
                 image_path,
                 video_path,
@@ -602,7 +717,7 @@ def resume_polling(
         if attempt > 60:
             status_str = f"{status_str} (may take 3-5 min total...)"
         yield (
-            f"{status_str.capitalize()}...",
+            format_status_html(f"{status_str.capitalize()}..."),
             current_quote,
             current_image_path,
             None,
@@ -616,8 +731,11 @@ def resume_polling(
 
         attempt += 1
 
+    timeout_msg = (
+        f"Timeout: Execution may still be running. Use 'Resume Generation' with ID: {execution_id}"
+    )
     yield (
-        f"Timeout: Execution may still be running. Use 'Resume Generation' with ID: {execution_id}",
+        format_status_html(timeout_msg),
         current_quote,
         current_image_path,
         None,
@@ -632,7 +750,9 @@ def resume_polling(
 
 def continue_after_approval(
     execution_id: str, resume_url: str, action: str, quote: str | None = None
-) -> Generator[tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None]:
+) -> Generator[
+    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
+]:
     """Continue workflow after quote approval.
 
     Args:
@@ -667,7 +787,9 @@ def continue_after_approval(
 
     if not success:
         yield (
-            f"Approval failed: {message}. Use 'Resume Generation' to retry if needed.",
+            format_status_html(
+                f"Approval failed: {message}. Use 'Resume Generation' to retry if needed."
+            ),
             clean_quote,
             None,
             None,
@@ -682,7 +804,7 @@ def continue_after_approval(
 
     if action == "reject":
         yield (
-            "Workflow cancelled",
+            format_status_html("Workflow cancelled"),
             "Quote rejected by user",
             None,
             None,
@@ -696,7 +818,7 @@ def continue_after_approval(
         return
 
     yield (
-        f"{message}, continuing...",
+        format_status_html(f"{message}, continuing..."),
         clean_quote,
         None,
         None,
@@ -739,7 +861,7 @@ def continue_after_approval(
         if status == "error":
             error_msg = data.get("error", "Unknown error")
             yield (
-                f"Error: {error_msg}",
+                format_status_html(f"Error: {error_msg}"),
                 current_quote,
                 current_image_path,
                 None,
@@ -754,13 +876,18 @@ def continue_after_approval(
 
         if status == "waiting_for_approval":
             # Quote was regenerated - show new quote and wait for approval again
-            current_quote = str(data.get("quote", ""))
+            api_quote = data.get("quote", "")
+            current_quote = str(api_quote) if api_quote and str(api_quote).lower() != "none" else ""
             resume_url_value = data.get("resume_url") or data.get("resumeUrl")
             resume_url = resume_url_value if resume_url_value is not None else ""
-            print(f"🔄 Quote regenerated! New quote: {current_quote[:50]}...", file=sys.stderr)
+            quote_preview = current_quote[:50] if current_quote else "(empty)"
+            print(
+                f"🔄 Quote regenerated! New quote: {quote_preview}...",
+                file=sys.stderr,
+            )
             print(f"📍 Resume URL extracted: {resume_url}", file=sys.stderr)
             yield (
-                "Quote regenerated! Please review.",
+                format_status_html("Quote regenerated"),
                 current_quote,
                 None,
                 None,
@@ -785,7 +912,7 @@ def continue_after_approval(
                 image_path = download_file_from_api(filename, timeout=30.0)
 
             yield (
-                "Waiting for image approval",
+                format_status_html("Waiting for image approval"),
                 current_quote,
                 image_path,
                 None,
@@ -828,7 +955,7 @@ def continue_after_approval(
                 status_msg = "Success (but downloads failed)"
 
             yield (
-                status_msg,
+                format_status_html(status_msg),
                 current_quote,
                 image_path,
                 video_path,
@@ -846,7 +973,7 @@ def continue_after_approval(
         if attempt > 60:
             status_str = f"{status_str} (generating video...)"
         yield (
-            f"{status_str.capitalize()}...",
+            format_status_html(f"{status_str.capitalize()}..."),
             current_quote,
             current_image_path,
             None,
@@ -861,7 +988,7 @@ def continue_after_approval(
         attempt += 1
 
     yield (
-        "Timeout",
+        format_status_html("Timeout"),
         current_quote,
         current_image_path,
         None,
@@ -881,7 +1008,9 @@ def continue_after_image_approval(
     edited_image_prompt: str | None = None,
     quote: str | None = None,
     image_path: str | None = None,
-) -> Generator[tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None]:
+) -> Generator[
+    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
+]:
     """Continue workflow after image approval.
 
     Args:
@@ -918,7 +1047,9 @@ def continue_after_image_approval(
 
     if not success:
         yield (
-            f"Image approval failed: {message}. Use 'Resume Generation' to retry if needed.",
+            format_status_html(
+                f"Image approval failed: {message}. Use 'Resume Generation' to retry if needed."
+            ),
             "",
             None,
             None,
@@ -933,7 +1064,7 @@ def continue_after_image_approval(
 
     if action == "reject":
         yield (
-            "Workflow cancelled",
+            format_status_html("Workflow cancelled"),
             "Image rejected by user",
             None,
             None,
@@ -949,7 +1080,7 @@ def continue_after_image_approval(
     # If editing, the image will be regenerated, so keep the prompt for display
     current_prompt = edited_image_prompt if action == "edit" and edited_image_prompt else ""
     yield (
-        f"{message}, continuing...",
+        format_status_html(f"{message}, continuing..."),
         clean_quote,
         image_path,  # Preserve the current image
         None,
@@ -994,7 +1125,7 @@ def continue_after_image_approval(
         if status == "error":
             error_msg = data.get("error", "Unknown error")
             yield (
-                f"Error: {error_msg}",
+                format_status_html(f"Error: {error_msg}"),
                 current_quote,
                 current_image_path,
                 None,
@@ -1031,7 +1162,7 @@ def continue_after_image_approval(
 
             # Yield state showing the new image and waiting for approval
             yield (
-                "Regenerated! Please review the new image.",
+                format_status_html("Image Regenerated"),
                 current_quote,
                 new_image_path,
                 None,  # no video yet
@@ -1074,7 +1205,7 @@ def continue_after_image_approval(
                 status_msg = "Success (but downloads failed)"
 
             yield (
-                status_msg,
+                format_status_html(status_msg),
                 current_quote,
                 image_path,
                 video_path,
@@ -1092,7 +1223,7 @@ def continue_after_image_approval(
         if attempt > 60:
             status_str = f"{status_str} (generating video...)"
         yield (
-            f"{status_str.capitalize()}...",
+            format_status_html(f"{status_str.capitalize()}..."),
             current_quote,
             current_image_path,
             None,
@@ -1107,7 +1238,7 @@ def continue_after_image_approval(
         attempt += 1
 
     yield (
-        "Timeout",
+        format_status_html("Timeout"),
         current_quote,
         current_image_path,
         None,
@@ -1122,7 +1253,53 @@ def continue_after_image_approval(
 
 def create_ui() -> Any:
     """Create Gradio interface."""
-    with gr.Blocks(title="Inspirational Shorts Generator") as demo:
+    # Create earthy theme with dark mode as default
+    earthy_theme = gr.themes.Soft(
+        primary_hue="stone",
+        secondary_hue="green",
+        neutral_hue="slate",
+    ).set(
+        button_primary_background_fill="#6b8e23",
+        button_primary_background_fill_hover="#556b2f",
+        button_primary_text_color="white",
+        button_secondary_background_fill="#8b7355",
+        button_secondary_background_fill_hover="#6b5644",
+        button_secondary_text_color="white",
+    )
+
+    with gr.Blocks(
+        title="Inspirational Shorts Generator",
+        theme=earthy_theme,
+        js="() => { document.body.classList.add('dark'); }",
+        css="""
+        .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+            background: none !important;
+            padding: 0 !important;
+            border: none !important;
+        }
+        span[data-testid="block-info"] {
+            background: none !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        label span {
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        label[data-testid="block-label"] {
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        label[data-testid="block-label"] span {
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+    """,
+    ) as demo:
         gr.Markdown(
             """
             # Inspirational Shorts Generator
@@ -1139,14 +1316,12 @@ def create_ui() -> Any:
                 image_prompt_state = gr.State("")
 
                 with gr.Row():
-                    with gr.Column():
-                        status_box = gr.Textbox(
-                            label="Status",
-                            value="Ready",
-                            interactive=False,
+                    with gr.Column(scale=1):
+                        # Prominent status display with custom HTML styling
+                        status_box = gr.HTML(
+                            value=format_status_html("Ready"),
+                            label="",
                         )
-
-                        generate_btn = gr.Button("Generate", variant="primary")
 
                         # Error recovery section
                         with gr.Accordion(
@@ -1166,34 +1341,40 @@ def create_ui() -> Any:
                             )
                             resume_btn = gr.Button("Resume Polling", variant="secondary")
 
-                        quote_output = gr.Textbox(
-                            label="Quote",
-                            placeholder=(
-                                "Leave empty to generate an AI quote, "
-                                "or enter your own quote here..."
-                            ),
-                            lines=3,
-                            interactive=True,
-                        )
-
-                        video_backend_selector = gr.Radio(
-                            choices=[
-                                ("Wan 2.2 (fast, no audio)", "wan22"),
-                                ("Ovi (with audio, slower)", "ovi"),
-                            ],
-                            value="wan22",
-                            label="Video Generation Method",
-                            info="Wan 2.2: 720x1280, ~8 min | Ovi: 1080x1920, ~25 min",
-                            interactive=True,
-                        )
-
-                        # Approval buttons (initially hidden)
-                        with gr.Row(visible=False) as approval_group:
-                            approve_btn = gr.Button("✓ Approve", variant="primary", scale=1)
-                            regenerate_btn = gr.Button(
-                                "🔄 Regenerate", variant="secondary", scale=1
+                        with gr.Group():
+                            quote_output = gr.Textbox(
+                                label="Quote",
+                                placeholder=(
+                                    "Leave empty to generate an AI quote, "
+                                    "or enter your own quote here..."
+                                ),
+                                lines=3,
+                                interactive=True,
                             )
-                            reject_btn = gr.Button("✗ Reject", variant="stop", scale=1)
+
+                        # Generate button and Approval buttons (one visible at a time)
+                        generate_btn = gr.Button("Generate", variant="primary", visible=True)
+
+                        # Approval buttons (initially hidden, replace Generate button)
+                        with gr.Row(visible=False) as approval_group:
+                            approve_btn = gr.Button(
+                                "Approve", variant="primary", scale=1, size="sm"
+                            )
+                            regenerate_btn = gr.Button(
+                                "Regenerate", variant="secondary", scale=1, size="sm"
+                            )
+                            reject_btn = gr.Button("Reject", variant="stop", scale=1, size="sm")
+
+                        with gr.Group():
+                            video_backend_selector = gr.Radio(
+                                choices=[
+                                    ("Video", "wan22"),
+                                    ("Video with Audio", "ovi"),
+                                ],
+                                value="wan22",
+                                label="Video",
+                                interactive=True,
+                            )
 
                         # Image Approval section (initially hidden)
                         with gr.Column(visible=False) as image_approval_group:
@@ -1209,14 +1390,16 @@ def create_ui() -> Any:
 
                             with gr.Row():
                                 image_approve_btn = gr.Button(
-                                    "✓ Approve Image", variant="primary", scale=1
+                                    "Approve Image", variant="primary", scale=1, size="sm"
                                 )
                                 image_regenerate_btn = gr.Button(
-                                    "🔄 Regenerate Image", variant="secondary", scale=1
+                                    "Regenerate Image", variant="secondary", scale=1, size="sm"
                                 )
-                                image_reject_btn = gr.Button("✗ Reject", variant="stop", scale=1)
+                                image_reject_btn = gr.Button(
+                                    "Reject", variant="stop", scale=1, size="sm"
+                                )
 
-                    with gr.Column():
+                    with gr.Column(scale=3):
                         with gr.Row():
                             image_output = gr.Image(
                                 label="Generated Image (9:16)",
@@ -1263,12 +1446,12 @@ def create_ui() -> Any:
                     bool,
                     bool,
                     str,
+                    gr.Button,
                     gr.Row,
                     gr.Column,
                     gr.Textbox,
                     gr.Accordion,
                     gr.Textbox,
-                    gr.Button,
                     gr.Button,
                     gr.Button,
                     gr.Button,
@@ -1311,7 +1494,9 @@ def create_ui() -> Any:
                     is_waiting_approval = waiting
                     is_waiting_image_approval = waiting_image
 
-                    # Generate button: disabled when processing or waiting for any approval
+                    # Generate button: visible when NOT waiting for approval
+                    # Hidden when approval buttons are shown
+                    generate_visible = not is_waiting_approval and not is_waiting_image_approval
                     generate_enabled = (
                         not is_processing
                         and not is_waiting_approval
@@ -1327,6 +1512,7 @@ def create_ui() -> Any:
                     # Resume button: enabled when showing resume accordion
                     resume_enabled = show_resume
 
+                    # Status is already HTML formatted, no need to format again
                     return (
                         status,
                         gr.Textbox(value=quote, interactive=quote_interactive),
@@ -1338,12 +1524,14 @@ def create_ui() -> Any:
                         waiting,
                         waiting_image,
                         image_prompt,
+                        gr.Button(
+                            visible=generate_visible, interactive=generate_enabled
+                        ),  # generate_btn
                         gr.Row(visible=approval_visible),
                         gr.Column(visible=image_approval_visible),
                         gr.Textbox(value=edited_image_prompt_value),
                         gr.Accordion(visible=show_resume),
                         gr.Textbox(value=resume_id_value),
-                        gr.Button(interactive=generate_enabled),  # generate_btn
                         gr.Button(interactive=approval_enabled),  # approve_btn
                         gr.Button(interactive=approval_enabled),  # regenerate_btn
                         gr.Button(interactive=approval_enabled),  # reject_btn
@@ -1357,7 +1545,9 @@ def create_ui() -> Any:
                 def approve_handler(
                     exec_id: str, resume_url: str, quote: str
                 ) -> Generator[
-                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str],
+                    None,
+                    None,
                 ]:
                     """Handle approve button click."""
                     yield from continue_after_approval(exec_id, resume_url, "approve", quote)
@@ -1365,7 +1555,9 @@ def create_ui() -> Any:
                 def regenerate_handler(
                     exec_id: str, resume_url: str
                 ) -> Generator[
-                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str],
+                    None,
+                    None,
                 ]:
                     """Handle regenerate button click - triggers new quote generation."""
                     # Send regenerate action without quote - workflow loops back to Quote writer
@@ -1374,7 +1566,9 @@ def create_ui() -> Any:
                 def reject_handler(
                     exec_id: str, resume_url: str
                 ) -> Generator[
-                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str],
+                    None,
+                    None,
                 ]:
                     """Handle reject button click."""
                     yield from continue_after_approval(exec_id, resume_url, "reject")
@@ -1382,7 +1576,9 @@ def create_ui() -> Any:
                 def image_approve_handler(
                     exec_id: str, resume_url: str, quote: str, current_image: str | None
                 ) -> Generator[
-                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str],
+                    None,
+                    None,
                 ]:
                     """Handle image approve button click."""
                     yield from continue_after_image_approval(
@@ -1396,7 +1592,9 @@ def create_ui() -> Any:
                     quote: str,
                     current_image: str | None,
                 ) -> Generator[  # noqa: E501
-                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str],
+                    None,
+                    None,
                 ]:
                     """Handle image regenerate button click."""
                     yield from continue_after_image_approval(
@@ -1406,7 +1604,9 @@ def create_ui() -> Any:
                 def image_reject_handler(
                     exec_id: str, resume_url: str, quote: str, current_image: str | None
                 ) -> Generator[
-                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str], None, None
+                    tuple[str, str, str | None, str | None, str | None, str, str, bool, bool, str],
+                    None,
+                    None,
                 ]:
                     """Handle image reject button click."""
                     yield from continue_after_image_approval(
@@ -1482,12 +1682,12 @@ def create_ui() -> Any:
                         waiting_for_approval_state,
                         waiting_for_image_approval_state,
                         image_prompt_state,
+                        generate_btn,
                         approval_group,
                         image_approval_group,
                         edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
-                        generate_btn,
                         approve_btn,
                         regenerate_btn,
                         reject_btn,
@@ -1543,12 +1743,12 @@ def create_ui() -> Any:
                         waiting_for_approval_state,
                         waiting_for_image_approval_state,
                         image_prompt_state,
+                        generate_btn,
                         approval_group,
                         image_approval_group,
                         edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
-                        generate_btn,
                         approve_btn,
                         regenerate_btn,
                         reject_btn,
@@ -1604,12 +1804,12 @@ def create_ui() -> Any:
                         waiting_for_approval_state,
                         waiting_for_image_approval_state,
                         image_prompt_state,
+                        generate_btn,
                         approval_group,
                         image_approval_group,
                         edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
-                        generate_btn,
                         approve_btn,
                         regenerate_btn,
                         reject_btn,
@@ -1664,12 +1864,12 @@ def create_ui() -> Any:
                         waiting_for_approval_state,
                         waiting_for_image_approval_state,
                         image_prompt_state,
+                        generate_btn,
                         approval_group,
                         image_approval_group,
                         edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
-                        generate_btn,
                         approve_btn,
                         regenerate_btn,
                         reject_btn,
@@ -1724,12 +1924,12 @@ def create_ui() -> Any:
                         waiting_for_approval_state,
                         waiting_for_image_approval_state,
                         image_prompt_state,
+                        generate_btn,
                         approval_group,
                         image_approval_group,
                         edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
-                        generate_btn,
                         approve_btn,
                         regenerate_btn,
                         reject_btn,
@@ -1785,12 +1985,12 @@ def create_ui() -> Any:
                         waiting_for_approval_state,
                         waiting_for_image_approval_state,
                         image_prompt_state,
+                        generate_btn,
                         approval_group,
                         image_approval_group,
                         edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
-                        generate_btn,
                         approve_btn,
                         regenerate_btn,
                         reject_btn,
@@ -1851,12 +2051,12 @@ def create_ui() -> Any:
                         waiting_for_approval_state,
                         waiting_for_image_approval_state,
                         image_prompt_state,
+                        generate_btn,
                         approval_group,
                         image_approval_group,
                         edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
-                        generate_btn,
                         approve_btn,
                         regenerate_btn,
                         reject_btn,
@@ -1911,12 +2111,12 @@ def create_ui() -> Any:
                         waiting_for_approval_state,
                         waiting_for_image_approval_state,
                         image_prompt_state,
+                        generate_btn,
                         approval_group,
                         image_approval_group,
                         edited_image_prompt_input,
                         resume_accordion,
                         resume_exec_id,
-                        generate_btn,
                         approve_btn,
                         regenerate_btn,
                         reject_btn,
@@ -1927,45 +2127,12 @@ def create_ui() -> Any:
                     ],
                 )
 
-                gr.Markdown("---")
-
-                with gr.Row():
-                    with gr.Column():
-                        gr.Markdown(
-                            """
-                            **This workflow creates:**
-                            1. **Quote**: Compassionate, trauma-informed inspirational text
-                            2. **Image**: Photorealistic 9:16 portrait (via ComfyUI + HiDream)
-                            3. **Video**: 5-second video
-                               - Wan 2.2: Faster generation, no audio
-                               - Ovi 11B: Slower, includes audio
-                            """
-                        )
-
-                    with gr.Column():
-                        gr.Markdown(
-                            """
-                            **Note:** Generation time depends on video backend.
-                            - **Quote generation**: ~5 seconds (Claude Sonnet 4.5)
-                            - **Image generation**: ~20-30 seconds (ComfyUI + HiDream)
-                            - **Video generation**:
-                              - Wan 2.2: ~8 minutes (720x1280, no audio)
-                              - Ovi 11B: ~25 minutes (1080x1920, with audio)
-                            """
-                        )
-
             with gr.Tab("Browse Previous"):
                 # Hidden state to store generations data
                 generations_state = gr.State([])
 
                 with gr.Row():
                     refresh_btn = gr.Button("Refresh List", variant="secondary")
-                    generation_count = gr.Textbox(
-                        label="Total Generations",
-                        value="0",
-                        interactive=False,
-                        scale=1,
-                    )
 
                 generation_selector = gr.Dropdown(
                     label="Select Generation",
@@ -1977,24 +2144,36 @@ def create_ui() -> Any:
                 )
 
                 with gr.Row():
-                    with gr.Column():
+                    with gr.Column(scale=1):
                         prev_image = gr.Image(
                             label="Image",
                             type="filepath",
                             interactive=False,
                             height=600,
                             show_download_button=True,
+                            visible=True,
                         )
-                    with gr.Column():
+                    with gr.Column(scale=1):
                         prev_video = gr.Video(
                             label="Video",
                             interactive=False,
                             height=600,
                             show_download_button=True,
+                            visible=True,
+                        )
+                    with gr.Column(scale=1):
+                        prev_video_overlay = gr.Video(
+                            label="Video with Text Overlay",
+                            interactive=False,
+                            height=600,
+                            show_download_button=True,
+                            visible=True,
                         )
 
-                def refresh_generations() -> tuple[gr.Dropdown, str, list[dict[str, Any]]]:
-                    """Refresh the list of previous generations."""
+                def refresh_generations() -> tuple[
+                    gr.Dropdown, list[dict[str, Any]], str | None, str | None, str | None
+                ]:
+                    """Refresh the list of previous generations and auto-load the latest."""
                     gens = asyncio.run(list_previous_generations())
                     choices = []
                     for g in gens:
@@ -2003,45 +2182,87 @@ def create_ui() -> Any:
                             parts.append("Image")
                         if g.get("has_video"):
                             parts.append("Video")
+                            # Always add overlay indicator when video exists
+                            # (overlay is derived from video)
+                            parts.append("Video with Overlay")
                         label = f"{g['timestamp']} - {' + '.join(parts)}"
                         choices.append(label)
-                    # Return a Dropdown update with choices but no value set
-                    return gr.Dropdown(choices=choices, value=None), str(len(gens)), gens
+
+                    # Auto-load the latest generation (first in list since sorted newest first)
+                    image_path, video_path, overlay_path = None, None, None
+                    selected_value = None
+                    if choices and gens:
+                        selected_value = choices[0]
+                        image_path, video_path, overlay_path = load_previous_generation(0, gens)
+
+                    return (
+                        gr.Dropdown(choices=choices, value=selected_value),
+                        gens,
+                        image_path,
+                        video_path,
+                        overlay_path,
+                    )
 
                 def on_select(
                     selected: str | None, gens: list[dict[str, Any]]
-                ) -> tuple[str | None, str | None]:
+                ) -> tuple[str | None, str | None, str | None]:
                     """Handle generation selection."""
+                    gens_count = len(gens) if gens else 0
+                    print(
+                        f"🎯 on_select called: selected={selected}, gens count={gens_count}",
+                        file=sys.stderr,
+                    )
                     if not selected or not gens:
-                        return None, None
+                        print("⚠️ No selection or no generations data", file=sys.stderr)
+                        return None, None, None
                     # Find index from dropdown choice
                     try:
                         for i, g in enumerate(gens):
                             timestamp = g["timestamp"]
                             if selected.startswith(timestamp):
-                                return load_previous_generation(i, gens)
-                    except Exception:
+                                print(
+                                    f"✅ Found match at index {i} for timestamp {timestamp}",
+                                    file=sys.stderr,
+                                )
+                                result = load_previous_generation(i, gens)
+                                print(f"📦 on_select returning: {result}", file=sys.stderr)
+                                return result
+                    except Exception as e:
+                        print(f"❌ Exception in on_select: {e}", file=sys.stderr)
                         pass
-                    return None, None
+                    print("⚠️ No timestamp match found", file=sys.stderr)
+                    return None, None, None
 
                 # Wire up browse tab
                 refresh_btn.click(
                     fn=refresh_generations,
                     inputs=[],
-                    outputs=[generation_selector, generation_count, generations_state],
+                    outputs=[
+                        generation_selector,
+                        generations_state,
+                        prev_image,
+                        prev_video,
+                        prev_video_overlay,
+                    ],
                 )
 
                 generation_selector.change(
                     fn=on_select,
                     inputs=[generation_selector, generations_state],
-                    outputs=[prev_image, prev_video],
+                    outputs=[prev_image, prev_video, prev_video_overlay],
                 )
 
                 # Auto-load on tab open
                 demo.load(
                     fn=refresh_generations,
                     inputs=[],
-                    outputs=[generation_selector, generation_count, generations_state],
+                    outputs=[
+                        generation_selector,
+                        generations_state,
+                        prev_image,
+                        prev_video,
+                        prev_video_overlay,
+                    ],
                 )
 
     return demo
